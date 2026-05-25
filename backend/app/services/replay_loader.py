@@ -83,13 +83,17 @@ def _complete_collect(session: Session, company: Company, scan: Scan) -> None:
     live_with_fallback = scan.mode == "live_with_fallback"
     if not live_with_fallback:
         scan.serp_queries_used = payload["metrics"]["serp_queries_used"]
-    scan.urls_scraped = 0 if live_with_fallback else payload["metrics"]["urls_scraped"]
+    if not live_with_fallback:
+        scan.urls_scraped = payload["metrics"]["urls_scraped"]
     scan.llm_calls_used = 0 if live_with_fallback else payload["metrics"]["llm_calls_used"]
-    scan.source_count = payload["metrics"]["source_count"]
+    if not live_with_fallback:
+        scan.source_count = payload["metrics"]["source_count"]
 
     for trace_row in payload["traces"]:
         if live_with_fallback and trace_row["product"] == "serp_api":
             continue
+        if live_with_fallback:
+            scan.source_count += 1
         session.add(
             BrightDataTrace(
                 scan_id=scan.id,

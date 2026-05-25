@@ -10,8 +10,10 @@ def client(tmp_path: Path) -> TestClient:
     db_path = tmp_path / "pulse-test.db"
     os.environ["DATABASE_URL"] = f"sqlite:///{db_path.as_posix()}"
     os.environ["DEFAULT_REVIEW_MODE"] = "replay"
-    os.environ.pop("BRIGHTDATA_API_KEY", None)
-    os.environ.pop("BRIGHTDATA_SERP_ZONE", None)
+    os.environ["BRIGHTDATA_API_KEY"] = ""
+    os.environ["BRIGHTDATA_SERP_ZONE"] = ""
+    os.environ["BRIGHTDATA_UNLOCKER_ZONE"] = ""
+    os.environ["BRIGHTDATA_DEMO_SOURCE_URL"] = ""
 
     from app.config import get_settings
 
