@@ -47,7 +47,6 @@ def seed_companies(session: Session) -> None:
 def prepare_replay_scan(session: Session, company: Company, scan: Scan) -> None:
     payload = load_replay_payload()
     scan.status = "running"
-    scan.mode = "replay"
     scan.current_stage = "collect"
     scan.serp_queries_used = 0
     scan.urls_scraped = 0
@@ -81,12 +80,16 @@ def advance_replay_scan(session: Session, company: Company, scan: Scan) -> None:
 def _complete_collect(session: Session, company: Company, scan: Scan) -> None:
     payload = load_replay_payload()
     now = utc_now()
-    scan.serp_queries_used = payload["metrics"]["serp_queries_used"]
-    scan.urls_scraped = payload["metrics"]["urls_scraped"]
-    scan.llm_calls_used = payload["metrics"]["llm_calls_used"]
+    live_with_fallback = scan.mode == "live_with_fallback"
+    if not live_with_fallback:
+        scan.serp_queries_used = payload["metrics"]["serp_queries_used"]
+    scan.urls_scraped = 0 if live_with_fallback else payload["metrics"]["urls_scraped"]
+    scan.llm_calls_used = 0 if live_with_fallback else payload["metrics"]["llm_calls_used"]
     scan.source_count = payload["metrics"]["source_count"]
 
     for trace_row in payload["traces"]:
+        if live_with_fallback and trace_row["product"] == "serp_api":
+            continue
         session.add(
             BrightDataTrace(
                 scan_id=scan.id,
@@ -94,11 +97,11 @@ def _complete_collect(session: Session, company: Company, scan: Scan) -> None:
                 product=trace_row["product"],
                 operation=trace_row["operation"],
                 source_url=trace_row.get("source_url"),
-                status=trace_row["status"],
+                status="fallback_used" if live_with_fallback else trace_row["status"],
                 latency_ms=trace_row.get("latency_ms"),
                 retry_count=trace_row.get("retry_count", 0),
                 error=trace_row.get("error"),
-                source_mode=trace_row["source_mode"],
+                source_mode="fallback" if live_with_fallback else trace_row["source_mode"],
                 created_at=now,
             )
         )
@@ -195,7 +198,7 @@ def _complete_brief(session: Session, company: Company, scan: Scan) -> None:
     scan.evidence_count = len(evidence_count)
     scan.verified_count = len(verified_count)
     scan.current_stage = "brief"
-    scan.status = "completed"
+    scan.status = "completed_with_fallback" if scan.mode == "live_with_fallback" else "completed"
     scan.completed_at = now
     company.agent_status = "completed"
     company.last_agent_run_at = now

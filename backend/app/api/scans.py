@@ -15,6 +15,7 @@ def run_scan(payload: ManualScanRequest, session: Session = Depends(get_session)
     company = session.get(Company, payload.company_id)
     if company is None:
         raise HTTPException(status_code=404, detail="company not found")
+    # This endpoint is intentionally the replay-only recovery path for demos.
     scan = Scan(company_id=company.id, status="running", mode="replay", current_stage="collect")
     company.agent_status = "running"
     session.add(scan)
@@ -33,7 +34,7 @@ def get_scan(scan_id: str, session: Session = Depends(get_session)) -> ScanRead:
     if scan is None:
         raise HTTPException(status_code=404, detail="scan not found")
     response = scan_to_read(scan)
-    if scan.status == "running" and scan.mode == "replay":
+    if scan.status == "running" and scan.mode in {"replay", "live_with_fallback"}:
         company = session.get(Company, scan.company_id)
         if company is not None:
             ReviewRunner().advance(session, company, scan)
