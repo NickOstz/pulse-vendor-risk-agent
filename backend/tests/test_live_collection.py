@@ -93,3 +93,28 @@ def test_timed_out_live_serp_attempt_is_preserved_before_fallback(monkeypatch, l
         for trace in traces
     )
     assert {trace["source_mode"] for trace in traces} == {"live", "fallback"}
+
+
+def test_timed_out_live_attempt_is_visible_before_fallback_evidence(monkeypatch, live_client):
+    def fake_post(url, *, headers, json, timeout):
+        raise httpx.TimeoutException("timeout", request=httpx.Request("POST", url))
+
+    monkeypatch.setattr("app.services.brightdata_client.httpx.post", fake_post)
+    scan_id = _start_live_scan(live_client)
+
+    first_poll = live_client.get(f"/api/scans/{scan_id}").json()
+    traces = live_client.get(f"/api/brightdata/traces?scan_id={scan_id}").json()
+    evidence = live_client.get(f"/api/companies/vendor-dataforge-demo/evidence?scan_id={scan_id}").json()
+
+    assert first_poll["status"] == "running"
+    assert first_poll["current_stage"] == "collect"
+    assert any(trace["source_mode"] == "live" and trace["status"] == "timeout" for trace in traces)
+    assert any(trace["source_mode"] == "fallback" and trace["status"] == "fallback_used" for trace in traces)
+    assert evidence == []
+
+    terminal = _poll_until_terminal(live_client, scan_id)
+    evidence = live_client.get(f"/api/companies/vendor-dataforge-demo/evidence?scan_id={scan_id}").json()
+
+    assert terminal["status"] == "completed_with_fallback"
+    assert evidence
+    assert all(item["support_status"] == "verified" for item in evidence)
