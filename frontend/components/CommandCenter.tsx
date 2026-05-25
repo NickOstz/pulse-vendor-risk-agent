@@ -51,6 +51,8 @@ export function CommandCenter() {
   const [initialError, setInitialError] = useState<string | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
+  const [briefLoading, setBriefLoading] = useState(false);
+  const [briefError, setBriefError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
   const { scan, pollingError, isTerminal } = useScanPolling(activeScanId);
@@ -107,6 +109,8 @@ export function CommandCenter() {
     async function refreshSelectedData() {
       setDetailLoading(true);
       setDetailError(null);
+      setBriefLoading(Boolean(scan?.id));
+      setBriefError(null);
 
       try {
         const alertFilters = scan?.id
@@ -117,6 +121,7 @@ export function CommandCenter() {
         let nextEvidence: EvidenceItem[] = [];
         let nextTraces: BrightDataTrace[] = [];
         let nextBrief: VendorReviewBrief | null = null;
+        let nextBriefError: string | null = null;
 
         if (scanId) {
           const [evidenceResult, tracesResult, briefResult] =
@@ -131,7 +136,7 @@ export function CommandCenter() {
           nextTraces = tracesResult.status === "fulfilled" ? tracesResult.value : [];
           nextBrief = briefResult.status === "fulfilled" ? briefResult.value : null;
 
-          const failedLoads = [evidenceResult, tracesResult, briefResult]
+          const failedLoads = [evidenceResult, tracesResult]
             .filter((result) => result.status === "rejected")
             .map((result) =>
               result.status === "rejected" ? toErrorMessage(result.reason) : "",
@@ -141,12 +146,17 @@ export function CommandCenter() {
           if (failedLoads.length > 0) {
             setDetailError(failedLoads.join(" "));
           }
+
+          if (briefResult.status === "rejected" && isTerminal) {
+            nextBriefError = toErrorMessage(briefResult.reason);
+          }
         }
 
         setAlerts(nextAlerts);
         setEvidence(nextEvidence);
         setTraces(nextTraces);
         setBrief(nextBrief);
+        setBriefError(nextBriefError);
         setSelectedEvidenceId((current) =>
           current && nextEvidence.some((item) => item.id === current)
             ? current
@@ -159,8 +169,10 @@ export function CommandCenter() {
         setBrief(null);
         setSelectedEvidenceId(null);
         setDetailError(toErrorMessage(error));
+        setBriefError(null);
       } finally {
         setDetailLoading(false);
+        setBriefLoading(false);
       }
     }
 
@@ -413,8 +425,8 @@ export function CommandCenter() {
             brief={brief}
             scan={scan}
             traces={traces}
-            loading={detailLoading}
-            error={detailError}
+            loading={briefLoading}
+            error={briefError}
             companyName={selectedCompany.name}
           />
         </div>
