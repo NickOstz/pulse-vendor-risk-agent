@@ -7,7 +7,18 @@ def _run_demo_scan(client) -> tuple[str, str]:
     return company_id, scan_id
 
 
-def test_tick_creates_completed_replay_scan_with_stages(client):
+def _poll_until_complete(client, scan_id: str) -> dict:
+    body = {}
+    for _ in range(8):
+        response = client.get(f"/api/scans/{scan_id}")
+        assert response.status_code == 200
+        body = response.json()
+        if body["status"] == "completed":
+            return body
+    raise AssertionError("scan did not complete")
+
+
+def test_tick_creates_observable_running_replay_scan_then_completes(client):
     company_id, scan_id = _run_demo_scan(client)
 
     scan = client.get(f"/api/scans/{scan_id}")
@@ -15,8 +26,16 @@ def test_tick_creates_completed_replay_scan_with_stages(client):
     assert scan.status_code == 200
     body = scan.json()
     assert body["company_id"] == company_id
-    assert body["status"] == "completed"
+    assert body["status"] == "running"
     assert body["mode"] == "replay"
+    assert body["current_stage"] == "collect"
+    assert body["stages"][0] == {"name": "collect", "status": "running"}
+
+    active = client.get("/api/agents/status").json()
+    assert active["active_runs"] == [{"company_id": company_id, "scan_id": scan_id, "current_stage": "extract"}]
+
+    body = _poll_until_complete(client, scan_id)
+    assert body["status"] == "completed"
     assert [stage["name"] for stage in body["stages"]] == ["collect", "extract", "verify", "score", "brief"]
     assert {stage["status"] for stage in body["stages"]} == {"completed"}
     assert body["metrics"]["evidence_count"] == 3
@@ -25,6 +44,7 @@ def test_tick_creates_completed_replay_scan_with_stages(client):
 
 def test_replay_alert_evidence_trace_and_brief_contract(client):
     company_id, scan_id = _run_demo_scan(client)
+    _poll_until_complete(client, scan_id)
 
     alerts = client.get(f"/api/alerts?company_id={company_id}&scan_id={scan_id}")
     evidence = client.get(f"/api/companies/{company_id}/evidence?scan_id={scan_id}")

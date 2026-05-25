@@ -22,7 +22,7 @@ def run_scan(payload: ManualScanRequest, session: Session = Depends(get_session)
     session.commit()
     session.refresh(scan)
     session.refresh(company)
-    ReviewRunner().run(session, company, scan)
+    ReviewRunner().start(session, company, scan)
     session.refresh(scan)
     return scan_to_read(scan)
 
@@ -32,4 +32,9 @@ def get_scan(scan_id: str, session: Session = Depends(get_session)) -> ScanRead:
     scan = session.get(Scan, scan_id)
     if scan is None:
         raise HTTPException(status_code=404, detail="scan not found")
-    return scan_to_read(scan)
+    response = scan_to_read(scan)
+    if scan.status == "running" and scan.mode == "replay":
+        company = session.get(Company, scan.company_id)
+        if company is not None:
+            ReviewRunner().advance(session, company, scan)
+    return response

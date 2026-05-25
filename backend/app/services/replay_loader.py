@@ -17,6 +17,10 @@ def replay_data_available() -> bool:
     return _seed_path("companies.json").exists() and _seed_path("replay_dataforge_review.json").exists()
 
 
+def load_replay_payload() -> dict:
+    return json.loads(_seed_path("replay_dataforge_review.json").read_text(encoding="utf-8"))
+
+
 def seed_companies(session: Session) -> None:
     payload = json.loads(_seed_path("companies.json").read_text(encoding="utf-8"))
     for row in payload["companies"]:
@@ -40,25 +44,47 @@ def seed_companies(session: Session) -> None:
     session.commit()
 
 
-def load_replay_review(session: Session, company: Company, scan: Scan) -> None:
-    """Insert deterministic cached demo data for the curated vendor.
-
-    This is intentionally labeled replay/cached data. Live Bright Data,
-    extraction, verification, scoring, and brief services can replace this
-    adapter behind the same scan/evidence/trace tables.
-    """
-    payload = json.loads(_seed_path("replay_dataforge_review.json").read_text(encoding="utf-8"))
-    now = utc_now()
-    evidence_id_map: dict[str, str] = {}
-
+def prepare_replay_scan(session: Session, company: Company, scan: Scan) -> None:
+    payload = load_replay_payload()
     scan.status = "running"
     scan.mode = "replay"
     scan.current_stage = "collect"
+    scan.serp_queries_used = 0
+    scan.urls_scraped = 0
+    scan.llm_calls_used = 0
+    scan.source_count = 0
+    scan.evidence_count = 0
+    scan.verified_count = 0
+    scan.content_hashes_json = dump_json(payload["content_hashes"])
+    company.agent_status = "running"
+    session.add(scan)
+    session.add(company)
+    session.commit()
+
+
+def advance_replay_scan(session: Session, company: Company, scan: Scan) -> None:
+    """Move a replay scan forward one observable stage after a status poll."""
+    if scan.status != "running":
+        return
+    if scan.current_stage == "collect":
+        _complete_collect(session, company, scan)
+    elif scan.current_stage == "extract":
+        _complete_extract(session, company, scan)
+    elif scan.current_stage == "verify":
+        _complete_verify(session, scan)
+    elif scan.current_stage == "score":
+        _complete_score(session, company, scan)
+    elif scan.current_stage == "brief":
+        _complete_brief(session, company, scan)
+
+
+def _complete_collect(session: Session, company: Company, scan: Scan) -> None:
+    payload = load_replay_payload()
+    now = utc_now()
     scan.serp_queries_used = payload["metrics"]["serp_queries_used"]
     scan.urls_scraped = payload["metrics"]["urls_scraped"]
     scan.llm_calls_used = payload["metrics"]["llm_calls_used"]
     scan.source_count = payload["metrics"]["source_count"]
-    scan.content_hashes_json = dump_json(payload["content_hashes"])
 
     for trace_row in payload["traces"]:
         session.add(
@@ -76,7 +102,14 @@ def load_replay_review(session: Session, company: Company, scan: Scan) -> None:
                 created_at=now,
             )
         )
+    scan.current_stage = "extract"
+    session.add(scan)
+    session.commit()
 
+
+def _complete_extract(session: Session, company: Company, scan: Scan) -> None:
+    payload = load_replay_payload()
+    now = utc_now()
     scan.current_stage = "extract"
     for evidence_row in payload["evidence_items"]:
         evidence = EvidenceItem(
@@ -98,9 +131,28 @@ def load_replay_review(session: Session, company: Company, scan: Scan) -> None:
             created_at=now,
         )
         session.add(evidence)
-        session.flush()
-        evidence_id_map[evidence_row["fixture_id"]] = evidence.id
+    scan.evidence_count = len(payload["evidence_items"])
+    scan.current_stage = "verify"
+    session.add(scan)
+    session.commit()
 
+
+def _complete_verify(session: Session, scan: Scan) -> None:
+    verified_count = session.exec(
+        select(EvidenceItem).where(EvidenceItem.scan_id == scan.id, EvidenceItem.support_status == "verified")
+    ).all()
+    evidence_count = session.exec(select(EvidenceItem).where(EvidenceItem.scan_id == scan.id)).all()
+    scan.evidence_count = len(evidence_count)
+    scan.verified_count = len(verified_count)
+    scan.current_stage = "score"
+    session.add(scan)
+    session.commit()
+
+
+def _complete_score(session: Session, company: Company, scan: Scan) -> None:
+    payload = load_replay_payload()
+    now = utc_now()
+    evidence_id_map = _evidence_id_map(session, scan.id)
     scan.current_stage = "score"
     for alert_row in payload["alerts"]:
         related_fixture_ids = alert_row.get("related_evidence_fixture_ids", [])
@@ -124,7 +176,14 @@ def load_replay_review(session: Session, company: Company, scan: Scan) -> None:
                 created_at=now,
             )
         )
+    scan.current_stage = "brief"
+    session.add(scan)
+    session.commit()
 
+
+def _complete_brief(session: Session, company: Company, scan: Scan) -> None:
+    payload = load_replay_payload()
+    now = utc_now()
     markdown = payload["brief"]["markdown"]
     html = payload["brief"]["html"]
     session.add(Brief(company_id=company.id, scan_id=scan.id, markdown=markdown, html=html, created_at=now))
@@ -144,3 +203,18 @@ def load_replay_review(session: Session, company: Company, scan: Scan) -> None:
     session.add(scan)
     session.add(company)
     session.commit()
+
+
+def _evidence_id_map(session: Session, scan_id: str) -> dict[str, str]:
+    payload = load_replay_payload()
+    evidence_rows = session.exec(select(EvidenceItem).where(EvidenceItem.scan_id == scan_id)).all()
+    result: dict[str, str] = {}
+    for fixture in payload["evidence_items"]:
+        for evidence in evidence_rows:
+            if (
+                evidence.source_url == fixture["source_url"]
+                and evidence.supporting_quote == fixture["supporting_quote"]
+            ):
+                result[fixture["fixture_id"]] = evidence.id
+                break
+    return result

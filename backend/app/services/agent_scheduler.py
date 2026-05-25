@@ -36,8 +36,10 @@ class AgentScheduler:
             session.commit()
             session.refresh(scan)
             session.refresh(company)
+            self.runner.start(session, company, scan)
+            session.refresh(scan)
+            session.refresh(company)
             started.append(scan)
-            self.runner.run(session, company, scan)
         return started
 
 
