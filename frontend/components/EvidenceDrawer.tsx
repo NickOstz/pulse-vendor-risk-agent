@@ -5,6 +5,12 @@ import { Badge, SourceModeBadge, SupportBadge } from "@/components/Badge";
 import { QuoteVerificationView } from "@/components/QuoteVerificationView";
 import { ScoreTooltip } from "@/components/ScoreTooltip";
 import { formatDateTime, formatPercent, labelize } from "@/lib/formatters";
+import {
+  countSourceMode,
+  getSourceModes,
+  sourceModeDescription,
+  summarizeSourceModes,
+} from "@/lib/sourceModes";
 import type { Alert, BrightDataTrace, EvidenceItem } from "@/lib/types";
 
 export function EvidenceDrawer({
@@ -13,6 +19,8 @@ export function EvidenceDrawer({
   evidence,
   traces,
   selectedEvidenceId,
+  loading,
+  error,
   onSelectEvidence,
   onClose,
 }: {
@@ -21,6 +29,8 @@ export function EvidenceDrawer({
   evidence: EvidenceItem[];
   traces: BrightDataTrace[];
   selectedEvidenceId: string | null;
+  loading: boolean;
+  error: string | null;
   onSelectEvidence: (id: string) => void;
   onClose: () => void;
 }) {
@@ -29,6 +39,13 @@ export function EvidenceDrawer({
   const selectedAlert =
     alerts.find((alert) => alert.evidence_item_id === selectedEvidence?.id) ??
     alerts[0];
+  const traceSummary = summarizeSourceModes(traces);
+  const traceModes = getSourceModes(traces);
+  const selectedEvidenceModes = selectedEvidence
+    ? getSourceModes(
+        traces.filter((trace) => trace.source_url === selectedEvidence.source_url),
+      )
+    : [];
 
   if (!open) return null;
 
@@ -48,6 +65,12 @@ export function EvidenceDrawer({
                 Public-source evidence, quote support, trace rows, and honest
                 source-mode labels.
               </p>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <Badge tone={traceSummary.tone}>{traceSummary.label}</Badge>
+                {traceModes.map((mode) => (
+                  <SourceModeBadge key={mode} mode={mode} />
+                ))}
+              </div>
             </div>
             <button
               type="button"
@@ -62,7 +85,22 @@ export function EvidenceDrawer({
 
         <div className="grid gap-4 p-5 lg:grid-cols-[0.85fr_1.15fr]">
           <section className="space-y-3">
-            {evidence.map((item) => (
+            {loading ? (
+              <EvidenceListSkeleton />
+            ) : error ? (
+              <DrawerState
+                tone="danger"
+                title="Evidence unavailable"
+                body={error}
+              />
+            ) : evidence.length === 0 ? (
+              <DrawerState
+                tone="neutral"
+                title="No evidence returned"
+                body="Evidence will appear here after the review extracts source-backed claims."
+              />
+            ) : (
+              evidence.map((item) => (
               <button
                 key={item.id}
                 type="button"
@@ -94,7 +132,8 @@ export function EvidenceDrawer({
                   </span>
                 </div>
               </button>
-            ))}
+              ))
+            )}
           </section>
 
           <div className="space-y-4">
@@ -132,6 +171,20 @@ export function EvidenceDrawer({
                     label="Published"
                     value={formatDateTime(selectedEvidence.published_or_captured_at)}
                   />
+                  <div className="col-span-2 rounded-md bg-zinc-50 p-3 md:col-span-4">
+                    <dt className="text-xs text-zinc-500">Source mode</dt>
+                    <dd className="mt-2 flex flex-wrap gap-2">
+                      {selectedEvidenceModes.length > 0 ? (
+                        selectedEvidenceModes.map((mode) => (
+                          <SourceModeBadge key={mode} mode={mode} />
+                        ))
+                      ) : (
+                        <span className="text-sm text-zinc-500">
+                          No trace row matched this evidence URL yet.
+                        </span>
+                      )}
+                    </dd>
+                  </div>
                 </dl>
               </section>
             ) : null}
@@ -139,13 +192,38 @@ export function EvidenceDrawer({
             <QuoteVerificationView evidence={selectedEvidence} />
 
             <section className="rounded-lg border border-zinc-200 bg-white p-4 shadow-soft">
-              <div className="flex items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <h3 className="text-sm font-semibold text-ink-950">
                   Bright Data trace rows
                 </h3>
-                <Badge tone="warn">Fallback visible</Badge>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge tone={traceSummary.tone}>{traceSummary.label}</Badge>
+                  {traceModes.map((mode) => (
+                    <Badge key={mode}>
+                      {sourceModeDescription(mode)} {countSourceMode(traces, mode)}
+                    </Badge>
+                  ))}
+                </div>
               </div>
-              <div className="mt-4 overflow-x-auto">
+              <p className="mt-2 text-xs leading-5 text-zinc-500">
+                {traceSummary.detail}
+              </p>
+              {loading ? (
+                <TraceTableSkeleton />
+              ) : error ? (
+                <DrawerState
+                  tone="danger"
+                  title="Trace rows unavailable"
+                  body={error}
+                />
+              ) : traces.length === 0 ? (
+                <DrawerState
+                  tone="neutral"
+                  title="No trace rows yet"
+                  body="Bright Data trace rows will appear once collection starts for this scan."
+                />
+              ) : (
+                <div className="mt-4 overflow-x-auto">
                 <table className="min-w-full text-left text-xs">
                   <thead className="border-b border-zinc-200 text-zinc-500">
                     <tr>
@@ -190,11 +268,70 @@ export function EvidenceDrawer({
                   </tbody>
                 </table>
               </div>
+              )}
             </section>
           </div>
         </div>
       </div>
     </aside>
+  );
+}
+
+function EvidenceListSkeleton() {
+  return (
+    <>
+      {[0, 1, 2].map((item) => (
+        <div
+          key={item}
+          className="rounded-lg border border-zinc-200 bg-white p-4"
+        >
+          <div className="flex gap-2">
+            <div className="h-6 w-24 animate-pulse rounded-full bg-zinc-100" />
+            <div className="h-6 w-28 animate-pulse rounded-full bg-zinc-100" />
+          </div>
+          <div className="mt-4 h-4 w-11/12 animate-pulse rounded bg-zinc-100" />
+          <div className="mt-2 h-4 w-3/4 animate-pulse rounded bg-zinc-100" />
+        </div>
+      ))}
+    </>
+  );
+}
+
+function TraceTableSkeleton() {
+  return (
+    <div className="mt-4 space-y-2">
+      {[0, 1, 2].map((item) => (
+        <div key={item} className="grid grid-cols-4 gap-2">
+          <div className="h-8 animate-pulse rounded bg-zinc-100" />
+          <div className="h-8 animate-pulse rounded bg-zinc-100" />
+          <div className="h-8 animate-pulse rounded bg-zinc-100" />
+          <div className="h-8 animate-pulse rounded bg-zinc-100" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function DrawerState({
+  tone,
+  title,
+  body,
+}: {
+  tone: "neutral" | "danger";
+  title: string;
+  body: string;
+}) {
+  return (
+    <div
+      className={`mt-4 rounded-md border p-4 text-sm ${
+        tone === "danger"
+          ? "border-rose-100 bg-rose-50 text-rose-700"
+          : "border-dashed border-zinc-300 bg-white text-zinc-500"
+      }`}
+    >
+      <p className="font-semibold">{title}</p>
+      <p className="mt-1 leading-6">{body}</p>
+    </div>
   );
 }
 

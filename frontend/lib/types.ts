@@ -14,7 +14,7 @@ export type ScanStatus =
 
 export type ScanMode = "live" | "replay" | "live_with_fallback";
 export type ReviewStage = "collect" | "extract" | "verify" | "score" | "brief";
-export type StageStatus = "pending" | "running" | "completed";
+export type StageStatus = "pending" | "running" | "completed" | "failed";
 export type SupportStatus =
   | "verified"
   | "needs_review"
@@ -120,7 +120,7 @@ export interface AgentRun {
 
 export interface AgentStatusResponse {
   active_runs: AgentRun[];
-  due_vendors: string[];
+  due_vendors: Company[];
 }
 
 export interface VendorReviewBrief {

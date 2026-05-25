@@ -1,22 +1,31 @@
 import { Clock, MapPinLine, Pulse, SealCheck } from "@phosphor-icons/react";
 import { Badge } from "@/components/Badge";
 import { formatDateTime, labelize } from "@/lib/formatters";
-import type { AgentStatusResponse, Company, ScanStatusResponse } from "@/lib/types";
+import { summarizeSourceModes } from "@/lib/sourceModes";
+import type {
+  AgentStatusResponse,
+  BrightDataTrace,
+  Company,
+  ScanStatusResponse,
+} from "@/lib/types";
 
 export function AgentStatusPanel({
   company,
   agentStatus,
   scan,
+  traces,
 }: {
   company: Company;
   agentStatus: AgentStatusResponse | null;
   scan: ScanStatusResponse | null;
+  traces: BrightDataTrace[];
 }) {
+  const sourceSummary = summarizeSourceModes(traces, scan?.mode);
   const currentActivity = scan
     ? scan.status === "completed_with_fallback"
-      ? "Review complete with fallback data labeled"
+      ? `Review complete: ${sourceSummary.label}`
       : scan.status === "completed"
-        ? "Review complete"
+        ? `Review complete: ${sourceSummary.label}`
         : scan.status === "failed"
           ? "Review failed, evidence preserved"
           : `Investigating public sources: ${labelize(scan.current_stage)}`
@@ -27,6 +36,10 @@ export function AgentStatusPanel({
   const activeRun = agentStatus?.active_runs.find(
     (run) => run.company_id === company.id,
   );
+  const nextReviewLabel =
+    company.agent_enabled && isDueNow(company.next_agent_run_at)
+      ? "Due now"
+      : formatDateTime(company.next_agent_run_at);
 
   return (
     <div className="rounded-lg border border-zinc-200 bg-white p-4 shadow-soft">
@@ -50,11 +63,7 @@ export function AgentStatusPanel({
         <StatusRow
           icon={<Clock size={17} />}
           label="Next review"
-          value={
-            company.id === "vendor_dataforge" && company.agent_enabled
-              ? "Due now"
-              : formatDateTime(company.next_agent_run_at)
-          }
+          value={nextReviewLabel}
         />
         <StatusRow
           icon={<Pulse size={17} />}
@@ -66,7 +75,7 @@ export function AgentStatusPanel({
           label="Latest assessment"
           value={
             scan
-              ? labelize(scan.status)
+              ? `${labelize(scan.status)} (${labelize(scan.mode)})`
               : activeRun
                 ? `Running ${labelize(activeRun.current_stage)}`
                 : labelize(company.agent_status)
@@ -75,6 +84,11 @@ export function AgentStatusPanel({
       </div>
     </div>
   );
+}
+
+function isDueNow(value: string | null) {
+  if (!value) return false;
+  return new Date(value).getTime() <= Date.now();
 }
 
 function StatusRow({

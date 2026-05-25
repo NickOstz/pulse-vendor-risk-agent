@@ -15,12 +15,6 @@ export function VendorCard({
   onSelect: () => void;
 }) {
   const topAlert = alerts.find((alert) => alert.company_id === company.id);
-  const riskDelta =
-    company.id === "vendor_dataforge"
-      ? "+18"
-      : company.agent_status === "completed"
-        ? "+3"
-        : "0";
 
   return (
     <button
@@ -55,9 +49,9 @@ export function VendorCard({
           <p className="mt-1 font-medium text-ink-900">{company.owner}</p>
         </div>
         <div>
-          <p className="text-zinc-500">Risk delta</p>
+          <p className="text-zinc-500">Alert score</p>
           <p className="mt-1 font-mono font-semibold text-ink-900">
-            {riskDelta}
+            {topAlert ? topAlert.score : "n/a"}
           </p>
         </div>
         <div className="col-span-2 flex items-center gap-2 border-t border-zinc-100 pt-3">
