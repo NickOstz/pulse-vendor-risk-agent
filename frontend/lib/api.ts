@@ -23,11 +23,21 @@ type AlertFilters = {
   scan_id?: string;
 };
 
+type TickResponse = Partial<AgentStatusResponse> & {
+  scan_id?: string;
+  scan_ids?: string[];
+  started_scan_id?: string;
+  started_scan_ids?: string[];
+  started_scans?: Array<{ id?: string; scan_id?: string; company_id?: string }>;
+};
+
 let companies = structuredClone(companiesFixture);
 let scanStep = 0;
 let activeScanId: string | null = null;
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
+
+export const usesFixtureData = !apiBaseUrl;
 
 async function requestJson<T>(
   path: string,
@@ -47,7 +57,16 @@ async function requestJson<T>(
     throw new Error(`Pulse API request failed: ${response.status}`);
   }
 
-  return (await response.json()) as T;
+  if (response.status === 204) {
+    return {} as T;
+  }
+
+  const text = await response.text();
+  if (!text) {
+    return {} as T;
+  }
+
+  return JSON.parse(text) as T;
 }
 
 export async function listCompanies(): Promise<Company[]> {
@@ -83,13 +102,13 @@ export async function setVendorRiskAgent(
       };
     }
 
-    activeScanId = companyId === demoCompanyId ? demoScanId : null;
+    activeScanId = null;
     scanStep = 0;
 
     return {
       ...company,
       agent_enabled: true,
-      agent_status: activeScanId ? "running" : "active",
+      agent_status: "active",
       review_policy:
         company.criticality === "critical"
           ? "critical_renewal_due"
@@ -104,6 +123,56 @@ export async function setVendorRiskAgent(
   }
 
   return updatedCompany;
+}
+
+export async function runAgentTick(): Promise<AgentStatusResponse> {
+  const live = await requestJson<TickResponse>("/api/agents/tick", {
+    method: "POST",
+  });
+
+  if (live) {
+    const tickStatus = normalizeTickResponse(live);
+    try {
+      const agentStatus = await getAgentStatus();
+      return agentStatus.active_runs.length > 0 ? agentStatus : tickStatus;
+    } catch {
+      return tickStatus;
+    }
+  }
+
+  const dueVendorId =
+    companies.find(
+      (company) =>
+        company.agent_enabled &&
+        company.id === demoCompanyId &&
+        company.agent_status !== "running",
+    )?.id ?? null;
+
+  if (!dueVendorId) {
+    return getAgentStatus();
+  }
+
+  activeScanId = demoScanId;
+  scanStep = 0;
+  companies = companies.map((company) =>
+    company.id === dueVendorId
+      ? {
+          ...company,
+          agent_status: "running",
+        }
+      : company,
+  );
+
+  return {
+    active_runs: [
+      {
+        company_id: dueVendorId,
+        scan_id: activeScanId,
+        current_stage: scanProgression[scanStep].current_stage,
+      },
+    ],
+    due_vendors: [],
+  };
 }
 
 export async function getAgentStatus(): Promise<AgentStatusResponse> {
@@ -219,4 +288,45 @@ export async function getVendorReviewBrief(
   );
 
   return live ?? briefFixture;
+}
+
+function normalizeTickResponse(response: TickResponse): AgentStatusResponse {
+  const activeRuns = response.active_runs ?? [];
+  const startedScans = response.started_scans ?? [];
+
+  const startedRuns = startedScans.flatMap((scan) => {
+    const scanId = scan.scan_id ?? scan.id;
+    if (!scanId || !scan.company_id) return [];
+
+    return [
+      {
+        company_id: scan.company_id,
+        scan_id: scanId,
+        current_stage: "collect" as const,
+      },
+    ];
+  });
+
+  const looseScanIds = [
+    response.scan_id,
+    response.started_scan_id,
+    ...(response.scan_ids ?? []),
+    ...(response.started_scan_ids ?? []),
+  ].filter((scanId): scanId is string => Boolean(scanId));
+
+  const looseRuns = looseScanIds.map((scanId) => ({
+    company_id: "",
+    scan_id: scanId,
+    current_stage: "collect" as const,
+  }));
+
+  return {
+    active_runs:
+      activeRuns.length > 0
+        ? activeRuns
+        : startedRuns.length > 0
+          ? startedRuns
+          : looseRuns,
+    due_vendors: response.due_vendors ?? [],
+  };
 }

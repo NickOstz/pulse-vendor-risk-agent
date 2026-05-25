@@ -2,13 +2,7 @@ import { Info } from "@phosphor-icons/react";
 import type { Alert } from "@/lib/types";
 
 export function ScoreTooltip({ alert }: { alert: Alert }) {
-  let factors: Record<string, unknown> = {};
-
-  try {
-    factors = JSON.parse(alert.score_factors_json) as Record<string, unknown>;
-  } catch {
-    factors = {};
-  }
+  const factors = alert.score_factors;
 
   return (
     <div className="group relative inline-flex">

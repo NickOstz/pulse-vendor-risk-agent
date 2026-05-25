@@ -107,8 +107,8 @@ export interface Alert {
   status: "new" | "approved" | "dismissed" | "needs_review";
   owner: string;
   recommended_action: string;
-  related_evidence_ids_json: string;
-  score_factors_json: string;
+  related_evidence_ids: string[];
+  score_factors: Record<string, unknown>;
   created_at: string;
 }
 

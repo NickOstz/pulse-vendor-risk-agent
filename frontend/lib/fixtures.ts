@@ -327,9 +327,14 @@ export const alertsFixture: Alert[] = [
     owner: "Procurement",
     recommended_action:
       "Confirm Enterprise packaging impact before the DataForge renewal is signed.",
-    related_evidence_ids_json: "[\"evidence_terms_001\"]",
-    score_factors_json:
-      "{\"base_severity\":0.9,\"source_reliability\":0.9,\"confidence\":0.88,\"freshness\":0.99,\"vendor_criticality\":1.2}",
+    related_evidence_ids: ["evidence_terms_001"],
+    score_factors: {
+      base_severity: 0.9,
+      source_reliability: 0.9,
+      confidence: 0.88,
+      freshness: 0.99,
+      vendor_criticality: 1.2,
+    },
     created_at: "2026-05-26T03:48:00Z",
   },
   {
@@ -347,10 +352,12 @@ export const alertsFixture: Alert[] = [
     owner: "Security",
     recommended_action:
       "Review DataForge trust access and renewal packaging together before procurement approval.",
-    related_evidence_ids_json:
-      "[\"evidence_trust_001\",\"evidence_terms_001\"]",
-    score_factors_json:
-      "{\"rule\":\"two_verified_compatible_signals\",\"verified_evidence_count\":2,\"unsupported_evidence_excluded\":1}",
+    related_evidence_ids: ["evidence_trust_001", "evidence_terms_001"],
+    score_factors: {
+      rule: "two_verified_compatible_signals",
+      verified_evidence_count: 2,
+      unsupported_evidence_excluded: 1,
+    },
     created_at: "2026-05-26T03:49:00Z",
   },
 ];

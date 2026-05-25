@@ -17,9 +17,10 @@ import {
   listBrightDataTraces,
   listCompanies,
   listEvidence,
+  runAgentTick,
   setVendorRiskAgent,
+  usesFixtureData,
 } from "@/lib/api";
-import { demoCompanyId, demoScanId } from "@/lib/fixtures";
 import { formatDate, labelize } from "@/lib/formatters";
 import type {
   AgentStatusResponse,
@@ -32,7 +33,9 @@ import type {
 
 export function CommandCenter() {
   const [companies, setCompanies] = useState<Company[]>([]);
-  const [selectedCompanyId, setSelectedCompanyId] = useState(demoCompanyId);
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(
+    null,
+  );
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [evidence, setEvidence] = useState<EvidenceItem[]>([]);
   const [traces, setTraces] = useState<BrightDataTrace[]>([]);
@@ -62,7 +65,7 @@ export function CommandCenter() {
 
   const selectedCompany =
     companies.find((company) => company.id === selectedCompanyId) ??
-    companies.find((company) => company.id === demoCompanyId) ??
+    companies[0] ??
     null;
 
   const selectedAlerts = alerts.filter(
@@ -72,19 +75,12 @@ export function CommandCenter() {
   useEffect(() => {
     async function loadInitialData() {
       const nextCompanies = await listCompanies();
-      const nextAlerts = await listAlerts({ company_id: demoCompanyId });
-      const nextEvidence = await listEvidence(demoCompanyId, demoScanId);
-      const nextTraces = await listBrightDataTraces(demoScanId);
-      const nextBrief = await getVendorReviewBrief(demoCompanyId, demoScanId);
       const nextAgentStatus = await getAgentStatus();
+      const initialCompany = pickInitialCompany(nextCompanies);
 
       setCompanies(nextCompanies);
-      setAlerts(nextAlerts);
-      setEvidence(nextEvidence);
-      setTraces(nextTraces);
-      setBrief(nextBrief);
       setAgentStatus(nextAgentStatus);
-      setSelectedEvidenceId(nextEvidence[0]?.id ?? null);
+      setSelectedCompanyId(initialCompany?.id ?? null);
     }
 
     void loadInitialData();
@@ -95,20 +91,38 @@ export function CommandCenter() {
     const company = selectedCompany;
 
     async function refreshSelectedData() {
-      const scanId = scan?.id ?? demoScanId;
-      const [nextAlerts, nextEvidence, nextTraces, nextBrief] =
-        await Promise.all([
-          listAlerts({ company_id: company.id }),
-          listEvidence(company.id, scanId),
-          listBrightDataTraces(scanId),
-          getVendorReviewBrief(company.id, scanId),
-        ]);
+      const alertFilters = scan?.id
+        ? { company_id: company.id, scan_id: scan.id }
+        : { company_id: company.id };
+      const nextAlerts = await listAlerts(alertFilters);
+      const scanId = scan?.id ?? nextAlerts[0]?.scan_id ?? null;
+      let nextEvidence: EvidenceItem[] = [];
+      let nextTraces: BrightDataTrace[] = [];
+      let nextBrief: VendorReviewBrief | null = null;
+
+      if (scanId) {
+        const [evidenceResult, tracesResult, briefResult] =
+          await Promise.allSettled([
+            listEvidence(company.id, scanId),
+            listBrightDataTraces(scanId),
+            getVendorReviewBrief(company.id, scanId),
+          ]);
+
+        nextEvidence =
+          evidenceResult.status === "fulfilled" ? evidenceResult.value : [];
+        nextTraces = tracesResult.status === "fulfilled" ? tracesResult.value : [];
+        nextBrief = briefResult.status === "fulfilled" ? briefResult.value : null;
+      }
 
       setAlerts(nextAlerts);
       setEvidence(nextEvidence);
       setTraces(nextTraces);
       setBrief(nextBrief);
-      setSelectedEvidenceId((current) => current ?? nextEvidence[0]?.id ?? null);
+      setSelectedEvidenceId((current) =>
+        current && nextEvidence.some((item) => item.id === current)
+          ? current
+          : nextEvidence[0]?.id ?? null,
+      );
     }
 
     void refreshSelectedData();
@@ -137,12 +151,17 @@ export function CommandCenter() {
 
     try {
       const updatedCompany = await setVendorRiskAgent(selectedCompany.id, enabled);
-      const nextCompanies = companies.map((company) =>
-        company.id === updatedCompany.id ? updatedCompany : company,
-      );
-      const nextAgentStatus = await getAgentStatus();
+      const nextAgentStatus = enabled ? await runAgentTick() : await getAgentStatus();
       const activeRun = nextAgentStatus.active_runs.find(
         (run) => run.company_id === updatedCompany.id,
+      ) ?? nextAgentStatus.active_runs[0];
+      const nextCompanies = companies.map((company) =>
+        company.id === updatedCompany.id
+          ? {
+              ...updatedCompany,
+              agent_status: activeRun ? "running" : updatedCompany.agent_status,
+            }
+          : company,
       );
 
       setCompanies(nextCompanies);
@@ -170,7 +189,9 @@ export function CommandCenter() {
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <Badge tone="good">Pulse MVP</Badge>
-              <Badge tone="warn">Fixture replay until backend lands</Badge>
+              <Badge tone={usesFixtureData ? "warn" : "good"}>
+                {usesFixtureData ? "Fixture replay mode" : "Live API mode"}
+              </Badge>
             </div>
             <h1 className="mt-4 max-w-3xl text-3xl font-semibold tracking-tight text-ink-950 sm:text-4xl">
               Autonomous vendor risk command center
@@ -191,8 +212,8 @@ export function CommandCenter() {
                 </p>
                 <p className="mt-1 text-sm leading-6 text-zinc-600">
                   Critical {selectedCompany.relationship_type} vendor. Renewal{" "}
-                  {formatDate(selectedCompany.renewal_date)}. The fixture client
-                  never calls Bright Data or exposes keys.
+                  {formatDate(selectedCompany.renewal_date)}. The frontend never
+                  calls Bright Data or exposes keys.
                 </p>
               </div>
             </div>
@@ -263,9 +284,7 @@ export function CommandCenter() {
                     key={alert.id}
                     type="button"
                     onClick={() => {
-                      const relatedIds = JSON.parse(
-                        alert.related_evidence_ids_json,
-                      ) as string[];
+                      const relatedIds = alert.related_evidence_ids;
                       setSelectedEvidenceId(
                         alert.evidence_item_id ?? relatedIds[0] ?? null,
                       );
@@ -312,5 +331,19 @@ export function CommandCenter() {
         onClose={() => setDrawerOpen(false)}
       />
     </main>
+  );
+}
+
+function pickInitialCompany(companies: Company[]) {
+  return (
+    companies.find((company) => company.name.toLowerCase().includes("dataforge")) ??
+    [...companies].sort((a, b) => {
+      const criticalityRank = { critical: 0, important: 1, normal: 2 };
+      return (
+        criticalityRank[a.criticality] - criticalityRank[b.criticality] ||
+        new Date(a.renewal_date).getTime() - new Date(b.renewal_date).getTime()
+      );
+    })[0] ??
+    null
   );
 }
