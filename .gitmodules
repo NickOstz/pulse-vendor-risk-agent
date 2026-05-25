@@ -6,3 +6,7 @@
 	path = vendor/brightdata-skills
 	url = https://github.com/brightdata/skills.git
 	branch = main
+[submodule "vendor/claude-bright-data-research-agent"]
+	path = vendor/claude-bright-data-research-agent
+	url = https://github.com/Stephen-Kimoi/claude-bright-data-research-agent.git
+	branch = main

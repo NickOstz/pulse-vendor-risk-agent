@@ -6,10 +6,13 @@
 | --- | --- | --- |
 | `vendor/brightdata-hack-pack` | `ScrapeAlchemist/brightdata-hack-pack` | Hackathon docs and small REST/API examples |
 | `vendor/brightdata-skills` | `brightdata/skills` | Bright Data agent guidance and API/SDK reference material |
+| `vendor/claude-bright-data-research-agent` | `Stephen-Kimoi/claude-bright-data-research-agent` | Mentor tutorial reference for SERP/Web Unlocker collection and activity updates |
 
-Both upstream repositories are MIT-licensed and retain their license in their
-submodule checkout. Do not remove those license files or copy upstream code
-without preserving its license notice.
+The first two upstream repositories contain MIT license files in their
+submodule checkouts. At the inspected mentor-template commit, its README says
+`MIT`, but it does not contain a standalone `LICENSE` file. Use the mentor
+template as a pinned reference; do not copy its code into Pulse without
+preserving attribution and confirming license treatment.
 
 ## Why Submodules
 
@@ -29,6 +32,7 @@ Update only intentionally, on a dedicated branch:
 ```bash
 git submodule update --remote vendor/brightdata-hack-pack
 git submodule update --remote vendor/brightdata-skills
+git submodule update --remote vendor/claude-bright-data-research-agent
 git add .gitmodules vendor/
 git commit -m "chore: update Bright Data upstream references"
 ```
@@ -53,6 +57,33 @@ implementation:
 The skills upstream is described as a Claude Code plugin. In this repository,
 Codex should use its Markdown and reference files as implementation guidance;
 it should not assume Claude-specific plugin activation.
+
+## Mentor Template Assessment
+
+The [mentor tutorial](https://lablab.ai/ai-tutorials/claude-bright-data-research-agent-for-ai-hackathons)
+and repository are useful for Pulse, but should not become the application
+base. The repository is a Flask startup-research agent driven by a Claude
+tool-use loop; Pulse has already committed to a Next.js frontend, FastAPI
+backend, deterministic evidence verification, and a bounded vendor risk
+workflow.
+
+Reuse these concepts:
+
+| Mentor pattern | Pulse adaptation |
+| --- | --- |
+| Server-side Bright Data `/request` calls using SERP and Web Unlocker zones | Implement behind `backend/app/services/brightdata_client.py` and persist every operation as a trace |
+| SERP discovery followed by selected page collection | Restrict discovery to fixed vendor-risk query templates and scan budgets |
+| Typed progress/activity events visible in a UI | Expose scan stage and Bright Data trace rows through the established polling API |
+| Markdown report outcome | Render the Vendor Risk Assessment Brief from verified evidence only |
+
+Do not reuse these as runtime behavior:
+
+- the Flask application or its UI template,
+- broad startup/funding research prompts,
+- an unconstrained model-directed tool loop,
+- client-visible credentials or untraced collection,
+- any assertion that a claim is verified only because it appears in generated
+  report text.
 
 ## Runtime Integration Decision
 
@@ -87,3 +118,11 @@ DEFAULT_REVIEW_MODE=live_with_fallback
 
 Never place tokens in source, prompts, committed fixtures, URLs, screenshots,
 logs committed to Git, or frontend `NEXT_PUBLIC_*` variables.
+
+## Instruction Reference
+
+`AGENTS.md` adapts selected engineering habits from the externally linked
+[Karpathy-inspired CLAUDE.md](https://github.com/multica-ai/andrej-karpathy-skills/blob/main/CLAUDE.md):
+surface material assumptions, keep implementations small, make focused
+changes, and verify defined outcomes. Pulse's product boundaries and team
+workflow take precedence over generic agent guidance.
