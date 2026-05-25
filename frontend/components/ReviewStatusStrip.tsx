@@ -1,17 +1,27 @@
 import { Check, CircleDashed, WarningCircle } from "@phosphor-icons/react";
-import { Badge } from "@/components/Badge";
+import { Badge, SourceModeBadge } from "@/components/Badge";
 import { labelize } from "@/lib/formatters";
-import type { ScanStatusResponse, StageStatus } from "@/lib/types";
+import {
+  getSourceModes,
+  scanStatusTone,
+  summarizeSourceModes,
+} from "@/lib/sourceModes";
+import type { BrightDataTrace, ScanStatusResponse, StageStatus } from "@/lib/types";
 
 const stageLabels = ["Collect", "Extract", "Verify", "Score", "Brief"];
 
 export function ReviewStatusStrip({
   scan,
+  traces,
   pollingError,
 }: {
   scan: ScanStatusResponse | null;
+  traces: BrightDataTrace[];
   pollingError: string | null;
 }) {
+  const sourceSummary = summarizeSourceModes(traces, scan?.mode);
+  const sourceModes = getSourceModes(traces);
+
   return (
     <section className="rounded-lg border border-zinc-200 bg-white p-4 shadow-soft">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -23,13 +33,21 @@ export function ReviewStatusStrip({
             {"Polling GET /api/scans/{id} every 2 seconds while active."}
           </p>
         </div>
-        {scan ? (
-          <Badge tone={scan.status === "completed_with_fallback" ? "warn" : "good"}>
-            {labelize(scan.status)}
-          </Badge>
-        ) : (
-          <Badge>Awaiting due scan</Badge>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {scan ? (
+            <>
+              <Badge tone={scanStatusTone(scan.status)}>
+                {labelize(scan.status)}
+              </Badge>
+              <Badge tone={sourceSummary.tone}>{sourceSummary.label}</Badge>
+              {sourceModes.map((mode) => (
+                <SourceModeBadge key={mode} mode={mode} />
+              ))}
+            </>
+          ) : (
+            <Badge>Awaiting due scan</Badge>
+          )}
+        </div>
       </div>
 
       <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-5">
@@ -64,13 +82,18 @@ export function ReviewStatusStrip({
       </div>
 
       {scan ? (
-        <div className="mt-4 grid grid-cols-2 gap-3 border-t border-zinc-100 pt-4 text-xs sm:grid-cols-5">
-          <Metric label="SERP" value={scan.metrics.serp_queries_used} max={6} />
-          <Metric label="URLs" value={scan.metrics.urls_scraped} max={12} />
-          <Metric label="LLM" value={scan.metrics.llm_calls_used} max={20} />
-          <Metric label="Evidence" value={scan.metrics.evidence_count} />
-          <Metric label="Verified" value={scan.metrics.verified_count} />
-        </div>
+        <>
+          <p className="mt-4 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs leading-5 text-zinc-600">
+            {sourceSummary.detail}
+          </p>
+          <div className="mt-4 grid grid-cols-2 gap-3 border-t border-zinc-100 pt-4 text-xs sm:grid-cols-5">
+            <Metric label="SERP" value={scan.metrics.serp_queries_used} max={6} />
+            <Metric label="URLs" value={scan.metrics.urls_scraped} max={12} />
+            <Metric label="LLM" value={scan.metrics.llm_calls_used} max={20} />
+            <Metric label="Evidence" value={scan.metrics.evidence_count} />
+            <Metric label="Verified" value={scan.metrics.verified_count} />
+          </div>
+        </>
       ) : null}
 
       {pollingError ? (
@@ -85,6 +108,10 @@ export function ReviewStatusStrip({
 function StageIcon({ status }: { status: StageStatus }) {
   if (status === "completed") {
     return <Check size={16} weight="bold" className="text-signal-600" />;
+  }
+
+  if (status === "failed") {
+    return <WarningCircle size={16} weight="bold" className="text-rose-600" />;
   }
 
   return (

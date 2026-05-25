@@ -47,6 +47,11 @@ export function CommandCenter() {
   );
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [initialError, setInitialError] = useState<string | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const { scan, pollingError, isTerminal } = useScanPolling(activeScanId);
 
@@ -74,13 +79,22 @@ export function CommandCenter() {
 
   useEffect(() => {
     async function loadInitialData() {
-      const nextCompanies = await listCompanies();
-      const nextAgentStatus = await getAgentStatus();
-      const initialCompany = pickInitialCompany(nextCompanies);
+      setInitialLoading(true);
+      setInitialError(null);
 
-      setCompanies(nextCompanies);
-      setAgentStatus(nextAgentStatus);
-      setSelectedCompanyId(initialCompany?.id ?? null);
+      try {
+        const nextCompanies = await listCompanies();
+        const nextAgentStatus = await getAgentStatus();
+        const initialCompany = pickInitialCompany(nextCompanies);
+
+        setCompanies(nextCompanies);
+        setAgentStatus(nextAgentStatus);
+        setSelectedCompanyId(initialCompany?.id ?? null);
+      } catch (error) {
+        setInitialError(toErrorMessage(error));
+      } finally {
+        setInitialLoading(false);
+      }
     }
 
     void loadInitialData();
@@ -91,38 +105,63 @@ export function CommandCenter() {
     const company = selectedCompany;
 
     async function refreshSelectedData() {
-      const alertFilters = scan?.id
-        ? { company_id: company.id, scan_id: scan.id }
-        : { company_id: company.id };
-      const nextAlerts = await listAlerts(alertFilters);
-      const scanId = scan?.id ?? nextAlerts[0]?.scan_id ?? null;
-      let nextEvidence: EvidenceItem[] = [];
-      let nextTraces: BrightDataTrace[] = [];
-      let nextBrief: VendorReviewBrief | null = null;
+      setDetailLoading(true);
+      setDetailError(null);
 
-      if (scanId) {
-        const [evidenceResult, tracesResult, briefResult] =
-          await Promise.allSettled([
-            listEvidence(company.id, scanId),
-            listBrightDataTraces(scanId),
-            getVendorReviewBrief(company.id, scanId),
-          ]);
+      try {
+        const alertFilters = scan?.id
+          ? { company_id: company.id, scan_id: scan.id }
+          : { company_id: company.id };
+        const nextAlerts = await listAlerts(alertFilters);
+        const scanId = scan?.id ?? nextAlerts[0]?.scan_id ?? null;
+        let nextEvidence: EvidenceItem[] = [];
+        let nextTraces: BrightDataTrace[] = [];
+        let nextBrief: VendorReviewBrief | null = null;
 
-        nextEvidence =
-          evidenceResult.status === "fulfilled" ? evidenceResult.value : [];
-        nextTraces = tracesResult.status === "fulfilled" ? tracesResult.value : [];
-        nextBrief = briefResult.status === "fulfilled" ? briefResult.value : null;
+        if (scanId) {
+          const [evidenceResult, tracesResult, briefResult] =
+            await Promise.allSettled([
+              listEvidence(company.id, scanId),
+              listBrightDataTraces(scanId),
+              getVendorReviewBrief(company.id, scanId),
+            ]);
+
+          nextEvidence =
+            evidenceResult.status === "fulfilled" ? evidenceResult.value : [];
+          nextTraces = tracesResult.status === "fulfilled" ? tracesResult.value : [];
+          nextBrief = briefResult.status === "fulfilled" ? briefResult.value : null;
+
+          const failedLoads = [evidenceResult, tracesResult, briefResult]
+            .filter((result) => result.status === "rejected")
+            .map((result) =>
+              result.status === "rejected" ? toErrorMessage(result.reason) : "",
+            )
+            .filter(Boolean);
+
+          if (failedLoads.length > 0) {
+            setDetailError(failedLoads.join(" "));
+          }
+        }
+
+        setAlerts(nextAlerts);
+        setEvidence(nextEvidence);
+        setTraces(nextTraces);
+        setBrief(nextBrief);
+        setSelectedEvidenceId((current) =>
+          current && nextEvidence.some((item) => item.id === current)
+            ? current
+            : nextEvidence[0]?.id ?? null,
+        );
+      } catch (error) {
+        setAlerts([]);
+        setEvidence([]);
+        setTraces([]);
+        setBrief(null);
+        setSelectedEvidenceId(null);
+        setDetailError(toErrorMessage(error));
+      } finally {
+        setDetailLoading(false);
       }
-
-      setAlerts(nextAlerts);
-      setEvidence(nextEvidence);
-      setTraces(nextTraces);
-      setBrief(nextBrief);
-      setSelectedEvidenceId((current) =>
-        current && nextEvidence.some((item) => item.id === current)
-          ? current
-          : nextEvidence[0]?.id ?? null,
-      );
     }
 
     void refreshSelectedData();
@@ -148,6 +187,7 @@ export function CommandCenter() {
   async function handleToggle(enabled: boolean) {
     if (!selectedCompany) return;
     setBusy(true);
+    setActionError(null);
 
     try {
       const updatedCompany = await setVendorRiskAgent(selectedCompany.id, enabled);
@@ -167,17 +207,41 @@ export function CommandCenter() {
       setCompanies(nextCompanies);
       setAgentStatus(nextAgentStatus);
       setActiveScanId(activeRun?.scan_id ?? null);
+    } catch (error) {
+      setActionError(toErrorMessage(error));
     } finally {
       setBusy(false);
     }
   }
 
+  if (initialLoading) {
+    return (
+      <main className="flex min-h-[100dvh] items-center justify-center p-6">
+        <CommandCenterSkeleton />
+      </main>
+    );
+  }
+
+  if (initialError) {
+    return (
+      <main className="flex min-h-[100dvh] items-center justify-center p-6">
+        <StatePanel
+          tone="danger"
+          title="Command Center could not load"
+          body={initialError}
+        />
+      </main>
+    );
+  }
+
   if (!selectedCompany) {
     return (
       <main className="flex min-h-[100dvh] items-center justify-center p-6">
-        <div className="rounded-lg border border-zinc-200 bg-white p-6 text-sm text-zinc-600 shadow-soft">
-          Loading Pulse command center.
-        </div>
+        <StatePanel
+          tone="neutral"
+          title="No vendors available"
+          body="The Command Center will populate after GET /api/companies returns at least one vendor."
+        />
       </main>
     );
   }
@@ -252,10 +316,22 @@ export function CommandCenter() {
                 company={selectedCompany}
                 agentStatus={agentStatus}
                 scan={scan}
+                traces={traces}
               />
             </div>
+            {actionError ? (
+              <StatePanel
+                tone="danger"
+                title="Agent action failed"
+                body={actionError}
+              />
+            ) : null}
 
-            <ReviewStatusStrip scan={scan} pollingError={pollingError} />
+            <ReviewStatusStrip
+              scan={scan}
+              traces={traces}
+              pollingError={pollingError}
+            />
 
             <section className="rounded-lg border border-zinc-200 bg-white p-4 shadow-soft">
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -279,7 +355,22 @@ export function CommandCenter() {
               </div>
 
               <div className="mt-4 grid gap-3 lg:grid-cols-[1fr_1fr]">
-                {selectedAlerts.map((alert) => (
+                {detailLoading ? (
+                  <AlertSkeleton />
+                ) : detailError ? (
+                  <StatePanel
+                    tone="danger"
+                    title="Alerts unavailable"
+                    body={detailError}
+                  />
+                ) : selectedAlerts.length === 0 ? (
+                  <StatePanel
+                    tone="neutral"
+                    title="No verified alerts yet"
+                    body="Verified alert cards appear here after a scan scores source-backed evidence."
+                  />
+                ) : (
+                  selectedAlerts.map((alert) => (
                   <button
                     key={alert.id}
                     type="button"
@@ -312,12 +403,20 @@ export function CommandCenter() {
                       Owner: {alert.owner}. Status: {labelize(alert.status)}.
                     </p>
                   </button>
-                ))}
+                  ))
+                )}
               </div>
             </section>
           </section>
 
-          <RiskAssessmentBrief brief={brief} />
+          <RiskAssessmentBrief
+            brief={brief}
+            scan={scan}
+            traces={traces}
+            loading={detailLoading}
+            error={detailError}
+            companyName={selectedCompany.name}
+          />
         </div>
       </div>
 
@@ -327,11 +426,74 @@ export function CommandCenter() {
         evidence={evidence}
         traces={traces}
         selectedEvidenceId={selectedEvidenceId}
+        loading={detailLoading}
+        error={detailError}
         onSelectEvidence={setSelectedEvidenceId}
         onClose={() => setDrawerOpen(false)}
       />
     </main>
   );
+}
+
+function CommandCenterSkeleton() {
+  return (
+    <div className="w-full max-w-5xl rounded-lg border border-zinc-200 bg-white p-6 shadow-soft">
+      <div className="h-6 w-28 animate-pulse rounded-full bg-zinc-100" />
+      <div className="mt-5 h-9 w-3/5 animate-pulse rounded bg-zinc-100" />
+      <div className="mt-3 h-4 w-4/5 animate-pulse rounded bg-zinc-100" />
+      <div className="mt-8 grid gap-3 md:grid-cols-3">
+        {[0, 1, 2].map((item) => (
+          <div key={item} className="rounded-lg border border-zinc-200 p-4">
+            <div className="h-4 w-2/3 animate-pulse rounded bg-zinc-100" />
+            <div className="mt-4 h-16 animate-pulse rounded bg-zinc-100" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function AlertSkeleton() {
+  return (
+    <>
+      {[0, 1].map((item) => (
+        <div key={item} className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
+          <div className="h-6 w-32 animate-pulse rounded-full bg-zinc-100" />
+          <div className="mt-4 h-4 w-3/4 animate-pulse rounded bg-zinc-100" />
+          <div className="mt-3 h-4 w-full animate-pulse rounded bg-zinc-100" />
+        </div>
+      ))}
+    </>
+  );
+}
+
+function StatePanel({
+  tone,
+  title,
+  body,
+}: {
+  tone: "neutral" | "danger";
+  title: string;
+  body: string;
+}) {
+  return (
+    <div
+      className={`rounded-lg border p-4 text-sm ${
+        tone === "danger"
+          ? "border-rose-100 bg-rose-50 text-rose-700"
+          : "border-dashed border-zinc-300 bg-white text-zinc-500"
+      }`}
+    >
+      <p className="font-semibold">{title}</p>
+      <p className="mt-1 leading-6">{body}</p>
+    </div>
+  );
+}
+
+function toErrorMessage(error: unknown) {
+  return error instanceof Error
+    ? error.message
+    : "Pulse API returned an unexpected error.";
 }
 
 function pickInitialCompany(companies: Company[]) {

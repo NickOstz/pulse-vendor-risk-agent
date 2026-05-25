@@ -28,6 +28,7 @@ type TickResponse = Partial<AgentStatusResponse> & {
   scan_ids?: string[];
   started_scan_id?: string;
   started_scan_ids?: string[];
+  due_vendor_ids?: string[];
   started_scans?: Array<{ id?: string; scan_id?: string; company_id?: string }>;
 };
 
@@ -119,7 +120,7 @@ export async function setVendorRiskAgent(
 
   const updatedCompany = companies.find((company) => company.id === companyId);
   if (!updatedCompany) {
-    throw new Error(`Unknown company fixture: ${companyId}`);
+    throw new Error(`Unknown company: ${companyId}`);
   }
 
   return updatedCompany;
@@ -189,7 +190,9 @@ export async function getAgentStatus(): Promise<AgentStatusResponse> {
           },
         ]
       : [],
-    due_vendors: activeScanId ? [] : [demoCompanyId],
+    due_vendors: activeScanId
+      ? []
+      : companies.filter((company) => company.id === demoCompanyId),
   };
 }
 

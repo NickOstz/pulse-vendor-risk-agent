@@ -23,8 +23,8 @@ export function AgentToggle({
             </h2>
           </div>
           <p className="mt-2 max-w-[42ch] text-sm leading-6 text-zinc-600">
-            Autonomous monitoring for public vendor-risk evidence. Frontend is
-            currently using contract-shaped fixtures.
+            Autonomous monitoring for public vendor-risk evidence. Collection
+            and credentials stay server-side.
           </p>
         </div>
         <button
