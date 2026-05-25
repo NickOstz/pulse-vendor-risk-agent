@@ -1,0 +1,8 @@
+[submodule "vendor/brightdata-hack-pack"]
+	path = vendor/brightdata-hack-pack
+	url = https://github.com/ScrapeAlchemist/brightdata-hack-pack.git
+	branch = master
+[submodule "vendor/brightdata-skills"]
+	path = vendor/brightdata-skills
+	url = https://github.com/brightdata/skills.git
+	branch = main

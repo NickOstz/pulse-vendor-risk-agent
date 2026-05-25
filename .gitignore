@@ -1,0 +1,38 @@
+# Credentials and local configuration
+.env
+.env.*
+!.env.example
+!**/.env.example
+
+# Frontend
+node_modules/
+.next/
+out/
+coverage/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Backend
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.db
+*.sqlite
+*.sqlite3
+
+# Live source captures can contain noisy or sensitive collected content.
+backend/app/snapshots/live/
+backend/app/snapshots/captured/
+
+# IDE, OS, and local archives
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.rar
