@@ -18,15 +18,13 @@ work immediately against typed fixture responses matching
 
 ## GitHub Setup
 
-The hackathon requires a public GitHub repository. Before publishing, quickly
-check that no private notes or tokens are present. From this prepared local
-repository, the repository owner can publish it once with:
+Shared public repository:
 
-```bash
-gh repo create pulse-vendor-risk-agent --public --source=. --remote=origin --push
+```text
+https://github.com/NickOstz/pulse-vendor-risk-agent
 ```
 
-Then invite both collaborators in GitHub repository settings and enable:
+Invite both collaborators in GitHub repository settings and enable:
 
 - Require a pull request before merging to `main`.
 - Require one approval when practical; during the final demo crunch, record
@@ -40,7 +38,7 @@ Then invite both collaborators in GitHub repository settings and enable:
 Each teammate starts with:
 
 ```bash
-git clone --recurse-submodules <PUBLIC_GITHUB_REPOSITORY_URL>
+git clone --recurse-submodules https://github.com/NickOstz/pulse-vendor-risk-agent.git
 cd pulse-vendor-risk-agent
 git submodule update --init --recursive
 git switch -c feature/<short-lane-name>

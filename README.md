@@ -67,8 +67,8 @@ must keep collection and trace persistence inside the FastAPI backend. See
 Clone with integrations:
 
 ```bash
-git clone --recurse-submodules <PUBLIC_GITHUB_REPOSITORY_URL>
-cd <repository-folder>
+git clone --recurse-submodules https://github.com/NickOstz/pulse-vendor-risk-agent.git
+cd pulse-vendor-risk-agent
 git submodule update --init --recursive
 ```
 

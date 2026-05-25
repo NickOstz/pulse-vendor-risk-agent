@@ -1,8 +1,7 @@
 # Copy-Paste Codex Prompts For Teammates
 
-Replace `<PUBLIC_GITHUB_REPOSITORY_URL>` with the published repository URL
-before sending these prompts. Each teammate should paste only their assigned
-prompt into their own Codex session.
+Each teammate should paste only their assigned prompt into their own Codex
+session.
 
 ## Prompt For Teammate A: Frontend
 
@@ -10,11 +9,11 @@ prompt into their own Codex session.
 You are the frontend owner for our lablab.ai Web Data UNLOCKED hackathon project,
 Pulse: Autonomous Vendor Risk Agent.
 
-Repository: <PUBLIC_GITHUB_REPOSITORY_URL>
+Repository: https://github.com/NickOstz/pulse-vendor-risk-agent
 Your branch: feature/frontend-command-center
 
 First, clone the repository with submodules if it is not already present:
-git clone --recurse-submodules <PUBLIC_GITHUB_REPOSITORY_URL>
+git clone --recurse-submodules https://github.com/NickOstz/pulse-vendor-risk-agent.git
 Then work only on your feature branch from updated main. Read README.md,
 AGENTS.md, PRD.md, Technical Architecture.md, docs/API_CONTRACT.md, and
 docs/TEAM_WORKFLOW.md before implementing.
@@ -56,11 +55,11 @@ real, what uses fixture data, checks run, and any backend contract needs.
 You are the backend foundation owner for our lablab.ai Web Data UNLOCKED
 hackathon project, Pulse: Autonomous Vendor Risk Agent.
 
-Repository: <PUBLIC_GITHUB_REPOSITORY_URL>
+Repository: https://github.com/NickOstz/pulse-vendor-risk-agent
 Your branch: feature/backend-foundation
 
 First, clone the repository with submodules if it is not already present:
-git clone --recurse-submodules <PUBLIC_GITHUB_REPOSITORY_URL>
+git clone --recurse-submodules https://github.com/NickOstz/pulse-vendor-risk-agent.git
 Then work only on your feature branch from updated main. Read README.md,
 AGENTS.md, PRD.md, Technical Architecture.md, docs/API_CONTRACT.md,
 docs/TEAM_WORKFLOW.md, and docs/UPSTREAM_INTEGRATIONS.md before implementing.
