@@ -104,6 +104,22 @@ The initial active integration paths are:
 | Known public trust/pricing/terms page | Web Unlocker or markdown-capable scrape request | Capture text/markdown and hash snapshot |
 | A public page that blocks normal collection | Web Unlocker fallback path | Log failed attempt and labeled fallback |
 
+### Implemented Demo Mode
+
+When `BRIGHTDATA_API_KEY`, `BRIGHTDATA_SERP_ZONE`, and
+`DEFAULT_REVIEW_MODE=live_with_fallback` are configured, an autonomous review
+cycle makes one server-side Bright Data SERP request for vendor-risk discovery
+during the Collect stage. Its trace is recorded as `source_mode = live`.
+
+The current evidence payload remains deterministic cached demo evidence while
+the extraction pipeline is built. In this live-proof mode, cached evidence
+source rows are recorded as `source_mode = fallback`, and the completed scan
+is marked `completed_with_fallback`; the UI must not imply cached claims came
+from the live request.
+
+When Bright Data credentials are absent, review cycles use replay mode and
+label source rows `cached`.
+
 ## Credential Policy
 
 Each teammate may use their own Bright Data account locally. The shared
@@ -113,6 +129,7 @@ application consumes environment variable names only:
 BRIGHTDATA_API_KEY=
 BRIGHTDATA_SERP_ZONE=
 BRIGHTDATA_UNLOCKER_ZONE=
+BRIGHTDATA_LIVE_FETCH_TIMEOUT_SECONDS=8
 DEFAULT_REVIEW_MODE=live_with_fallback
 ```
 

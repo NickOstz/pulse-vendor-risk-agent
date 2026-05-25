@@ -29,7 +29,7 @@ class AgentScheduler:
         for company in self.due_companies(session):
             if company.id in active_company_ids:
                 continue
-            scan = Scan(company_id=company.id, status="running", mode="replay", current_stage="collect")
+            scan = Scan(company_id=company.id, status="running", mode=self.runner.scan_mode(), current_stage="collect")
             company.agent_status = "running"
             session.add(scan)
             session.add(company)

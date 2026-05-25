@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     brightdata_web_unlocker_endpoint: str | None = None
     brightdata_serp_zone: str | None = None
     brightdata_unlocker_zone: str | None = None
+    brightdata_live_fetch_timeout_seconds: float = 8.0
     deepseek_api_key: str | None = None
     openai_api_key: str | None = None
     default_review_mode: str = "live_with_fallback"
@@ -25,6 +26,10 @@ class Settings(BaseSettings):
     @property
     def replay_dir(self) -> Path:
         return Path(__file__).parent / "seeds"
+
+    @property
+    def brightdata_request_endpoint(self) -> str:
+        return self.brightdata_serp_endpoint or "https://api.brightdata.com/request"
 
 
 @lru_cache
