@@ -7,6 +7,7 @@ from sqlmodel import Session
 from app.config import get_settings
 from app.models import BrightDataTrace, Company, Scan, utc_now
 from app.services.brightdata_client import BrightDataAttempt, BrightDataClient
+from app.services.live_evidence import is_supported_live_source
 from app.services.serializers import dump_json
 
 
@@ -17,7 +18,11 @@ def record_live_collection_attempt(session: Session, company: Company, scan: Sca
     attempts = [client.search_vendor_risk(company)]
     scan.serp_queries_used = 1
 
-    if settings.brightdata_demo_source_url and client.unlocker_configured:
+    if (
+        settings.brightdata_demo_source_url
+        and client.unlocker_configured
+        and is_supported_live_source(company, settings.brightdata_demo_source_url)
+    ):
         page_attempt = client.fetch_markdown(settings.brightdata_demo_source_url)
         attempts.append(page_attempt)
         if page_attempt.status == "success" and page_attempt.content is not None:

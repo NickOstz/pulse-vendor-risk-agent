@@ -15,9 +15,10 @@ Primary track: **Security & Compliance / Third-Party Risk**.
 
 ## Current State
 
-This repository currently contains the product blueprint, technical
-architecture, demo plan, and a collaboration-ready Git foundation. Runtime
-frontend and backend scaffolds are the first implementation tickets.
+This repository contains the product blueprint and a running MVP: a Next.js
+Command Center backed by FastAPI review cycles, Bright Data traces, one
+verified live Cloudflare Trust Hub evidence path, labeled fallback evidence,
+deterministic alert scoring, and a review brief.
 
 Read first:
 

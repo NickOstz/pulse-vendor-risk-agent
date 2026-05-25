@@ -1,0 +1,121 @@
+from urllib.parse import urlparse
+
+from pydantic import BaseModel, Field
+
+from app.config import get_settings
+from app.models import Company, EvidenceItem, Scan, utc_now
+from app.services.verification import verify_quote
+
+
+class LiveEvidenceCandidate(BaseModel):
+    signal_type: str = Field(pattern="^trust_security$")
+    claim: str = Field(min_length=1)
+    supporting_quote: str = Field(min_length=1)
+    source_url: str = Field(min_length=1)
+    source_type: str = Field(pattern="^vendor_owned$")
+    severity_hint: str = Field(pattern="^medium$")
+    confidence: float = Field(ge=0, le=1)
+    recommended_action: str = Field(min_length=1)
+
+
+CLOUDFLARE_COMPLIANCE_QUOTE = (
+    "Explore our posture around ISO 27001, ISO 27701, PCI DSS, SOC 2 Type II, and others"
+)
+
+
+def is_supported_live_source(company: Company, source_url: str) -> bool:
+    parsed_url = urlparse(source_url)
+    return (
+        company.domain == "cloudflare.com"
+        and parsed_url.scheme == "https"
+        and parsed_url.hostname in {company.domain, f"www.{company.domain}"}
+        and parsed_url.path.rstrip("/") == "/trust-hub"
+        and not parsed_url.query
+        and not parsed_url.fragment
+    )
+
+
+def extract_live_cloudflare_trust_evidence(company: Company, scan: Scan) -> EvidenceItem | None:
+    settings = get_settings()
+    source_url = settings.brightdata_demo_source_url
+    if not source_url or not is_supported_live_source(company, source_url):
+        return None
+
+    snapshot_path = settings.live_snapshot_dir / f"{scan.id}-configured-source.md"
+    if not snapshot_path.exists():
+        return None
+
+    content = snapshot_path.read_text(encoding="utf-8")
+    candidate = LiveEvidenceCandidate.model_validate(
+        {
+            "signal_type": "trust_security",
+            "claim": "Cloudflare publicly identifies SOC 2 Type II and ISO 27001 among its compliance resources.",
+            "supporting_quote": CLOUDFLARE_COMPLIANCE_QUOTE,
+            "source_url": source_url,
+            "source_type": "vendor_owned",
+            "severity_hint": "medium",
+            "confidence": 0.95,
+            "recommended_action": "Request the current in-scope compliance package for the renewal record.",
+        }
+    )
+    support_status, quote_match_score = verify_quote(content, candidate.supporting_quote)
+
+    return EvidenceItem(
+        scan_id=scan.id,
+        company_id=company.id,
+        signal_type=candidate.signal_type,
+        claim=candidate.claim,
+        supporting_quote=candidate.supporting_quote,
+        source_url=candidate.source_url,
+        source_type=candidate.source_type,
+        published_or_captured_at=utc_now(),
+        severity_hint=candidate.severity_hint,
+        confidence=candidate.confidence,
+        recommended_action=candidate.recommended_action,
+        support_status=support_status,
+        quote_match_score=quote_match_score,
+        snapshot_path=str(snapshot_path),
+        source_excerpt=_excerpt(content, candidate.supporting_quote),
+        created_at=utc_now(),
+    )
+
+
+def render_mixed_live_brief() -> tuple[str, str]:
+    markdown = (
+        "# Vendor Risk Assessment Brief: Cloudflare\n\n"
+        "## Summary\n"
+        "Pulse captured and verified one live Cloudflare Trust Hub compliance signal, then used two clearly "
+        "labeled fallback excerpts from official Cloudflare pages for data-localization scope and a resolved "
+        "Log Explorer incident.\n\n"
+        "## Key Verified Signals\n"
+        "- Live trust/security: Cloudflare lists ISO 27001, ISO 27701, PCI DSS, and SOC 2 Type II among its compliance resources.\n"
+        "- Fallback pricing/terms: Data Localization Suite is identified as an Enterprise-only paid add-on.\n"
+        "- Fallback status: Cloudflare reported dashboard and API log delays during a resolved Log Explorer incident.\n\n"
+        "## Risk Interpretation\n"
+        "The live compliance statement supports the vendor-assurance review; the labeled fallback signals add "
+        "commercial-scope and operational context without being presented as live collection.\n\n"
+        "## Recommended Action\n"
+        "Request the applicable compliance package and confirm Data Localization Suite requirements before signature.\n\n"
+        "## Suggested Owner\n"
+        "Security, with Procurement support.\n\n"
+        "## Review Status\n"
+        "Needs review before renewal. One evidence item is verified from live Bright Data collection; two are verified fallback excerpts."
+    )
+    html = (
+        "<h1>Vendor Risk Assessment Brief: Cloudflare</h1>"
+        "<h2>Summary</h2>"
+        "<p>Pulse captured and verified one live Cloudflare Trust Hub compliance signal, with two labeled fallback excerpts from official Cloudflare pages.</p>"
+        "<h2>Recommended Action</h2>"
+        "<p>Request the applicable compliance package and confirm Data Localization Suite requirements before signature.</p>"
+    )
+    return markdown, html
+
+
+def _excerpt(content: str, quote: str) -> str:
+    normalized_quote = quote.casefold()
+    start = content.casefold().find(normalized_quote)
+    if start < 0:
+        return content[:240].replace("\n", " ")
+    excerpt_start = max(0, start - 48)
+    excerpt_end = min(len(content), start + len(quote) + 48)
+    return content[excerpt_start:excerpt_end].replace("\n", " ")

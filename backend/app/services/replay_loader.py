@@ -6,6 +6,8 @@ from sqlmodel import Session, select
 
 from app.config import get_settings
 from app.models import Alert, BrightDataTrace, Brief, Company, EvidenceItem, Scan, utc_now
+from app.services.live_evidence import extract_live_cloudflare_trust_evidence, render_mixed_live_brief
+from app.services.scoring import build_live_compliance_alert, build_mixed_related_change_alert
 from app.services.serializers import dump_json
 
 
@@ -118,7 +120,18 @@ def _complete_extract(session: Session, company: Company, scan: Scan) -> None:
     payload = load_replay_payload()
     now = utc_now()
     scan.current_stage = "extract"
+    live_evidence = extract_live_cloudflare_trust_evidence(company, scan) if scan.mode == "live_with_fallback" else None
+    verified_live_url = None
+    if live_evidence is not None:
+        session.add(live_evidence)
+        session.flush()
+        if live_evidence.support_status == "verified":
+            verified_live_url = live_evidence.source_url
+            _remove_replaced_fallback_trace(session, scan, verified_live_url)
+
     for evidence_row in payload["evidence_items"]:
+        if verified_live_url and evidence_row["source_url"] == verified_live_url:
+            continue
         evidence = EvidenceItem(
             scan_id=scan.id,
             company_id=company.id,
@@ -138,7 +151,8 @@ def _complete_extract(session: Session, company: Company, scan: Scan) -> None:
             created_at=now,
         )
         session.add(evidence)
-    scan.evidence_count = len(payload["evidence_items"])
+    session.flush()
+    scan.evidence_count = len(session.exec(select(EvidenceItem).where(EvidenceItem.scan_id == scan.id)).all())
     scan.current_stage = "verify"
     session.add(scan)
     session.commit()
@@ -160,8 +174,11 @@ def _complete_score(session: Session, company: Company, scan: Scan) -> None:
     payload = load_replay_payload()
     now = utc_now()
     evidence_id_map = _evidence_id_map(session, scan.id)
+    live_evidence = _verified_live_evidence(session, scan.id)
     scan.current_stage = "score"
     for alert_row in payload["alerts"]:
+        if live_evidence is not None and alert_row["alert_type"] == "related_change":
+            continue
         related_fixture_ids = alert_row.get("related_evidence_fixture_ids", [])
         related_ids = [evidence_id_map[item] for item in related_fixture_ids if item in evidence_id_map]
         evidence_fixture_id = alert_row.get("evidence_fixture_id")
@@ -183,6 +200,19 @@ def _complete_score(session: Session, company: Company, scan: Scan) -> None:
                 created_at=now,
             )
         )
+    if live_evidence is not None:
+        live_alert = build_live_compliance_alert(company, scan, live_evidence)
+        if live_alert is not None:
+            session.add(live_alert)
+        pricing_evidence = session.exec(
+            select(EvidenceItem).where(
+                EvidenceItem.scan_id == scan.id,
+                EvidenceItem.signal_type == "pricing_terms",
+                EvidenceItem.support_status == "verified",
+            )
+        ).first()
+        if pricing_evidence is not None:
+            session.add(build_mixed_related_change_alert(company, scan, live_evidence, pricing_evidence))
     scan.current_stage = "brief"
     session.add(scan)
     session.commit()
@@ -191,8 +221,11 @@ def _complete_score(session: Session, company: Company, scan: Scan) -> None:
 def _complete_brief(session: Session, company: Company, scan: Scan) -> None:
     payload = load_replay_payload()
     now = utc_now()
-    markdown = payload["brief"]["markdown"]
-    html = payload["brief"]["html"]
+    if _verified_live_evidence(session, scan.id) is not None:
+        markdown, html = render_mixed_live_brief()
+    else:
+        markdown = payload["brief"]["markdown"]
+        html = payload["brief"]["html"]
     session.add(Brief(company_id=company.id, scan_id=scan.id, markdown=markdown, html=html, created_at=now))
 
     verified_count = session.exec(
@@ -225,3 +258,42 @@ def _evidence_id_map(session: Session, scan_id: str) -> dict[str, str]:
                 result[fixture["fixture_id"]] = evidence.id
                 break
     return result
+
+
+def _verified_live_evidence(session: Session, scan_id: str) -> EvidenceItem | None:
+    live_snapshot_path = str(get_settings().live_snapshot_dir / f"{scan_id}-configured-source.md")
+    live_source_urls = {
+        trace.source_url
+        for trace in session.exec(
+            select(BrightDataTrace).where(
+                BrightDataTrace.scan_id == scan_id,
+                BrightDataTrace.source_mode == "live",
+                BrightDataTrace.status == "success",
+                BrightDataTrace.product == "web_unlocker",
+            )
+        ).all()
+        if trace.source_url
+    }
+    if not live_source_urls:
+        return None
+    return session.exec(
+        select(EvidenceItem).where(
+            EvidenceItem.scan_id == scan_id,
+            EvidenceItem.source_url.in_(live_source_urls),
+            EvidenceItem.support_status == "verified",
+            EvidenceItem.snapshot_path == live_snapshot_path,
+        )
+    ).first()
+
+
+def _remove_replaced_fallback_trace(session: Session, scan: Scan, source_url: str) -> None:
+    duplicate_fallback_traces = session.exec(
+        select(BrightDataTrace).where(
+            BrightDataTrace.scan_id == scan.id,
+            BrightDataTrace.source_url == source_url,
+            BrightDataTrace.source_mode == "fallback",
+        )
+    ).all()
+    for trace in duplicate_fallback_traces:
+        session.delete(trace)
+    scan.source_count = max(0, scan.source_count - len(duplicate_fallback_traces))

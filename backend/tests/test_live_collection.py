@@ -17,7 +17,7 @@ def live_client(tmp_path: Path) -> TestClient:
     os.environ["BRIGHTDATA_API_KEY"] = "test-api-key"
     os.environ["BRIGHTDATA_SERP_ZONE"] = "test-serp-zone"
     os.environ["BRIGHTDATA_UNLOCKER_ZONE"] = "test-unlocker-zone"
-    os.environ["BRIGHTDATA_DEMO_SOURCE_URL"] = "https://vendor.example/trust"
+    os.environ["BRIGHTDATA_DEMO_SOURCE_URL"] = "https://www.cloudflare.com/trust-hub/"
     os.environ["BRIGHTDATA_LIVE_SNAPSHOT_DIR"] = str(tmp_path / "live-snapshots")
 
     from app.config import get_settings
@@ -85,7 +85,7 @@ def test_live_serp_attempt_is_traced_before_labeled_fallback(monkeypatch, live_c
     assert "brd_json=1" in captured[0]["payload"]["url"]
     assert captured[1]["payload"] == {
         "zone": "test-unlocker-zone",
-        "url": "https://vendor.example/trust",
+        "url": "https://www.cloudflare.com/trust-hub/",
         "format": "raw",
         "data_format": "markdown",
     }
@@ -133,6 +133,99 @@ def test_unlocker_timeout_is_traced_while_fallback_completes_review(monkeypatch,
         for trace in traces
     )
     assert not list(Path(os.environ["BRIGHTDATA_LIVE_SNAPSHOT_DIR"]).glob("*.md"))
+
+
+def test_verified_live_cloudflare_quote_replaces_cached_copy_and_creates_scored_alert(monkeypatch, live_client):
+    quote = "Explore our posture around ISO 27001, ISO 27701, PCI DSS, SOC 2 Type II, and others"
+
+    def fake_post(url, *, headers, json, timeout):
+        if json["zone"] == "test-unlocker-zone":
+            return httpx.Response(
+                200,
+                request=httpx.Request("POST", url),
+                text=f"Compliance resources: **{quote}**.",
+            )
+        return httpx.Response(200, request=httpx.Request("POST", url), json={"organic": []})
+
+    monkeypatch.setattr("app.services.brightdata_client.httpx.post", fake_post)
+    scan_id = _start_live_scan(live_client)
+
+    terminal = _poll_until_terminal(live_client, scan_id)
+    evidence = live_client.get(f"/api/companies/vendor-cloudflare-demo/evidence?scan_id={scan_id}").json()
+    alerts = live_client.get(f"/api/alerts?company_id=vendor-cloudflare-demo&scan_id={scan_id}").json()
+    traces = live_client.get(f"/api/brightdata/traces?scan_id={scan_id}").json()
+    brief = live_client.post(
+        "/api/briefs/vendor-review",
+        json={"company_id": "vendor-cloudflare-demo", "scan_id": scan_id, "format": "markdown"},
+    ).json()["content"]
+
+    trust_items = [item for item in evidence if item["source_url"] == "https://www.cloudflare.com/trust-hub/"]
+    live_alert = next(alert for alert in alerts if alert["title"] == "Live compliance posture captured for renewal review")
+    related_alert = next(alert for alert in alerts if alert["alert_type"] == "related_change")
+
+    assert terminal["metrics"]["source_count"] == 3
+    assert terminal["metrics"]["evidence_count"] == 3
+    assert terminal["metrics"]["verified_count"] == 3
+    assert len(trust_items) == 1
+    assert trust_items[0]["support_status"] == "verified"
+    assert trust_items[0]["quote_match_score"] == 1.0
+    assert live_alert["score"] == 62
+    assert live_alert["evidence_item_id"] == trust_items[0]["id"]
+    assert live_alert["score_factors"]["confidence"] == 0.95
+    assert related_alert["title"] == "Renewal checkpoint: live compliance and data residency scope"
+    assert related_alert["score"] == 72
+    assert trust_items[0]["id"] in related_alert["related_evidence_ids"]
+    assert not any(
+        trace["source_mode"] == "fallback"
+        and trace["source_url"] == "https://www.cloudflare.com/trust-hub/"
+        for trace in traces
+    )
+    assert "one live Cloudflare Trust Hub compliance signal" in brief
+
+
+def test_unverified_live_cloudflare_quote_cannot_create_live_alert(monkeypatch, live_client):
+    def fake_post(url, *, headers, json, timeout):
+        if json["zone"] == "test-unlocker-zone":
+            return httpx.Response(200, request=httpx.Request("POST", url), text="# Trust center without certifications")
+        return httpx.Response(200, request=httpx.Request("POST", url), json={"organic": []})
+
+    monkeypatch.setattr("app.services.brightdata_client.httpx.post", fake_post)
+    scan_id = _start_live_scan(live_client)
+
+    _poll_until_terminal(live_client, scan_id)
+    evidence = live_client.get(f"/api/companies/vendor-cloudflare-demo/evidence?scan_id={scan_id}").json()
+    alerts = live_client.get(f"/api/alerts?company_id=vendor-cloudflare-demo&scan_id={scan_id}").json()
+
+    assert any(
+        item["source_url"] == "https://www.cloudflare.com/trust-hub/"
+        and item["support_status"] == "needs_review"
+        for item in evidence
+    )
+    assert not any(alert["title"] == "Live compliance posture captured for renewal review" for alert in alerts)
+
+
+def test_unapproved_configured_url_is_not_requested_or_scored(monkeypatch, live_client):
+    captured_zones: list[str] = []
+
+    def fake_post(url, *, headers, json, timeout):
+        captured_zones.append(json["zone"])
+        return httpx.Response(200, request=httpx.Request("POST", url), json={"organic": []})
+
+    os.environ["BRIGHTDATA_DEMO_SOURCE_URL"] = "https://lookalike.example/?next=https://www.cloudflare.com/trust-hub/"
+    from app.config import get_settings
+
+    get_settings.cache_clear()
+    monkeypatch.setattr("app.services.brightdata_client.httpx.post", fake_post)
+    scan_id = _start_live_scan(live_client)
+
+    terminal = _poll_until_terminal(live_client, scan_id)
+    alerts = live_client.get(f"/api/alerts?company_id=vendor-cloudflare-demo&scan_id={scan_id}").json()
+    traces = live_client.get(f"/api/brightdata/traces?scan_id={scan_id}").json()
+
+    assert terminal["metrics"]["urls_scraped"] == 0
+    assert captured_zones == ["test-serp-zone"]
+    assert not any(trace["source_mode"] == "live" and trace["product"] == "web_unlocker" for trace in traces)
+    assert not any(alert["title"] == "Live compliance posture captured for renewal review" for alert in alerts)
 
 
 def test_empty_unlocker_response_is_not_saved_as_live_source(monkeypatch, live_client):
