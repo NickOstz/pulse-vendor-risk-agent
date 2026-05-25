@@ -111,6 +111,12 @@ When `BRIGHTDATA_API_KEY`, `BRIGHTDATA_SERP_ZONE`, and
 cycle makes one server-side Bright Data SERP request for vendor-risk discovery
 during the Collect stage. Its trace is recorded as `source_mode = live`.
 
+When `BRIGHTDATA_UNLOCKER_ZONE` and `BRIGHTDATA_DEMO_SOURCE_URL` are also set,
+the Collect stage makes one bounded Web Unlocker request for that explicit
+public URL using Markdown output. A successful response is stored in the
+ignored local live-snapshot directory and added to the scan content hashes;
+the operation appears as a `web_unlocker` live trace.
+
 The current evidence payload remains deterministic cached demo evidence while
 the extraction pipeline is built. In this live-proof mode, cached evidence
 source rows are recorded as `source_mode = fallback`, and the completed scan
@@ -129,6 +135,8 @@ application consumes environment variable names only:
 BRIGHTDATA_API_KEY=
 BRIGHTDATA_SERP_ZONE=
 BRIGHTDATA_UNLOCKER_ZONE=
+BRIGHTDATA_DEMO_SOURCE_URL=
+BRIGHTDATA_LIVE_SNAPSHOT_DIR=
 BRIGHTDATA_LIVE_FETCH_TIMEOUT_SECONDS=8
 DEFAULT_REVIEW_MODE=live_with_fallback
 ```

@@ -17,10 +17,11 @@ class BrightDataAttempt:
     latency_ms: int
     retry_count: int = 0
     error: str | None = None
+    content: str | None = None
 
 
 class BrightDataClient:
-    """Minimal Bright Data caller for the demo-critical live SERP proof."""
+    """Bounded Bright Data caller for discovery and configured page capture."""
 
     def __init__(self, settings: Settings | None = None) -> None:
         self.settings = settings or get_settings()
@@ -28,6 +29,10 @@ class BrightDataClient:
     @property
     def serp_configured(self) -> bool:
         return bool(self.settings.brightdata_api_key and self.settings.brightdata_serp_zone)
+
+    @property
+    def unlocker_configured(self) -> bool:
+        return bool(self.settings.brightdata_api_key and self.settings.brightdata_unlocker_zone)
 
     def search_vendor_risk(self, company: Company) -> BrightDataAttempt:
         query = f"{company.name} {company.domain} trust security SOC 2 incident terms"
@@ -85,6 +90,71 @@ class BrightDataClient:
                 status="failed",
                 latency_ms=_elapsed_ms(started_at),
                 error=f"Bright Data SERP request failed: {exc.__class__.__name__}.",
+            )
+
+    def fetch_markdown(self, source_url: str) -> BrightDataAttempt:
+        operation = "scrape_markdown:configured_demo_source"
+        started_at = perf_counter()
+
+        try:
+            response = httpx.post(
+                self.settings.brightdata_unlocker_request_endpoint,
+                headers={
+                    "Authorization": f"Bearer {self.settings.brightdata_api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "zone": self.settings.brightdata_unlocker_zone,
+                    "url": source_url,
+                    "format": "raw",
+                    "data_format": "markdown",
+                },
+                timeout=self.settings.brightdata_live_fetch_timeout_seconds,
+            )
+            response.raise_for_status()
+            if not response.text.strip():
+                return BrightDataAttempt(
+                    product="web_unlocker",
+                    operation=operation,
+                    source_url=source_url,
+                    status="failed",
+                    latency_ms=_elapsed_ms(started_at),
+                    error="Bright Data Web Unlocker returned an empty response body.",
+                )
+            return BrightDataAttempt(
+                product="web_unlocker",
+                operation=operation,
+                source_url=source_url,
+                status="success",
+                latency_ms=_elapsed_ms(started_at),
+                content=response.text,
+            )
+        except httpx.TimeoutException:
+            return BrightDataAttempt(
+                product="web_unlocker",
+                operation=operation,
+                source_url=source_url,
+                status="timeout",
+                latency_ms=_elapsed_ms(started_at),
+                error="Live page collection exceeded the configured demo timeout.",
+            )
+        except httpx.HTTPStatusError as exc:
+            return BrightDataAttempt(
+                product="web_unlocker",
+                operation=operation,
+                source_url=source_url,
+                status="failed",
+                latency_ms=_elapsed_ms(started_at),
+                error=f"Bright Data Web Unlocker returned HTTP {exc.response.status_code}.",
+            )
+        except httpx.RequestError as exc:
+            return BrightDataAttempt(
+                product="web_unlocker",
+                operation=operation,
+                source_url=source_url,
+                status="failed",
+                latency_ms=_elapsed_ms(started_at),
+                error=f"Bright Data Web Unlocker request failed: {exc.__class__.__name__}.",
             )
 
 
