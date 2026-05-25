@@ -1,5 +1,5 @@
 def _run_demo_scan(client) -> tuple[str, str]:
-    company_id = "vendor-dataforge-demo"
+    company_id = "vendor-cloudflare-demo"
     client.patch(f"/api/companies/{company_id}/agent", json={"agent_enabled": True})
     tick = client.post("/api/agents/tick")
     assert tick.status_code == 200
@@ -68,4 +68,4 @@ def test_replay_alert_evidence_trace_and_brief_contract(client):
     assert all(item["support_status"] == "verified" for item in evidence_rows)
     assert all(item["quote_match_score"] >= 0.96 for item in evidence_rows)
     assert {trace["source_mode"] for trace in trace_rows} == {"cached"}
-    assert "Vendor Risk Assessment Brief: DataForge" in brief.json()["content"]
+    assert "Vendor Risk Assessment Brief: Cloudflare" in brief.json()["content"]

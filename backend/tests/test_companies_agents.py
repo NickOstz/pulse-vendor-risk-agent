@@ -7,7 +7,7 @@ def test_seeded_companies_and_create_company(client):
     assert response.status_code == 200
     companies = response.json()
     assert len(companies) == 5
-    assert companies[0]["name"] == "DataForge"
+    assert companies[0]["name"] == "Cloudflare"
 
     create_response = client.post(
         "/api/companies",
@@ -26,7 +26,7 @@ def test_seeded_companies_and_create_company(client):
 
 
 def test_enable_agent_makes_demo_vendor_due_now(client):
-    company = next(item for item in client.get("/api/companies").json() if item["id"] == "vendor-dataforge-demo")
+    company = next(item for item in client.get("/api/companies").json() if item["id"] == "vendor-cloudflare-demo")
 
     response = client.patch(f"/api/companies/{company['id']}/agent", json={"agent_enabled": True})
 
@@ -38,4 +38,4 @@ def test_enable_agent_makes_demo_vendor_due_now(client):
     assert datetime.fromisoformat(body["next_agent_run_at"]) <= datetime.now(timezone.utc)
 
     status = client.get("/api/agents/status").json()
-    assert [vendor["id"] for vendor in status["due_vendors"]] == ["vendor-dataforge-demo"]
+    assert [vendor["id"] for vendor in status["due_vendors"]] == ["vendor-cloudflare-demo"]

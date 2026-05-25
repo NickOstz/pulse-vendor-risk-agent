@@ -45,10 +45,10 @@ signal_type: trust_security | adverse_media | pricing_terms
 
 ```json
 {
-  "id": "vendor_uuid",
-  "name": "DataForge",
-  "domain": "example.com",
-  "relationship_type": "database",
+  "id": "vendor-cloudflare-demo",
+  "name": "Cloudflare",
+  "domain": "cloudflare.com",
+  "relationship_type": "edge security",
   "owner": "Security",
   "criticality": "critical",
   "renewal_date": "2026-07-10",

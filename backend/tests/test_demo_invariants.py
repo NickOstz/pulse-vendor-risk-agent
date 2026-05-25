@@ -1,7 +1,11 @@
 from collections.abc import Iterable
+import hashlib
+from pathlib import Path
+
+from app.services.replay_loader import load_replay_payload
 
 
-DEMO_COMPANY_ID = "vendor-dataforge-demo"
+DEMO_COMPANY_ID = "vendor-cloudflare-demo"
 TERMINAL_STATUSES = {"completed", "completed_with_fallback"}
 STAGE_NAMES = ["collect", "extract", "verify", "score", "brief"]
 
@@ -35,6 +39,22 @@ def _completed_scan(client, scan_id: str) -> dict:
 
 def _by_id(rows: Iterable[dict]) -> dict[str, dict]:
     return {row["id"]: row for row in rows}
+
+
+def test_cloudflare_fallback_quotes_and_hashes_match_public_source_excerpts():
+    payload = load_replay_payload()
+    expected_hashes = set(payload["content_hashes"])
+    repository_root = Path(__file__).parents[2]
+
+    for evidence in payload["evidence_items"]:
+        snapshot = repository_root / evidence["snapshot_path"]
+        content = snapshot.read_text(encoding="utf-8")
+        normalized_content = content.replace("\r\n", "\n")
+        content_hash = f"sha256:{hashlib.sha256(normalized_content.encode('utf-8')).hexdigest()}"
+
+        assert evidence["supporting_quote"] in content
+        assert content_hash in expected_hashes
+        assert ".example" not in evidence["source_url"]
 
 
 def test_full_autonomous_lifecycle_polls_all_review_stages(client):
@@ -131,7 +151,7 @@ def test_completed_demo_scan_returns_markdown_and_html_briefs(client):
 
     assert markdown.status_code == 200
     assert markdown.json()["format"] == "markdown"
-    assert "Vendor Risk Assessment Brief: DataForge" in markdown.json()["content"]
+    assert "Vendor Risk Assessment Brief: Cloudflare" in markdown.json()["content"]
     assert html.status_code == 200
     assert html.json()["format"] == "html"
-    assert "<h1>Vendor Risk Assessment Brief: DataForge</h1>" in html.json()["content"]
+    assert "<h1>Vendor Risk Assessment Brief: Cloudflare</h1>" in html.json()["content"]

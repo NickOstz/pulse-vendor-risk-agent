@@ -502,7 +502,7 @@ Related-change cards are rule-based:
 
 The demo should be 3 minutes and centered on one concrete story:
 
-SecurePay is a mid-market fintech with a critical database vendor renewal in 45 days. The GRC lead needs to know whether anything public changed since the last review before procurement signs the renewal.
+SecurePay is a mid-market fintech with Cloudflare as a critical edge-security vendor renewing in 45 days. The GRC lead needs to know which public compliance, commercial-scope, or operational signals require review before procurement signs the renewal.
 
 Before implementation starts, lock:
 

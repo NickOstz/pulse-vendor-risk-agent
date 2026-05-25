@@ -117,11 +117,26 @@ public URL using Markdown output. A successful response is stored in the
 ignored local live-snapshot directory and added to the scan content hashes;
 the operation appears as a `web_unlocker` live trace.
 
-The current evidence payload remains deterministic cached demo evidence while
-the extraction pipeline is built. In this live-proof mode, cached evidence
-source rows are recorded as `source_mode = fallback`, and the completed scan
-is marked `completed_with_fallback`; the UI must not imply cached claims came
-from the live request.
+The selected demo vendor is Cloudflare and the tested live URL is:
+
+```text
+BRIGHTDATA_DEMO_SOURCE_URL=https://www.cloudflare.com/trust-hub/
+```
+
+The curated fallback assessment uses short, source-supported excerpts from
+official public pages:
+
+| Signal | Public source |
+| --- | --- |
+| Compliance posture | `https://www.cloudflare.com/trust-hub/` |
+| Data localization commercial scope | `https://developers.cloudflare.com/data-localization/` |
+| Resolved Log Explorer status incident | `https://www.cloudflarestatus.com/` |
+
+The evidence payload remains deterministic cached Cloudflare evidence while
+live extraction is built. In this live-proof mode, cached evidence source rows
+are recorded as `source_mode = fallback`, and the completed scan is marked
+`completed_with_fallback`; the UI must not imply cached claims came from the
+live request.
 
 When Bright Data credentials are absent, review cycles use replay mode and
 label source rows `cached`.

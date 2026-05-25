@@ -21,14 +21,14 @@ Pulse helps teams catch vendor-risk changes before they become renewal, audit, o
 
 **Narration:**
 
-"Our user is a GRC lead at SecurePay, a mid-market fintech. They have a critical database vendor renewing in 45 days. Before procurement signs, they need to know if anything public changed since the last review."
+"Our user is a GRC lead at SecurePay, a mid-market fintech. Cloudflare is a critical edge-security vendor renewing in 45 days. Before procurement signs, they need to know what public signals need review."
 
 "They do not have an analyst team. They need a fast, defensible assessment with sources."
 
 **Actions:**
 
 1. Highlight SecurePay's vendor watchlist.
-2. Open the critical database vendor.
+2. Open Cloudflare, the critical edge-security vendor.
 3. Point to owner, criticality, renewal date, and agent status.
 
 **Screen:**
@@ -67,6 +67,8 @@ This is a practical business workflow for security, compliance, and procurement 
 **Narration while status progresses:**
 
 "The agent works inside strict limits. It checks targeted public sources, uses Bright Data for live web access, and keeps a visible trail of what it collected."
+
+"Today the live collection checks Cloudflare's Trust Hub. While live extraction is being hardened, the assessment uses verified cached excerpts from the same official Cloudflare source set and labels them as fallback."
 
 **Screen:**
 
