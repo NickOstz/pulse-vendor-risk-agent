@@ -1,0 +1,96 @@
+{
+  "companies": [
+    {
+      "id": "vendor-dataforge-demo",
+      "name": "DataForge",
+      "domain": "dataforge.example",
+      "relationship_type": "database",
+      "owner": "Security",
+      "criticality": "critical",
+      "renewal_date": "2026-07-10",
+      "allow_list": [
+        "https://dataforge.example/trust",
+        "https://dataforge.example/pricing",
+        "https://status.dataforge.example"
+      ],
+      "block_list": [],
+      "agent_enabled": false,
+      "agent_status": "inactive",
+      "review_policy": null,
+      "last_agent_run_at": null,
+      "next_agent_run_at": null
+    },
+    {
+      "id": "vendor-authspring",
+      "name": "AuthSpring",
+      "domain": "authspring.example",
+      "relationship_type": "identity",
+      "owner": "IT",
+      "criticality": "important",
+      "renewal_date": "2026-09-15",
+      "allow_list": [
+        "https://authspring.example/security"
+      ],
+      "block_list": [],
+      "agent_enabled": false,
+      "agent_status": "inactive",
+      "review_policy": null,
+      "last_agent_run_at": null,
+      "next_agent_run_at": null
+    },
+    {
+      "id": "vendor-paybridge",
+      "name": "PayBridge",
+      "domain": "paybridge.example",
+      "relationship_type": "payments",
+      "owner": "Finance",
+      "criticality": "important",
+      "renewal_date": "2026-11-01",
+      "allow_list": [
+        "https://paybridge.example/trust"
+      ],
+      "block_list": [],
+      "agent_enabled": false,
+      "agent_status": "inactive",
+      "review_policy": null,
+      "last_agent_run_at": null,
+      "next_agent_run_at": null
+    },
+    {
+      "id": "vendor-cloudledger",
+      "name": "CloudLedger",
+      "domain": "cloudledger.example",
+      "relationship_type": "finance",
+      "owner": "Accounting",
+      "criticality": "normal",
+      "renewal_date": "2027-01-20",
+      "allow_list": [
+        "https://cloudledger.example/terms"
+      ],
+      "block_list": [],
+      "agent_enabled": false,
+      "agent_status": "inactive",
+      "review_policy": null,
+      "last_agent_run_at": null,
+      "next_agent_run_at": null
+    },
+    {
+      "id": "vendor-metricsnest",
+      "name": "MetricsNest",
+      "domain": "metricsnest.example",
+      "relationship_type": "analytics",
+      "owner": "Product",
+      "criticality": "normal",
+      "renewal_date": "2026-12-05",
+      "allow_list": [
+        "https://metricsnest.example/privacy"
+      ],
+      "block_list": [],
+      "agent_enabled": false,
+      "agent_status": "inactive",
+      "review_policy": null,
+      "last_agent_run_at": null,
+      "next_agent_run_at": null
+    }
+  ]
+}
