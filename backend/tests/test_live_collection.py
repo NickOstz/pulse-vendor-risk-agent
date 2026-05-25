@@ -44,7 +44,7 @@ def live_client(tmp_path: Path) -> TestClient:
 
 
 def _start_live_scan(client: TestClient) -> str:
-    company_id = "vendor-dataforge-demo"
+    company_id = "vendor-cloudflare-demo"
     response = client.patch(f"/api/companies/{company_id}/agent", json={"agent_enabled": True})
     assert response.status_code == 200
     tick = client.post("/api/agents/tick")
@@ -186,7 +186,7 @@ def test_timed_out_live_attempt_is_visible_before_fallback_evidence(monkeypatch,
 
     first_poll = live_client.get(f"/api/scans/{scan_id}").json()
     traces = live_client.get(f"/api/brightdata/traces?scan_id={scan_id}").json()
-    evidence = live_client.get(f"/api/companies/vendor-dataforge-demo/evidence?scan_id={scan_id}").json()
+    evidence = live_client.get(f"/api/companies/vendor-cloudflare-demo/evidence?scan_id={scan_id}").json()
 
     assert first_poll["status"] == "running"
     assert first_poll["current_stage"] == "collect"
@@ -195,7 +195,7 @@ def test_timed_out_live_attempt_is_visible_before_fallback_evidence(monkeypatch,
     assert evidence == []
 
     terminal = _poll_until_terminal(live_client, scan_id)
-    evidence = live_client.get(f"/api/companies/vendor-dataforge-demo/evidence?scan_id={scan_id}").json()
+    evidence = live_client.get(f"/api/companies/vendor-cloudflare-demo/evidence?scan_id={scan_id}").json()
 
     assert terminal["status"] == "completed_with_fallback"
     assert evidence

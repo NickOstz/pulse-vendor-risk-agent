@@ -14,11 +14,11 @@ def _seed_path(name: str) -> Path:
 
 
 def replay_data_available() -> bool:
-    return _seed_path("companies.json").exists() and _seed_path("replay_dataforge_review.json").exists()
+    return _seed_path("companies.json").exists() and _seed_path("replay_cloudflare_review.json").exists()
 
 
 def load_replay_payload() -> dict:
-    return json.loads(_seed_path("replay_dataforge_review.json").read_text(encoding="utf-8"))
+    return json.loads(_seed_path("replay_cloudflare_review.json").read_text(encoding="utf-8"))
 
 
 def seed_companies(session: Session) -> None:

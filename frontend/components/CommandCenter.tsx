@@ -510,7 +510,7 @@ function toErrorMessage(error: unknown) {
 
 function pickInitialCompany(companies: Company[]) {
   return (
-    companies.find((company) => company.name.toLowerCase().includes("dataforge")) ??
+    companies.find((company) => company.name.toLowerCase().includes("cloudflare")) ??
     [...companies].sort((a, b) => {
       const criticalityRank = { critical: 0, important: 1, normal: 2 };
       return (

@@ -417,7 +417,7 @@ The demo should be 3 minutes and centered on one concrete story.
 
 ### Demo Narrative
 
-SecurePay is a mid-market fintech with a critical database vendor renewal in 45 days. The GRC lead needs to know whether anything public changed since the last review before procurement signs the renewal.
+SecurePay is a mid-market fintech with Cloudflare as a critical edge-security vendor renewing in 45 days. The GRC lead needs to know which public compliance, commercial-scope, or operational signals require review before procurement signs the renewal.
 
 Before implementation starts, lock:
 
@@ -430,7 +430,7 @@ Before implementation starts, lock:
 ### Flow
 
 1. **Hook, 20 seconds:** "Vendor reviews are annual, but vendor posture changes any week. Pulse is an autonomous vendor risk agent that tells a lean GRC team what changed before renewal, with evidence."
-2. **Command Center, 25 seconds:** Show SecurePay's vendor watchlist sorted by renewal urgency, risk delta, and agent status. Open the critical database vendor.
+2. **Command Center, 25 seconds:** Show SecurePay's vendor watchlist sorted by renewal urgency, risk delta, and agent status. Open Cloudflare, the critical edge-security vendor.
 3. **Enable Agent, 30 seconds:** Toggle **Vendor Risk Agent** from Off to On. The panel shows: monitoring mode `autonomous`, review policy `critical vendor, renewal within 60 days`, next review `due now`.
 4. **Autonomous Review Cycle, 35 seconds:** Without clicking a scan button, the status strip changes to Collect, Extract, Verify, Score, Brief. The UI polls review-cycle status rather than using WebSockets.
 5. **Bright Data Proof, 35 seconds:** Open Source Explorer. Show the live Bright Data fetch for one known-good page, plus trace rows for SERP, scrape, fallback status, latency, captured timestamp, source mode, and extracted evidence count.

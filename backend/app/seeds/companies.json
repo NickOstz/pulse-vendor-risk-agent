@@ -1,17 +1,17 @@
 {
   "companies": [
     {
-      "id": "vendor-dataforge-demo",
-      "name": "DataForge",
-      "domain": "dataforge.example",
-      "relationship_type": "database",
+      "id": "vendor-cloudflare-demo",
+      "name": "Cloudflare",
+      "domain": "cloudflare.com",
+      "relationship_type": "edge security",
       "owner": "Security",
       "criticality": "critical",
       "renewal_date": "2026-07-10",
       "allow_list": [
-        "https://dataforge.example/trust",
-        "https://dataforge.example/pricing",
-        "https://status.dataforge.example"
+        "https://www.cloudflare.com/trust-hub/",
+        "https://developers.cloudflare.com/data-localization/",
+        "https://www.cloudflarestatus.com/"
       ],
       "block_list": [],
       "agent_enabled": false,
@@ -21,15 +21,15 @@
       "next_agent_run_at": null
     },
     {
-      "id": "vendor-authspring",
-      "name": "AuthSpring",
-      "domain": "authspring.example",
+      "id": "vendor-auth0",
+      "name": "Auth0",
+      "domain": "auth0.com",
       "relationship_type": "identity",
       "owner": "IT",
       "criticality": "important",
       "renewal_date": "2026-09-15",
       "allow_list": [
-        "https://authspring.example/security"
+        "https://auth0.com/docs/security"
       ],
       "block_list": [],
       "agent_enabled": false,
@@ -39,15 +39,15 @@
       "next_agent_run_at": null
     },
     {
-      "id": "vendor-paybridge",
-      "name": "PayBridge",
-      "domain": "paybridge.example",
+      "id": "vendor-stripe",
+      "name": "Stripe",
+      "domain": "stripe.com",
       "relationship_type": "payments",
       "owner": "Finance",
       "criticality": "important",
       "renewal_date": "2026-11-01",
       "allow_list": [
-        "https://paybridge.example/trust"
+        "https://docs.stripe.com/security/stripe"
       ],
       "block_list": [],
       "agent_enabled": false,
@@ -57,15 +57,15 @@
       "next_agent_run_at": null
     },
     {
-      "id": "vendor-cloudledger",
-      "name": "CloudLedger",
-      "domain": "cloudledger.example",
-      "relationship_type": "finance",
-      "owner": "Accounting",
+      "id": "vendor-snowflake",
+      "name": "Snowflake",
+      "domain": "snowflake.com",
+      "relationship_type": "data warehouse",
+      "owner": "Data",
       "criticality": "normal",
       "renewal_date": "2027-01-20",
       "allow_list": [
-        "https://cloudledger.example/terms"
+        "https://www.snowflake.com/en/why-snowflake/snowflake-security-hub/"
       ],
       "block_list": [],
       "agent_enabled": false,
@@ -75,15 +75,15 @@
       "next_agent_run_at": null
     },
     {
-      "id": "vendor-metricsnest",
-      "name": "MetricsNest",
-      "domain": "metricsnest.example",
+      "id": "vendor-datadog",
+      "name": "Datadog",
+      "domain": "datadoghq.com",
       "relationship_type": "analytics",
       "owner": "Product",
       "criticality": "normal",
       "renewal_date": "2026-12-05",
       "allow_list": [
-        "https://metricsnest.example/privacy"
+        "https://www.datadoghq.com/security/"
       ],
       "block_list": [],
       "agent_enabled": false,
