@@ -55,10 +55,12 @@ Non-negotiables:
 
 ## Upstream Integrations
 
-Two MIT-licensed upstream resources are pinned as Git submodules:
+Three upstream reference resources are pinned as Git submodules:
 
 - `vendor/brightdata-hack-pack`: examples and Bright Data hackathon references.
 - `vendor/brightdata-skills`: Bright Data skill/reference material for agents.
+- `vendor/claude-bright-data-research-agent`: mentor-provided Python reference
+  for SERP, Web Unlocker, and visible activity events.
 
 They are references, not application runtime dependencies. The active product
 must keep collection and trace persistence inside the FastAPI backend. See
@@ -83,4 +85,5 @@ for the two teammate lanes are in
 ## License
 
 Pulse is licensed under the [MIT License](./LICENSE). The vendored submodules
-retain their own MIT license files and upstream history.
+retain their upstream history and their upstream license notices where
+provided.

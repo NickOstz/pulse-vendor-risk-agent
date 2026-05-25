@@ -18,6 +18,25 @@ signals, and returns a review-ready vendor risk assessment brief.
    `docs/UPSTREAM_INTEGRATIONS.md` and the relevant reference files under
    `vendor/`.
 
+## Engineering Discipline
+
+These project rules adapt the useful parts of the
+[Karpathy-inspired coding guidelines](https://github.com/multica-ai/andrej-karpathy-skills/blob/main/CLAUDE.md)
+to Pulse's hackathon constraints:
+
+- Surface material assumptions before changing contracts, choosing live
+  sources, or changing the demo path. Ask only when the answer cannot be
+  safely discovered from the repository or agreed architecture.
+- Prefer the smallest implementation that proves the current demo outcome.
+  Do not add speculative product pages, agent frameworks, provider
+  abstractions, or configuration systems.
+- Keep changes surgical: edit the files required for your lane, preserve
+  established style, and remove only unused code introduced by your change.
+- Define verification before implementation on non-trivial work. A useful
+  task ends with a visible behavior or focused check, such as an endpoint
+  test, a quote-match test, a frontend typecheck, or an end-to-end replay
+  pass.
+
 ## Architecture Boundaries
 
 - `frontend/` is Next.js, React, TypeScript, and Tailwind. It talks to the
@@ -25,11 +44,24 @@ signals, and returns a review-ready vendor risk assessment brief.
 - `backend/` is FastAPI, SQLite, Pydantic, and RapidFuzz. It owns scheduler
   behavior, Bright Data calls, trace storage, evidence verification, scoring,
   replay/fallback behavior, and brief generation.
-- `vendor/brightdata-hack-pack` and `vendor/brightdata-skills` are pinned
-  upstream submodules. Treat them as read-only reference material. Never
-  implement Pulse by editing a submodule.
+- `vendor/brightdata-hack-pack`, `vendor/brightdata-skills`, and
+  `vendor/claude-bright-data-research-agent` are pinned upstream submodules.
+  Treat them as read-only reference material. Never implement Pulse by editing
+  a submodule.
 - Keep the active product to three surfaces: Command Center, Evidence Drawer /
   Source Explorer, and Vendor Risk Assessment Brief.
+
+## Mentor Template Boundary
+
+The mentor research-agent template is useful for Bright Data request examples
+and progress-event ideas. It is not the Pulse runtime foundation:
+
+- Reuse the server-side SERP and Web Unlocker request concepts through the
+  FastAPI Bright Data wrapper, with Pulse trace records and budgets.
+- Reuse the idea of visible collection progress through Pulse's scan status
+  and Source Explorer UI.
+- Do not port its Flask app, broad startup-report prompt, unconstrained source
+  selection, or Anthropic-specific tool-use loop into the MVP.
 
 ## Product Invariants
 

@@ -70,6 +70,9 @@ scheduler/tick/status behavior, and backend tests. The integration lead owns
 live Bright Data, extraction, quote verification, scoring, related-change,
 and brief-rendering service implementations; define clean call boundaries or
 temporary replay adapters for those instead of implementing over them.
+The mentor template under `vendor/claude-bright-data-research-agent` is
+read-only reference material for response/trace shapes only; do not port its
+Flask or Claude runtime into Pulse.
 
 Implement in this order:
 1. Scaffold backend/ with FastAPI, SQLModel or SQLAlchemy plus Pydantic, test
