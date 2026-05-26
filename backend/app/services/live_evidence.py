@@ -1,5 +1,3 @@
-from urllib.parse import urlparse
-
 from pydantic import BaseModel, Field
 
 from app.config import get_settings
@@ -21,18 +19,11 @@ class LiveEvidenceCandidate(BaseModel):
 CLOUDFLARE_COMPLIANCE_QUOTE = (
     "Explore our posture around ISO 27001, ISO 27701, PCI DSS, SOC 2 Type II, and others"
 )
+CLOUDFLARE_TRUST_HUB_URL = "https://www.cloudflare.com/trust-hub/"
 
 
 def is_supported_live_source(company: Company, source_url: str) -> bool:
-    parsed_url = urlparse(source_url)
-    return (
-        company.domain == "cloudflare.com"
-        and parsed_url.scheme == "https"
-        and parsed_url.hostname in {company.domain, f"www.{company.domain}"}
-        and parsed_url.path.rstrip("/") == "/trust-hub"
-        and not parsed_url.query
-        and not parsed_url.fragment
-    )
+    return company.domain == "cloudflare.com" and source_url == CLOUDFLARE_TRUST_HUB_URL
 
 
 def extract_live_cloudflare_trust_evidence(company: Company, scan: Scan) -> EvidenceItem | None:

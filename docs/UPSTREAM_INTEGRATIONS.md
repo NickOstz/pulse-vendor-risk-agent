@@ -117,7 +117,7 @@ public URL using Markdown output. A successful response is stored in the
 ignored local live-snapshot directory and added to the scan content hashes;
 the operation appears as a `web_unlocker` live trace.
 
-The selected demo vendor is Cloudflare and the tested live URL is:
+The selected demo vendor is Cloudflare, and the only approved live URL is:
 
 ```text
 BRIGHTDATA_DEMO_SOURCE_URL=https://www.cloudflare.com/trust-hub/

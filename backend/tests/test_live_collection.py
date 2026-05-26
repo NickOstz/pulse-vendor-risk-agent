@@ -204,14 +204,22 @@ def test_unverified_live_cloudflare_quote_cannot_create_live_alert(monkeypatch, 
     assert not any(alert["title"] == "Live compliance posture captured for renewal review" for alert in alerts)
 
 
-def test_unapproved_configured_url_is_not_requested_or_scored(monkeypatch, live_client):
+@pytest.mark.parametrize(
+    "source_url",
+    [
+        "https://lookalike.example/?next=https://www.cloudflare.com/trust-hub/",
+        "https://cloudflare.com/trust-hub/",
+        "https://www.cloudflare.com/trust-hub",
+    ],
+)
+def test_unapproved_configured_url_is_not_requested_or_scored(monkeypatch, live_client, source_url):
     captured_zones: list[str] = []
 
     def fake_post(url, *, headers, json, timeout):
         captured_zones.append(json["zone"])
         return httpx.Response(200, request=httpx.Request("POST", url), json={"organic": []})
 
-    os.environ["BRIGHTDATA_DEMO_SOURCE_URL"] = "https://lookalike.example/?next=https://www.cloudflare.com/trust-hub/"
+    os.environ["BRIGHTDATA_DEMO_SOURCE_URL"] = source_url
     from app.config import get_settings
 
     get_settings.cache_clear()
