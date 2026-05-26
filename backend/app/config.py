@@ -7,6 +7,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     database_url: str = "sqlite:///./pulse.db"
+    cors_allowed_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
     brightdata_api_key: str | None = None
     brightdata_serp_endpoint: str | None = None
     brightdata_web_unlocker_endpoint: str | None = None
@@ -52,6 +53,14 @@ class Settings(BaseSettings):
     @property
     def live_snapshot_dir(self) -> Path:
         return self.brightdata_live_snapshot_dir or Path(__file__).parent / "snapshots" / "live"
+
+    @property
+    def allowed_origins(self) -> list[str]:
+        return [
+            origin.strip()
+            for origin in self.cors_allowed_origins.split(",")
+            if origin.strip()
+        ]
 
 
 @lru_cache
