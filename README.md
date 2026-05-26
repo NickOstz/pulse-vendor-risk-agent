@@ -84,6 +84,27 @@ the approved live Trust Hub source using DeepSeek JSON output. Pulse validates
 the result with Pydantic, retries malformed output once, and enforces the
 20-call review budget; the default rehearsal remains deterministic.
 
+Run the five-page structured extraction baseline from bounded official
+Cloudflare excerpts:
+
+```powershell
+cd backend
+.\.venv\Scripts\python -m scripts.evaluate_extraction
+```
+
+This recorded baseline checks fixture/schema/quote-verification integrity. To
+measure the configured model against the same quality gate, set
+`DEEPSEEK_API_KEY` locally and run:
+
+```powershell
+cd backend
+.\.venv\Scripts\python -m scripts.evaluate_extraction --mode deepseek
+```
+
+The quality gate requires at least four of five pages to yield verified
+evidence with a quote-match score of at least `0.8`; a failed run reports the
+two best-performing signal templates.
+
 ## Upstream Integrations
 
 Three upstream reference resources are pinned as Git submodules:
