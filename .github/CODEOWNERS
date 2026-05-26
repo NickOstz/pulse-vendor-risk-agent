@@ -1,0 +1,29 @@
+# Pulse review ownership
+
+* @NickOstz
+
+# Lane ownership
+/frontend/ @axelray-dev @NickOstz
+/backend/ @NickOstz @axelray-dev
+
+# Integration-owned contracts and services
+/docs/API_CONTRACT.md @NickOstz
+/docs/UPSTREAM_INTEGRATIONS.md @NickOstz
+/docs/TEAM_WORKFLOW.md @NickOstz
+/backend/app/models.py @NickOstz
+/backend/app/schemas.py @NickOstz
+/backend/app/services/brightdata_client.py @NickOstz
+/backend/app/services/live_collection.py @NickOstz
+/backend/app/services/live_evidence.py @NickOstz
+/backend/app/services/replay_loader.py @NickOstz
+/backend/app/services/extraction.py @NickOstz
+/backend/app/services/extraction_evaluation.py @NickOstz
+/backend/app/services/verification.py @NickOstz
+/backend/app/services/scoring.py @NickOstz
+/backend/app/services/brief_renderer.py @NickOstz
+/frontend/lib/api.ts @NickOstz
+/frontend/lib/types.ts @NickOstz
+
+# Repo process and pinned upstream references
+/.github/ @NickOstz
+/vendor/ @NickOstz

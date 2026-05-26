@@ -18,6 +18,12 @@ Describe the single demo-visible or foundation result delivered by this PR.
 
 Contract notes:
 
+## Automated Routing
+
+Pulse PR triage will label this PR, request reviewers, and post a review checklist based on changed files.
+
+Routing override or reviewer note:
+
 ## Verification
 
 Commands or checks run:
