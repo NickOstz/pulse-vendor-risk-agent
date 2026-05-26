@@ -199,7 +199,7 @@ function BriefMetric({ label, value }: { label: string; value: string }) {
       <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-zinc-500">
         {label}
       </p>
-      <p className="mt-1 truncate text-sm font-semibold text-ink-950">{value}</p>
+      <p className="mt-1 text-sm font-semibold leading-5 text-ink-950">{value}</p>
     </div>
   );
 }
