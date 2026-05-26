@@ -1,3 +1,5 @@
+import json
+
 from app.config import get_settings
 from app.models import Company, EvidenceItem, Scan, utc_now
 from app.services.extraction import DeepSeekExtractionClient, ExtractedEvidence, evidence_from_extraction, extract_source
@@ -10,7 +12,24 @@ CLOUDFLARE_TRUST_HUB_URL = "https://www.cloudflare.com/trust-hub/"
 
 
 def is_supported_live_source(company: Company, source_url: str) -> bool:
-    return company.domain == "cloudflare.com" and source_url == CLOUDFLARE_TRUST_HUB_URL
+    return (
+        company.domain == "cloudflare.com"
+        and source_url == CLOUDFLARE_TRUST_HUB_URL
+        and source_rules_allow(company, source_url)
+    )
+
+
+def source_rules_allow(company: Company, source_url: str) -> bool:
+    allow_list = _read_rules(company.allow_list_json)
+    block_list = _read_rules(company.block_list_json)
+    return source_url not in block_list and (not allow_list or source_url in allow_list)
+
+
+def _read_rules(serialized_rules: str | None) -> list[str]:
+    if not serialized_rules:
+        return []
+    parsed = json.loads(serialized_rules)
+    return parsed if isinstance(parsed, list) else []
 
 
 def extract_live_cloudflare_trust_evidence(company: Company, scan: Scan) -> EvidenceItem | None:

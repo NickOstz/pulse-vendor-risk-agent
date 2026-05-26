@@ -340,6 +340,44 @@ def test_unapproved_configured_url_is_not_requested_or_scored(monkeypatch, live_
     assert not any(alert["title"] == "Live compliance posture captured for renewal review" for alert in alerts)
 
 
+def test_blocked_configured_source_is_not_requested_or_scored(monkeypatch, live_client):
+    captured_zones: list[str] = []
+    source_url = "https://www.cloudflare.com/trust-hub/"
+    allowed_sources = [
+        source_url,
+        "https://developers.cloudflare.com/data-localization/",
+        "https://www.cloudflarestatus.com/",
+    ]
+
+    def fake_post(url, *, headers, json, timeout):
+        captured_zones.append(json["zone"])
+        return httpx.Response(200, request=httpx.Request("POST", url), json={"organic": []})
+
+    rules = live_client.patch(
+        "/api/companies/vendor-cloudflare-demo/source-rules",
+        json={"allow_list": allowed_sources, "block_list": [source_url]},
+    )
+    assert rules.status_code == 200
+    monkeypatch.setattr("app.services.brightdata_client.httpx.post", fake_post)
+    scan_id = _start_live_scan(live_client)
+
+    terminal = _poll_until_terminal(live_client, scan_id)
+    alerts = live_client.get(f"/api/alerts?company_id=vendor-cloudflare-demo&scan_id={scan_id}").json()
+    traces = live_client.get(f"/api/brightdata/traces?scan_id={scan_id}").json()
+    evidence = live_client.get(f"/api/companies/vendor-cloudflare-demo/evidence?scan_id={scan_id}").json()
+
+    assert terminal["metrics"]["urls_scraped"] == 0
+    assert terminal["metrics"]["source_count"] == 2
+    assert terminal["metrics"]["evidence_count"] == 2
+    assert terminal["metrics"]["verified_count"] == 2
+    assert captured_zones == ["test-serp-zone"]
+    assert not any(trace["source_mode"] == "live" and trace["product"] == "web_unlocker" for trace in traces)
+    assert not any(trace["source_url"] == source_url for trace in traces)
+    assert not any(item["source_url"] == source_url for item in evidence)
+    assert not any(alert["title"] == "Live compliance posture captured for renewal review" for alert in alerts)
+    assert not any(alert["alert_type"] == "related_change" for alert in alerts)
+
+
 def test_empty_unlocker_response_is_not_saved_as_live_source(monkeypatch, live_client):
     def fake_post(url, *, headers, json, timeout):
         if json["zone"] == "test-unlocker-zone":

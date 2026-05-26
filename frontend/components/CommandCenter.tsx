@@ -17,6 +17,7 @@ import { DemoHealthIndicator } from "@/components/DemoHealthIndicator";
 import { EvidenceDrawer } from "@/components/EvidenceDrawer";
 import { ReviewStatusStrip } from "@/components/ReviewStatusStrip";
 import { RiskAssessmentBrief } from "@/components/RiskAssessmentBrief";
+import { SourceRulesPanel } from "@/components/SourceRulesPanel";
 import { VendorCard } from "@/components/VendorCard";
 import { useScanPolling } from "@/hooks/useScanPolling";
 import {
@@ -30,6 +31,7 @@ import {
   listEvidence,
   runAgentTick,
   setVendorRiskAgent,
+  updateCompanySourceRules,
   updateAlertReviewStatus,
   usesFixtureData,
 } from "@/lib/api";
@@ -358,6 +360,19 @@ export function CommandCenter() {
     }
   }
 
+  async function handleSaveSourceRules(allowList: string[], blockList: string[]) {
+    if (!selectedCompany) return;
+    const updatedCompany = await updateCompanySourceRules(selectedCompany.id, {
+      allow_list: allowList,
+      block_list: blockList,
+    });
+    setCompanies((currentCompanies) =>
+      currentCompanies.map((company) =>
+        company.id === updatedCompany.id ? updatedCompany : company,
+      ),
+    );
+  }
+
   if (initialLoading) {
     return (
       <main className="flex min-h-[100dvh] items-center justify-center p-6">
@@ -628,6 +643,11 @@ export function CommandCenter() {
                 traces={traces}
               />
             </div>
+            <SourceRulesPanel
+              key={selectedCompany.id}
+              company={selectedCompany}
+              onSave={handleSaveSourceRules}
+            />
             {actionError ? (
               <StatePanel
                 tone="danger"

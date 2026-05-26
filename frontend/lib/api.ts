@@ -18,6 +18,7 @@ import type {
   EvidenceItem,
   HealthResponse,
   ScanStatusResponse,
+  SourceRulesUpdateInput,
   VendorReviewBrief,
 } from "@/lib/types";
 
@@ -132,6 +133,8 @@ export async function createCompany(
     owner: normalizedPayload.owner,
     criticality: normalizedPayload.criticality,
     renewal_date: normalizedPayload.renewal_date,
+    allow_list: normalizedPayload.allow_list ?? [],
+    block_list: normalizedPayload.block_list ?? [],
     agent_enabled: false,
     agent_status: "inactive",
     review_policy: null,
@@ -141,6 +144,34 @@ export async function createCompany(
 
   companies = [...companies, createdCompany];
   return createdCompany;
+}
+
+export async function updateCompanySourceRules(
+  companyId: string,
+  payload: SourceRulesUpdateInput,
+): Promise<Company> {
+  const normalizedPayload = {
+    allow_list: normalizeRules(payload.allow_list),
+    block_list: normalizeRules(payload.block_list),
+  };
+  const live = await requestJson<Company>(
+    `/api/companies/${companyId}/source-rules`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(normalizedPayload),
+    },
+  );
+
+  if (live) return live;
+
+  companies = companies.map((company) =>
+    company.id === companyId ? { ...company, ...normalizedPayload } : company,
+  );
+  const updatedCompany = companies.find((company) => company.id === companyId);
+  if (!updatedCompany) {
+    throw new Error(`Unknown company: ${companyId}`);
+  }
+  return updatedCompany;
 }
 
 export async function setVendorRiskAgent(
@@ -467,4 +498,8 @@ async function readErrorDetail(response: Response): Promise<string> {
   }
 
   return "";
+}
+
+function normalizeRules(rules: string[]) {
+  return Array.from(new Set(rules.map((rule) => rule.trim()).filter(Boolean)));
 }
