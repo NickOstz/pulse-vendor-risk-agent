@@ -4,7 +4,7 @@ from sqlmodel import Session, select
 from app.db import get_session
 from app.models import Company, utc_now
 from app.schemas import AgentToggle, CompanyCreate, CompanyRead, SourceRulesUpdate
-from app.services.serializers import company_to_read, dump_json, policy_for_company
+from app.services.serializers import apply_agent_state, company_to_read, dump_json
 
 router = APIRouter(prefix="/api/companies", tags=["companies"])
 
@@ -59,17 +59,7 @@ def toggle_agent(company_id: str, payload: AgentToggle, session: Session = Depen
     company = session.get(Company, company_id)
     if company is None:
         raise HTTPException(status_code=404, detail="company not found")
-    company.agent_enabled = payload.agent_enabled
-    company.updated_at = utc_now()
-    if payload.agent_enabled:
-        review_policy, next_run_at = policy_for_company(company)
-        company.agent_status = "active"
-        company.review_policy = review_policy
-        company.next_agent_run_at = next_run_at
-    else:
-        company.agent_status = "inactive"
-        company.review_policy = None
-        company.next_agent_run_at = None
+    apply_agent_state(company, payload.agent_enabled)
     session.add(company)
     session.commit()
     session.refresh(company)

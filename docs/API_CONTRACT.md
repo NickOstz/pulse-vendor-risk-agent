@@ -30,6 +30,7 @@ signal_type: trust_security | adverse_media | pricing_terms
 | `POST /api/companies` | Optional add form | Validate exact domain, owner, criticality, renewal date, and optional source rules |
 | `PATCH /api/companies/{id}/source-rules` | Source rules panel | Store vendor allow/block source rules for future reviews |
 | `PATCH /api/companies/{id}/agent` | Agent toggle | Enable/disable; demo vendor becomes due now |
+| `PATCH /api/agents/watchlist` | Watchlist command | Enable/disable every vendor and assign each vendor's review policy |
 | `GET /api/agents/status` | Status panel | Return active scans and due vendors |
 | `POST /api/agents/tick` | Demo recovery | Run the same due-vendor scheduling check |
 | `POST /api/scans/run` | Hidden recovery | Start explicit fallback-only cycle |

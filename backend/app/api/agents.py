@@ -1,12 +1,23 @@
 from fastapi import APIRouter, Depends
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from app.db import get_session
-from app.schemas import ActiveRun, AgentStatusRead, AgentTickRead
+from app.models import Company
+from app.schemas import ActiveRun, AgentStatusRead, AgentTickRead, AgentToggle, CompanyRead
 from app.services.agent_scheduler import scheduler
-from app.services.serializers import company_to_read
+from app.services.serializers import apply_agent_state, company_to_read
 
 router = APIRouter(prefix="/api/agents", tags=["agents"])
+
+
+@router.patch("/watchlist", response_model=list[CompanyRead])
+def toggle_watchlist(payload: AgentToggle, session: Session = Depends(get_session)) -> list[CompanyRead]:
+    companies = session.exec(select(Company).order_by(Company.renewal_date, Company.name)).all()
+    for company in companies:
+        apply_agent_state(company, payload.agent_enabled)
+        session.add(company)
+    session.commit()
+    return [company_to_read(company) for company in companies]
 
 
 @router.get("/status", response_model=AgentStatusRead)
