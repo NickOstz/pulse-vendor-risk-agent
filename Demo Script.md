@@ -193,7 +193,7 @@ that high-priority alerts link only to verified evidence, checks the
 related-change card and both brief formats, then removes its temporary state.
 
 ```powershell
-cd D:\Brightdata\backend
+cd backend
 .\.venv\Scripts\python -m scripts.rehearse_demo
 ```
 
@@ -203,7 +203,7 @@ workflow, including a discovery trace and an approved Trust Hub capture
 attempt, and stores any captured snapshot in a temporary directory:
 
 ```powershell
-cd D:\Brightdata\backend
+cd backend
 .\.venv\Scripts\python -m scripts.rehearse_demo --mode live_with_fallback
 ```
 
