@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { DownloadSimple, FileText } from "@phosphor-icons/react";
 import { Badge } from "@/components/Badge";
 import { SourceModeBadge } from "@/components/Badge";
@@ -22,6 +23,7 @@ export function RiskAssessmentBrief({
   loading,
   error,
   companyName,
+  onRequestHtml,
 }: {
   brief: VendorReviewBrief | null;
   scan: ScanStatusResponse | null;
@@ -29,27 +31,48 @@ export function RiskAssessmentBrief({
   loading: boolean;
   error: string | null;
   companyName: string;
+  onRequestHtml: () => Promise<VendorReviewBrief>;
 }) {
   const sections = parseBriefSections(brief?.content ?? "");
   const sourceSummary = summarizeSourceModes(traces, scan?.mode);
   const sourceModes = getSourceModes(traces);
-  const canExportMarkdown = Boolean(brief?.content && brief.format === "markdown");
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [htmlExporting, setHtmlExporting] = useState(false);
 
-  function handleExport() {
-    if (!brief?.content) return;
+  function downloadBrief(exportBrief: VendorReviewBrief) {
+    if (!exportBrief.content) return;
 
-    const blob = new Blob([brief.content], {
-      type: brief.format === "html" ? "text/html;charset=utf-8" : "text/markdown;charset=utf-8",
+    const blob = new Blob([exportBrief.content], {
+      type:
+        exportBrief.format === "html"
+          ? "text/html;charset=utf-8"
+          : "text/markdown;charset=utf-8",
     });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
-    const extension = brief.format === "html" ? "html" : "md";
+    const extension = exportBrief.format === "html" ? "html" : "md";
     anchor.href = url;
     anchor.download = `${slugify(companyName)}-vendor-risk-brief.${extension}`;
     document.body.append(anchor);
     anchor.click();
     anchor.remove();
     URL.revokeObjectURL(url);
+  }
+
+  async function handleHtmlExport() {
+    setHtmlExporting(true);
+    setExportError(null);
+    try {
+      downloadBrief(await onRequestHtml());
+    } catch (requestError) {
+      setExportError(
+        requestError instanceof Error
+          ? requestError.message
+          : "HTML brief export failed.",
+      );
+    } finally {
+      setHtmlExporting(false);
+    }
   }
 
   return (
@@ -68,16 +91,30 @@ export function RiskAssessmentBrief({
               : "Generated after verified evidence reaches the brief stage."}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={handleExport}
-          disabled={!brief?.content}
-          className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-zinc-200 bg-white text-zinc-600 transition hover:border-zinc-300 active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-40"
-          aria-label="Export brief"
-          title={canExportMarkdown ? "Download Markdown brief" : "Download current brief"}
-        >
-          <DownloadSimple size={16} weight="bold" />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => brief && downloadBrief(brief)}
+            disabled={!brief?.content}
+            className="inline-flex h-9 items-center gap-1.5 rounded-md border border-zinc-200 bg-white px-2.5 text-xs font-medium text-zinc-600 transition hover:border-zinc-300 active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-40"
+            aria-label="Export Markdown brief"
+            title="Download Markdown brief"
+          >
+            <DownloadSimple size={14} weight="bold" />
+            MD
+          </button>
+          <button
+            type="button"
+            onClick={() => void handleHtmlExport()}
+            disabled={!brief?.content || htmlExporting}
+            className="inline-flex h-9 items-center gap-1.5 rounded-md border border-zinc-200 bg-white px-2.5 text-xs font-medium text-zinc-600 transition hover:border-zinc-300 active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-40"
+            aria-label="Export HTML brief"
+            title="Download HTML brief"
+          >
+            <DownloadSimple size={14} weight="bold" />
+            {htmlExporting ? "..." : "HTML"}
+          </button>
+        </div>
       </div>
 
       {loading ? (
@@ -101,23 +138,32 @@ export function RiskAssessmentBrief({
           <p className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs leading-5 text-zinc-600">
             {sourceSummary.detail}
           </p>
+          {exportError ? (
+            <p className="rounded-md border border-rose-100 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+              {exportError}
+            </p>
+          ) : null}
           {sections.map((section) => (
             <article key={section.title} className="border-t border-zinc-100 pt-4">
               <h3 className="text-xs font-semibold uppercase tracking-[0.08em] text-zinc-500">
                 {section.title}
               </h3>
-              <div className="mt-2 space-y-2 text-sm leading-6 text-ink-900">
-                {section.lines.map((line) =>
-                  line.startsWith("- ") ? (
-                    <p key={line} className="pl-3 text-zinc-700">
-                      <span className="mr-2 text-signal-700">-</span>{" "}
-                      {line.slice(2)}
-                    </p>
-                  ) : (
-                    <p key={line}>{line}</p>
-                  ),
-                )}
-              </div>
+              {isMarkdownTable(section.lines) ? (
+                <BriefEvidenceTable lines={section.lines} />
+              ) : (
+                <div className="mt-2 space-y-2 text-sm leading-6 text-ink-900">
+                  {section.lines.map((line) =>
+                    line.startsWith("- ") ? (
+                      <p key={line} className="pl-3 text-zinc-700">
+                        <span className="mr-2 text-signal-700">-</span>{" "}
+                        {line.slice(2)}
+                      </p>
+                    ) : (
+                      <p key={line}>{line}</p>
+                    ),
+                  )}
+                </div>
+              )}
             </article>
           ))}
         </div>
@@ -158,6 +204,54 @@ function parseBriefSections(markdown: string) {
 
       return sections;
     }, []);
+}
+
+function isMarkdownTable(lines: string[]) {
+  return (
+    lines.length >= 2 &&
+    lines[0].trim().startsWith("|") &&
+    /^\|(?:\s*:?-+:?\s*\|)+$/.test(lines[1].trim())
+  );
+}
+
+function BriefEvidenceTable({ lines }: { lines: string[] }) {
+  const headings = parseTableRow(lines[0]);
+  const rows = lines.slice(2).map(parseTableRow);
+
+  return (
+    <div className="mt-3 overflow-x-auto rounded-md border border-zinc-200">
+      <table className="min-w-full text-left text-xs">
+        <thead className="bg-zinc-50 text-zinc-500">
+          <tr>
+            {headings.map((heading) => (
+              <th key={heading} className="px-3 py-2 font-medium">
+                {heading}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-zinc-100">
+          {rows.map((row, rowIndex) => (
+            <tr key={row.join("|") || rowIndex}>
+              {row.map((cell, cellIndex) => (
+                <td key={`${cellIndex}-${cell}`} className="px-3 py-3 align-top text-zinc-700">
+                  {cell}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function parseTableRow(line: string) {
+  return line
+    .trim()
+    .replace(/^\||\|$/g, "")
+    .split("|")
+    .map((cell) => cell.trim());
 }
 
 function BriefSkeleton() {

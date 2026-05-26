@@ -71,37 +71,6 @@ def extract_live_cloudflare_trust_evidence(company: Company, scan: Scan) -> Evid
     )
 
 
-def render_mixed_live_brief() -> tuple[str, str]:
-    markdown = (
-        "# Vendor Risk Assessment Brief: Cloudflare\n\n"
-        "## Summary\n"
-        "Pulse captured and verified one live Cloudflare Trust Hub compliance signal, then used two clearly "
-        "labeled fallback excerpts from official Cloudflare pages for data-localization scope and a resolved "
-        "Log Explorer incident.\n\n"
-        "## Key Verified Signals\n"
-        "- Live trust/security: Cloudflare lists ISO 27001, ISO 27701, PCI DSS, and SOC 2 Type II among its compliance resources.\n"
-        "- Fallback pricing/terms: Data Localization Suite is identified as an Enterprise-only paid add-on.\n"
-        "- Fallback status: Cloudflare reported dashboard and API log delays during a resolved Log Explorer incident.\n\n"
-        "## Risk Interpretation\n"
-        "The live compliance statement supports the vendor-assurance review; the labeled fallback signals add "
-        "commercial-scope and operational context without being presented as live collection.\n\n"
-        "## Recommended Action\n"
-        "Request the applicable compliance package and confirm Data Localization Suite requirements before signature.\n\n"
-        "## Suggested Owner\n"
-        "Security, with Procurement support.\n\n"
-        "## Review Status\n"
-        "Needs review before renewal. One evidence item is verified from live Bright Data collection; two are verified fallback excerpts."
-    )
-    html = (
-        "<h1>Vendor Risk Assessment Brief: Cloudflare</h1>"
-        "<h2>Summary</h2>"
-        "<p>Pulse captured and verified one live Cloudflare Trust Hub compliance signal, with two labeled fallback excerpts from official Cloudflare pages.</p>"
-        "<h2>Recommended Action</h2>"
-        "<p>Request the applicable compliance package and confirm Data Localization Suite requirements before signature.</p>"
-    )
-    return markdown, html
-
-
 def _excerpt(content: str, quote: str) -> str:
     normalized_quote = quote.casefold()
     start = content.casefold().find(normalized_quote)

@@ -151,7 +151,18 @@ def test_completed_demo_scan_returns_markdown_and_html_briefs(client):
 
     assert markdown.status_code == 200
     assert markdown.json()["format"] == "markdown"
-    assert "Vendor Risk Assessment Brief: Cloudflare" in markdown.json()["content"]
+    markdown_content = markdown.json()["content"]
+    assert "Vendor Risk Assessment Brief: Cloudflare" in markdown_content
+    assert "## Evidence Table" in markdown_content
+    assert "| Trust / security | cached | verified | https://www.cloudflare.com/trust-hub/" in markdown_content
+    assert "## Risk Interpretation" in markdown_content
+    assert "## Suggested Owner" in markdown_content
+    assert "## Review Status" in markdown_content
     assert html.status_code == 200
     assert html.json()["format"] == "html"
-    assert "<h1>Vendor Risk Assessment Brief: Cloudflare</h1>" in html.json()["content"]
+    html_content = html.json()["content"]
+    assert "<h1>Vendor Risk Assessment Brief: Cloudflare</h1>" in html_content
+    assert "<h2>Evidence Table</h2><table>" in html_content
+    assert "<h2>Risk Interpretation</h2>" in html_content
+    assert "<h2>Suggested Owner</h2>" in html_content
+    assert "<h2>Review Status</h2>" in html_content

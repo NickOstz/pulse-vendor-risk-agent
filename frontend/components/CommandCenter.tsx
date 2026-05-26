@@ -428,6 +428,11 @@ export function CommandCenter() {
             loading={briefLoading}
             error={briefError}
             companyName={selectedCompany.name}
+            onRequestHtml={() =>
+              brief
+                ? getVendorReviewBrief(brief.company_id, brief.scan_id, "html")
+                : Promise.reject(new Error("A completed brief is required for HTML export."))
+            }
           />
         </div>
       </div>
