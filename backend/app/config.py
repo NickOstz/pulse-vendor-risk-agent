@@ -16,6 +16,10 @@ class Settings(BaseSettings):
     brightdata_live_snapshot_dir: Path | None = None
     brightdata_live_fetch_timeout_seconds: float = 8.0
     deepseek_api_key: str | None = None
+    deepseek_api_endpoint: str = "https://api.deepseek.com/chat/completions"
+    deepseek_extraction_model: str = "deepseek-v4-flash"
+    llm_extraction_enabled: bool = False
+    llm_extraction_timeout_seconds: float = 12.0
     openai_api_key: str | None = None
     default_review_mode: str = "live_with_fallback"
     demo_api_token: str | None = None

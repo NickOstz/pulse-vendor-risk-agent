@@ -7,6 +7,7 @@ from sqlmodel import Session, select
 from app.config import get_settings
 from app.models import Alert, BrightDataTrace, Brief, Company, EvidenceItem, Scan, utc_now
 from app.services.brief_renderer import render_vendor_review_brief
+from app.services.extraction import ExtractedEvidence
 from app.services.live_evidence import extract_live_cloudflare_trust_evidence
 from app.services.scoring import build_live_compliance_alert, build_mixed_related_change_alert
 from app.services.serializers import dump_json
@@ -133,18 +134,32 @@ def _complete_extract(session: Session, company: Company, scan: Scan) -> None:
     for evidence_row in payload["evidence_items"]:
         if verified_live_url and evidence_row["source_url"] == verified_live_url:
             continue
+        candidate = ExtractedEvidence.model_validate(
+            {
+                "vendor_id": company.id,
+                "signal_type": evidence_row["signal_type"],
+                "claim": evidence_row["claim"],
+                "supporting_quote": evidence_row["supporting_quote"],
+                "source_url": evidence_row["source_url"],
+                "source_type": evidence_row["source_type"],
+                "published_or_captured_at": now,
+                "severity_hint": evidence_row["severity_hint"],
+                "confidence": evidence_row["confidence"],
+                "recommended_action": evidence_row["recommended_action"],
+            }
+        )
         evidence = EvidenceItem(
             scan_id=scan.id,
             company_id=company.id,
-            signal_type=evidence_row["signal_type"],
-            claim=evidence_row["claim"],
-            supporting_quote=evidence_row["supporting_quote"],
-            source_url=evidence_row["source_url"],
-            source_type=evidence_row["source_type"],
-            published_or_captured_at=now,
-            severity_hint=evidence_row["severity_hint"],
-            confidence=evidence_row["confidence"],
-            recommended_action=evidence_row["recommended_action"],
+            signal_type=candidate.signal_type,
+            claim=candidate.claim,
+            supporting_quote=candidate.supporting_quote,
+            source_url=candidate.source_url,
+            source_type=candidate.source_type,
+            published_or_captured_at=candidate.published_or_captured_at,
+            severity_hint=candidate.severity_hint,
+            confidence=candidate.confidence,
+            recommended_action=candidate.recommended_action,
             support_status=evidence_row["support_status"],
             quote_match_score=evidence_row.get("quote_match_score"),
             snapshot_path=evidence_row.get("snapshot_path"),
