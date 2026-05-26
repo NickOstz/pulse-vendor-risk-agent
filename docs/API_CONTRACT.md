@@ -27,7 +27,8 @@ signal_type: trust_security | adverse_media | pricing_terms
 | --- | --- | --- |
 | `GET /api/health` | Demo readiness | Return DB, scheduler, replay, and credential presence booleans |
 | `GET /api/companies` | Command Center | Return watchlist and agent fields |
-| `POST /api/companies` | Optional add form | Validate exact domain, owner, criticality, renewal date |
+| `POST /api/companies` | Optional add form | Validate exact domain, owner, criticality, renewal date, and optional source rules |
+| `PATCH /api/companies/{id}/source-rules` | Source rules panel | Store vendor allow/block source rules for future reviews |
 | `PATCH /api/companies/{id}/agent` | Agent toggle | Enable/disable; demo vendor becomes due now |
 | `GET /api/agents/status` | Status panel | Return active scans and due vendors |
 | `POST /api/agents/tick` | Demo recovery | Run the same due-vendor scheduling check |
@@ -52,6 +53,8 @@ signal_type: trust_security | adverse_media | pricing_terms
   "owner": "Security",
   "criticality": "critical",
   "renewal_date": "2026-07-10",
+  "allow_list": ["https://www.cloudflare.com/trust-hub/"],
+  "block_list": [],
   "agent_enabled": false,
   "agent_status": "inactive",
   "review_policy": null,
@@ -134,4 +137,6 @@ signal_type: trust_security | adverse_media | pricing_terms
   status.
 - A live attempt that fails or exceeds eight seconds creates an honest failed
   trace followed by a fallback/cached trace.
+- The configured live public page is requested only when the selected vendor's
+  allow/block source rules permit that approved URL.
 - Alert presentation never implies unsupported evidence is verified.

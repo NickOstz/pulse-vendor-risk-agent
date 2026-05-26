@@ -18,11 +18,34 @@ def test_seeded_companies_and_create_company(client):
             "owner": "Legal",
             "criticality": "normal",
             "renewal_date": "2026-10-10",
+            "allow_list": [" https://secureforms.example/trust ", "https://secureforms.example/trust"],
+            "block_list": ["", "https://secureforms.example/careers"],
         },
     )
 
     assert create_response.status_code == 201
     assert create_response.json()["agent_status"] == "inactive"
+    assert create_response.json()["allow_list"] == ["https://secureforms.example/trust"]
+    assert create_response.json()["block_list"] == ["https://secureforms.example/careers"]
+
+
+def test_update_source_rules_persists_normalized_vendor_rules(client):
+    company_id = "vendor-cloudflare-demo"
+
+    response = client.patch(
+        f"/api/companies/{company_id}/source-rules",
+        json={
+            "allow_list": [" https://www.cloudflare.com/trust-hub/ ", "https://www.cloudflare.com/trust-hub/"],
+            "block_list": ["https://www.cloudflarestatus.com/", ""],
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["allow_list"] == ["https://www.cloudflare.com/trust-hub/"]
+    assert response.json()["block_list"] == ["https://www.cloudflarestatus.com/"]
+    stored = next(item for item in client.get("/api/companies").json() if item["id"] == company_id)
+    assert stored["allow_list"] == ["https://www.cloudflare.com/trust-hub/"]
+    assert stored["block_list"] == ["https://www.cloudflarestatus.com/"]
 
 
 def test_enable_agent_makes_demo_vendor_due_now(client):

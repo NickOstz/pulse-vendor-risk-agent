@@ -16,15 +16,28 @@ SignalType = Literal["trust_security", "adverse_media", "pricing_terms"]
 AlertStatus = Literal["new", "approved", "dismissed", "needs_review"]
 
 
-class CompanyCreate(BaseModel):
+class SourceRulesUpdate(BaseModel):
+    allow_list: list[str] = Field(default_factory=list)
+    block_list: list[str] = Field(default_factory=list)
+
+    @field_validator("allow_list", "block_list")
+    @classmethod
+    def normalize_rules(cls, value: list[str]) -> list[str]:
+        rules: list[str] = []
+        for item in value:
+            rule = item.strip()
+            if rule and rule not in rules:
+                rules.append(rule)
+        return rules
+
+
+class CompanyCreate(SourceRulesUpdate):
     name: str = Field(min_length=1)
     domain: str = Field(min_length=1)
     relationship_type: str = Field(default="vendor", min_length=1)
     owner: str = Field(min_length=1)
     criticality: Criticality
     renewal_date: date
-    allow_list: list[str] = Field(default_factory=list)
-    block_list: list[str] = Field(default_factory=list)
 
     @field_validator("domain")
     @classmethod

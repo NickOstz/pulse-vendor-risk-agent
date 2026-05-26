@@ -3,7 +3,7 @@ from sqlmodel import Session, select
 
 from app.db import get_session
 from app.models import Company, utc_now
-from app.schemas import AgentToggle, CompanyCreate, CompanyRead
+from app.schemas import AgentToggle, CompanyCreate, CompanyRead, SourceRulesUpdate
 from app.services.serializers import company_to_read, dump_json, policy_for_company
 
 router = APIRouter(prefix="/api/companies", tags=["companies"])
@@ -30,6 +30,24 @@ def create_company(payload: CompanyCreate, session: Session = Depends(get_sessio
         allow_list_json=dump_json(payload.allow_list),
         block_list_json=dump_json(payload.block_list),
     )
+    session.add(company)
+    session.commit()
+    session.refresh(company)
+    return company_to_read(company)
+
+
+@router.patch("/{company_id}/source-rules", response_model=CompanyRead)
+def update_source_rules(
+    company_id: str,
+    payload: SourceRulesUpdate,
+    session: Session = Depends(get_session),
+) -> CompanyRead:
+    company = session.get(Company, company_id)
+    if company is None:
+        raise HTTPException(status_code=404, detail="company not found")
+    company.allow_list_json = dump_json(payload.allow_list)
+    company.block_list_json = dump_json(payload.block_list)
+    company.updated_at = utc_now()
     session.add(company)
     session.commit()
     session.refresh(company)

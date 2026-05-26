@@ -8,7 +8,7 @@ from app.config import get_settings
 from app.models import Alert, BrightDataTrace, Brief, Company, EvidenceItem, Scan, utc_now
 from app.services.brief_renderer import render_vendor_review_brief
 from app.services.extraction import ExtractedEvidence
-from app.services.live_evidence import extract_live_cloudflare_trust_evidence
+from app.services.live_evidence import extract_live_cloudflare_trust_evidence, source_rules_allow
 from app.services.scoring import build_live_compliance_alert, build_mixed_related_change_alert
 from app.services.serializers import dump_json
 
@@ -88,16 +88,22 @@ def _complete_collect(session: Session, company: Company, scan: Scan) -> None:
     if not live_with_fallback:
         scan.serp_queries_used = payload["metrics"]["serp_queries_used"]
     if not live_with_fallback:
-        scan.urls_scraped = payload["metrics"]["urls_scraped"]
+        scan.urls_scraped = 0
     scan.llm_calls_used = 0 if live_with_fallback else payload["metrics"]["llm_calls_used"]
     if not live_with_fallback:
-        scan.source_count = payload["metrics"]["source_count"]
+        scan.source_count = 0
 
     for trace_row in payload["traces"]:
         if live_with_fallback and trace_row["product"] == "serp_api":
             continue
-        if live_with_fallback:
+        source_url = trace_row.get("source_url")
+        is_page_source = trace_row["product"] != "serp_api"
+        if is_page_source and source_url and not source_rules_allow(company, source_url):
+            continue
+        if is_page_source:
             scan.source_count += 1
+            if not live_with_fallback:
+                scan.urls_scraped += 1
         session.add(
             BrightDataTrace(
                 scan_id=scan.id,
@@ -132,6 +138,8 @@ def _complete_extract(session: Session, company: Company, scan: Scan) -> None:
             _remove_replaced_fallback_trace(session, scan, verified_live_url)
 
     for evidence_row in payload["evidence_items"]:
+        if not source_rules_allow(company, evidence_row["source_url"]):
+            continue
         if verified_live_url and evidence_row["source_url"] == verified_live_url:
             continue
         candidate = ExtractedEvidence.model_validate(
@@ -198,6 +206,10 @@ def _complete_score(session: Session, company: Company, scan: Scan) -> None:
         related_fixture_ids = alert_row.get("related_evidence_fixture_ids", [])
         related_ids = [evidence_id_map[item] for item in related_fixture_ids if item in evidence_id_map]
         evidence_fixture_id = alert_row.get("evidence_fixture_id")
+        if evidence_fixture_id and evidence_fixture_id not in evidence_id_map:
+            continue
+        if alert_row["alert_type"] == "related_change" and len(related_ids) < 2:
+            continue
         session.add(
             Alert(
                 company_id=company.id,

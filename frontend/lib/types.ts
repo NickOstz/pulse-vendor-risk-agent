@@ -33,6 +33,8 @@ export interface Company {
   owner: string;
   criticality: Criticality;
   renewal_date: string;
+  allow_list: string[];
+  block_list: string[];
   agent_enabled: boolean;
   agent_status: AgentStatus;
   review_policy: string | null;
@@ -49,6 +51,11 @@ export interface CompanyCreateInput {
   renewal_date: string;
   allow_list?: string[];
   block_list?: string[];
+}
+
+export interface SourceRulesUpdateInput {
+  allow_list: string[];
+  block_list: string[];
 }
 
 export interface ScanStage {
