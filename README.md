@@ -78,6 +78,12 @@ verified-evidence alert invariants, and fail if the flow exceeds three
 minutes. The commands never print credentials or persist collected live
 snapshots in the repository.
 
+Structured model extraction is opt-in for the controlled live proof. Set
+`LLM_EXTRACTION_ENABLED=true` with `DEEPSEEK_API_KEY` configured to extract
+the approved live Trust Hub source using DeepSeek JSON output. Pulse validates
+the result with Pydantic, retries malformed output once, and enforces the
+20-call review budget; the default rehearsal remains deterministic.
+
 ## Upstream Integrations
 
 Three upstream reference resources are pinned as Git submodules:

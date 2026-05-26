@@ -191,6 +191,57 @@ def test_verified_live_cloudflare_quote_replaces_cached_copy_and_creates_scored_
     assert "<td>live</td><td>verified</td>" in html_brief
 
 
+def test_opt_in_llm_extraction_validates_live_source_and_counts_call(monkeypatch, live_client):
+    quote = "Explore our posture around ISO 27001, ISO 27701, PCI DSS, SOC 2 Type II, and others"
+    model_prompts: list[str] = []
+    monkeypatch.setenv("LLM_EXTRACTION_ENABLED", "true")
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "test-llm-key")
+
+    from app.config import get_settings
+
+    get_settings.cache_clear()
+
+    def fake_post(url, *, headers, json, timeout):
+        if json["zone"] == "test-unlocker-zone":
+            return httpx.Response(200, request=httpx.Request("POST", url), text=f"Compliance: {quote}.")
+        return httpx.Response(200, request=httpx.Request("POST", url), json={"organic": []})
+
+    def fake_model_call(self, prompt):
+        model_prompts.append(prompt)
+        return json.dumps(
+            {
+                "vendor_id": "vendor-cloudflare-demo",
+                "signal_type": "trust_security",
+                "claim": "Cloudflare publicly identifies compliance resources.",
+                "supporting_quote": quote,
+                "source_url": "https://www.cloudflare.com/trust-hub/",
+                "source_type": "vendor_owned",
+                "published_or_captured_at": "2026-05-26T08:00:00Z",
+                "severity_hint": "medium",
+                "confidence": 0.9,
+                "recommended_action": "Review current compliance artifacts.",
+            }
+        )
+
+    monkeypatch.setattr("app.services.brightdata_client.httpx.post", fake_post)
+    monkeypatch.setattr("app.services.extraction.DeepSeekExtractionClient.complete_json", fake_model_call)
+    scan_id = _start_live_scan(live_client)
+
+    terminal = _poll_until_terminal(live_client, scan_id)
+    evidence = live_client.get(f"/api/companies/vendor-cloudflare-demo/evidence?scan_id={scan_id}").json()
+
+    live_trust = next(
+        item
+        for item in evidence
+        if item["source_url"] == "https://www.cloudflare.com/trust-hub/"
+        and item["snapshot_path"].endswith(f"{scan_id}-configured-source.md")
+    )
+    assert terminal["metrics"]["llm_calls_used"] == 1
+    assert live_trust["support_status"] == "verified"
+    assert live_trust["claim"] == "Cloudflare publicly identifies compliance resources."
+    assert len(model_prompts) == 1
+
+
 def test_unverified_live_cloudflare_quote_cannot_create_live_alert(monkeypatch, live_client):
     def fake_post(url, *, headers, json, timeout):
         if json["zone"] == "test-unlocker-zone":
