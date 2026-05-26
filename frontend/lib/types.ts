@@ -40,6 +40,17 @@ export interface Company {
   next_agent_run_at: string | null;
 }
 
+export interface CompanyCreateInput {
+  name: string;
+  domain: string;
+  relationship_type: string;
+  owner: string;
+  criticality: Criticality;
+  renewal_date: string;
+  allow_list?: string[];
+  block_list?: string[];
+}
+
 export interface ScanStage {
   name: ReviewStage;
   status: StageStatus;

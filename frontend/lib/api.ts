@@ -14,6 +14,7 @@ import type {
   AlertReviewStatus,
   BrightDataTrace,
   Company,
+  CompanyCreateInput,
   EvidenceItem,
   HealthResponse,
   ScanStatusResponse,
@@ -67,7 +68,12 @@ async function requestJson<T>(
   });
 
   if (!response.ok) {
-    throw new Error(`Pulse API request failed: ${response.status}`);
+    const detail = await readErrorDetail(response);
+    throw new Error(
+      detail
+        ? `Pulse API request failed: ${response.status} ${detail}`
+        : `Pulse API request failed: ${response.status}`,
+    );
   }
 
   if (response.status === 204) {
@@ -90,6 +96,51 @@ export async function listCompanies(): Promise<Company[]> {
 export async function getDemoHealth(): Promise<HealthResponse> {
   const live = await requestJson<HealthResponse>("/api/health");
   return live ?? fixtureHealth;
+}
+
+export async function createCompany(
+  payload: CompanyCreateInput,
+): Promise<Company> {
+  const normalizedPayload: CompanyCreateInput = {
+    ...payload,
+    name: payload.name.trim(),
+    domain: payload.domain.trim().toLowerCase(),
+    relationship_type: payload.relationship_type.trim(),
+    owner: payload.owner.trim(),
+    allow_list: payload.allow_list ?? [],
+    block_list: payload.block_list ?? [],
+  };
+
+  const live = await requestJson<Company>("/api/companies", {
+    method: "POST",
+    body: JSON.stringify(normalizedPayload),
+  });
+
+  if (live) return live;
+
+  if (
+    companies.some((company) => company.domain === normalizedPayload.domain)
+  ) {
+    throw new Error("company domain already exists");
+  }
+
+  const createdCompany: Company = {
+    id: `vendor_${normalizedPayload.domain.replace(/[^a-z0-9]+/g, "_")}`,
+    name: normalizedPayload.name,
+    domain: normalizedPayload.domain,
+    relationship_type: normalizedPayload.relationship_type,
+    owner: normalizedPayload.owner,
+    criticality: normalizedPayload.criticality,
+    renewal_date: normalizedPayload.renewal_date,
+    agent_enabled: false,
+    agent_status: "inactive",
+    review_policy: null,
+    last_agent_run_at: null,
+    next_agent_run_at: null,
+  };
+
+  companies = [...companies, createdCompany];
+  return createdCompany;
 }
 
 export async function setVendorRiskAgent(
@@ -386,4 +437,34 @@ function normalizeTickResponse(response: TickResponse): AgentStatusResponse {
           : looseRuns,
     due_vendors: response.due_vendors ?? [],
   };
+}
+
+async function readErrorDetail(response: Response): Promise<string> {
+  try {
+    const data = (await response.clone().json()) as { detail?: unknown };
+    const { detail } = data;
+
+    if (typeof detail === "string") return detail;
+    if (Array.isArray(detail)) {
+      return detail
+        .map((item) => {
+          if (typeof item === "string") return item;
+          if (
+            item &&
+            typeof item === "object" &&
+            "msg" in item &&
+            typeof item.msg === "string"
+          ) {
+            return item.msg;
+          }
+          return "";
+        })
+        .filter(Boolean)
+        .join("; ");
+    }
+  } catch {
+    // Keep the generic status message if the backend did not return JSON.
+  }
+
+  return "";
 }
