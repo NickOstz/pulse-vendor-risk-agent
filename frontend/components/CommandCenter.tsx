@@ -5,6 +5,7 @@ import {
   ArrowRight,
   CheckCircle,
   Plus,
+  Power,
   Prohibit,
   ShieldWarning,
   WarningCircle,
@@ -31,6 +32,7 @@ import {
   listEvidence,
   runAgentTick,
   setVendorRiskAgent,
+  setWatchlistRiskAgent,
   updateCompanySourceRules,
   updateAlertReviewStatus,
   usesFixtureData,
@@ -105,6 +107,7 @@ export function CommandCenter() {
   const [vendorSubmitting, setVendorSubmitting] = useState(false);
   const [vendorFormError, setVendorFormError] = useState<string | null>(null);
   const [vendorFormNotice, setVendorFormNotice] = useState<string | null>(null);
+  const [watchlistBusy, setWatchlistBusy] = useState(false);
 
   const { scan, pollingError, isTerminal } = useScanPolling(activeScanId);
 
@@ -129,6 +132,11 @@ export function CommandCenter() {
   const selectedAlerts = alerts.filter(
     (alert) => alert.company_id === selectedCompany?.id,
   );
+  const monitoredVendorCount = companies.filter(
+    (company) => company.agent_enabled,
+  ).length;
+  const allVendorsMonitored =
+    companies.length > 0 && monitoredVendorCount === companies.length;
 
   useEffect(() => {
     async function loadInitialData() {
@@ -373,6 +381,33 @@ export function CommandCenter() {
     );
   }
 
+  async function handleEnableWatchlist() {
+    setWatchlistBusy(true);
+    setActionError(null);
+
+    try {
+      const updatedCompanies = await setWatchlistRiskAgent(true);
+      const nextAgentStatus = await runAgentTick();
+      const runningCompanyIds = new Set(
+        nextAgentStatus.active_runs.map((run) => run.company_id),
+      );
+
+      setCompanies(
+        updatedCompanies.map((company) =>
+          runningCompanyIds.has(company.id)
+            ? { ...company, agent_status: "running" }
+            : company,
+        ),
+      );
+      setAgentStatus(nextAgentStatus);
+      setActiveScanId(nextAgentStatus.active_runs[0]?.scan_id ?? null);
+    } catch (error) {
+      setActionError(toErrorMessage(error));
+    } finally {
+      setWatchlistBusy(false);
+    }
+  }
+
   if (initialLoading) {
     return (
       <main className="flex min-h-[100dvh] items-center justify-center p-6">
@@ -451,12 +486,23 @@ export function CommandCenter() {
         <div className="mt-5 grid gap-5 xl:grid-cols-[320px_minmax(0,1fr)_420px]">
           <aside className="space-y-3">
             <div className="flex items-center justify-between gap-3">
-              <h2 className="text-sm font-semibold text-ink-950">
-                Vendor watchlist
-              </h2>
-              <span className="font-mono text-xs text-zinc-500">
-                sorted for demo
-              </span>
+              <div>
+                <h2 className="text-sm font-semibold text-ink-950">
+                  Vendor watchlist
+                </h2>
+                <p className="mt-1 font-mono text-xs text-zinc-500">
+                  {monitoredVendorCount} / {companies.length} monitored
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleEnableWatchlist}
+                disabled={watchlistBusy || busy || allVendorsMonitored}
+                className="inline-flex h-9 items-center gap-2 rounded-md border border-zinc-200 bg-white px-3 text-xs font-semibold text-ink-900 transition hover:border-zinc-300 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Power size={14} weight="bold" />
+                {allVendorsMonitored ? "All on" : watchlistBusy ? "Enabling" : "Enable all"}
+              </button>
             </div>
             <section className="rounded-lg border border-zinc-200 bg-white p-4 shadow-soft">
               <div className="flex items-center justify-between gap-3">
@@ -633,7 +679,7 @@ export function CommandCenter() {
             <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
               <AgentToggle
                 company={selectedCompany}
-                busy={busy}
+                busy={busy || watchlistBusy}
                 onToggle={handleToggle}
               />
               <AgentStatusPanel

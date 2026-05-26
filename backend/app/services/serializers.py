@@ -132,3 +132,15 @@ def policy_for_company(company: Company) -> tuple[str, datetime | None]:
     if company.criticality in {"critical", "important"}:
         return "weekly", now + timedelta(days=7)
     return "manual_low_frequency", None
+
+
+def apply_agent_state(company: Company, enabled: bool) -> None:
+    company.agent_enabled = enabled
+    company.updated_at = now_utc()
+    if enabled:
+        company.review_policy, company.next_agent_run_at = policy_for_company(company)
+        company.agent_status = "active"
+    else:
+        company.agent_status = "inactive"
+        company.review_policy = None
+        company.next_agent_run_at = None
