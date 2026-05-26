@@ -127,6 +127,14 @@ Invoke-RestMethod http://127.0.0.1:8000/api/health
 Replay readiness is enough for judging the deterministic demo path. Bright Data
 key presence is required only for the optional live-with-fallback proof.
 
+## Hosted App Check
+
+When a hosted build has been provisioned, use the
+[Deployment Checklist](./DEPLOYMENT.md) to configure the Railway backend,
+Vercel frontend, persistent SQLite volume, and hosted-origin CORS boundary.
+Do not describe hosting as complete until the deployed backend health endpoint
+returns `status: ok` and the hosted Command Center loads it successfully.
+
 ## Submission Checklist
 
 - `backend/.env` exists locally and is not staged.

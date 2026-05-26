@@ -28,6 +28,7 @@ Read first:
 - [MVP Backlog.md](./MVP%20Backlog.md)
 - [Demo Script.md](./Demo%20Script.md)
 - [Judge Runbook](./docs/JUDGE_RUNBOOK.md)
+- [Deployment Checklist](./docs/DEPLOYMENT.md)
 - [AGENTS.md](./AGENTS.md)
 
 ## MVP Architecture
