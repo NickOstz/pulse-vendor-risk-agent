@@ -5,6 +5,7 @@ import { ArrowRight, ShieldWarning } from "@phosphor-icons/react";
 import { AgentStatusPanel } from "@/components/AgentStatusPanel";
 import { AgentToggle } from "@/components/AgentToggle";
 import { Badge } from "@/components/Badge";
+import { DemoHealthIndicator } from "@/components/DemoHealthIndicator";
 import { EvidenceDrawer } from "@/components/EvidenceDrawer";
 import { ReviewStatusStrip } from "@/components/ReviewStatusStrip";
 import { RiskAssessmentBrief } from "@/components/RiskAssessmentBrief";
@@ -12,6 +13,7 @@ import { VendorCard } from "@/components/VendorCard";
 import { useScanPolling } from "@/hooks/useScanPolling";
 import {
   getAgentStatus,
+  getDemoHealth,
   getVendorReviewBrief,
   listAlerts,
   listBrightDataTraces,
@@ -28,6 +30,7 @@ import type {
   BrightDataTrace,
   Company,
   EvidenceItem,
+  HealthResponse,
   VendorReviewBrief,
 } from "@/lib/types";
 
@@ -49,6 +52,8 @@ export function CommandCenter() {
   const [busy, setBusy] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [initialError, setInitialError] = useState<string | null>(null);
+  const [health, setHealth] = useState<HealthResponse | null>(null);
+  const [healthLoading, setHealthLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [briefLoading, setBriefLoading] = useState(false);
@@ -100,6 +105,21 @@ export function CommandCenter() {
     }
 
     void loadInitialData();
+  }, []);
+
+  useEffect(() => {
+    async function loadHealth() {
+      setHealthLoading(true);
+      try {
+        setHealth(await getDemoHealth());
+      } catch {
+        setHealth(null);
+      } finally {
+        setHealthLoading(false);
+      }
+    }
+
+    void loadHealth();
   }, []);
 
   useEffect(() => {
@@ -268,6 +288,11 @@ export function CommandCenter() {
               <Badge tone={usesFixtureData ? "warn" : "good"}>
                 {usesFixtureData ? "Fixture replay mode" : "Live API mode"}
               </Badge>
+              <DemoHealthIndicator
+                health={health}
+                loading={healthLoading}
+                fixtureMode={usesFixtureData}
+              />
             </div>
             <h1 className="mt-4 max-w-3xl text-3xl font-semibold tracking-tight text-ink-950 sm:text-4xl">
               Autonomous vendor risk command center
