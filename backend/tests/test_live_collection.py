@@ -158,6 +158,10 @@ def test_verified_live_cloudflare_quote_replaces_cached_copy_and_creates_scored_
         "/api/briefs/vendor-review",
         json={"company_id": "vendor-cloudflare-demo", "scan_id": scan_id, "format": "markdown"},
     ).json()["content"]
+    html_brief = live_client.post(
+        "/api/briefs/vendor-review",
+        json={"company_id": "vendor-cloudflare-demo", "scan_id": scan_id, "format": "html"},
+    ).json()["content"]
 
     trust_items = [item for item in evidence if item["source_url"] == "https://www.cloudflare.com/trust-hub/"]
     live_alert = next(alert for alert in alerts if alert["title"] == "Live compliance posture captured for renewal review")
@@ -180,7 +184,11 @@ def test_verified_live_cloudflare_quote_replaces_cached_copy_and_creates_scored_
         and trace["source_url"] == "https://www.cloudflare.com/trust-hub/"
         for trace in traces
     )
-    assert "one live Cloudflare Trust Hub compliance signal" in brief
+    assert "1 live and 2 fallback verified public-source signals" in brief
+    assert "## Evidence Table" in brief
+    assert "| Trust / security | live | verified | https://www.cloudflare.com/trust-hub/" in brief
+    assert "<h2>Evidence Table</h2><table>" in html_brief
+    assert "<td>live</td><td>verified</td>" in html_brief
 
 
 def test_unverified_live_cloudflare_quote_cannot_create_live_alert(monkeypatch, live_client):
@@ -195,6 +203,10 @@ def test_unverified_live_cloudflare_quote_cannot_create_live_alert(monkeypatch, 
     _poll_until_terminal(live_client, scan_id)
     evidence = live_client.get(f"/api/companies/vendor-cloudflare-demo/evidence?scan_id={scan_id}").json()
     alerts = live_client.get(f"/api/alerts?company_id=vendor-cloudflare-demo&scan_id={scan_id}").json()
+    brief = live_client.post(
+        "/api/briefs/vendor-review",
+        json={"company_id": "vendor-cloudflare-demo", "scan_id": scan_id, "format": "markdown"},
+    ).json()["content"]
 
     assert any(
         item["source_url"] == "https://www.cloudflare.com/trust-hub/"
@@ -202,6 +214,8 @@ def test_unverified_live_cloudflare_quote_cannot_create_live_alert(monkeypatch, 
         for item in evidence
     )
     assert not any(alert["title"] == "Live compliance posture captured for renewal review" for alert in alerts)
+    assert "3 fallback verified public-source signals" in brief
+    assert "| Trust / security | fallback | verified | https://www.cloudflare.com/trust-hub/" in brief
 
 
 @pytest.mark.parametrize(

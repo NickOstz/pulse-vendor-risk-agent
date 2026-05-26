@@ -6,7 +6,8 @@ from sqlmodel import Session, select
 
 from app.config import get_settings
 from app.models import Alert, BrightDataTrace, Brief, Company, EvidenceItem, Scan, utc_now
-from app.services.live_evidence import extract_live_cloudflare_trust_evidence, render_mixed_live_brief
+from app.services.brief_renderer import render_vendor_review_brief
+from app.services.live_evidence import extract_live_cloudflare_trust_evidence
 from app.services.scoring import build_live_compliance_alert, build_mixed_related_change_alert
 from app.services.serializers import dump_json
 
@@ -219,21 +220,15 @@ def _complete_score(session: Session, company: Company, scan: Scan) -> None:
 
 
 def _complete_brief(session: Session, company: Company, scan: Scan) -> None:
-    payload = load_replay_payload()
     now = utc_now()
-    if _verified_live_evidence(session, scan.id) is not None:
-        markdown, html = render_mixed_live_brief()
-    else:
-        markdown = payload["brief"]["markdown"]
-        html = payload["brief"]["html"]
+    evidence_items = session.exec(select(EvidenceItem).where(EvidenceItem.scan_id == scan.id)).all()
+    verified_items = [item for item in evidence_items if item.support_status == "verified"]
+    traces = session.exec(select(BrightDataTrace).where(BrightDataTrace.scan_id == scan.id)).all()
+    markdown, html = render_vendor_review_brief(company, verified_items, traces)
     session.add(Brief(company_id=company.id, scan_id=scan.id, markdown=markdown, html=html, created_at=now))
 
-    verified_count = session.exec(
-        select(EvidenceItem).where(EvidenceItem.scan_id == scan.id, EvidenceItem.support_status == "verified")
-    ).all()
-    evidence_count = session.exec(select(EvidenceItem).where(EvidenceItem.scan_id == scan.id)).all()
-    scan.evidence_count = len(evidence_count)
-    scan.verified_count = len(verified_count)
+    scan.evidence_count = len(evidence_items)
+    scan.verified_count = len(verified_items)
     scan.current_stage = "brief"
     scan.status = "completed_with_fallback" if scan.mode == "live_with_fallback" else "completed"
     scan.completed_at = now
