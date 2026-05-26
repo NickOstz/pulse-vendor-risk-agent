@@ -1,0 +1,272 @@
+name: PR triage
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review, edited]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  route:
+    name: Label and route review
+    runs-on: ubuntu-latest
+    steps:
+      - name: Triage pull request
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const pull_number = pr.number;
+            const author = pr.user.login;
+
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner,
+              repo,
+              pull_number,
+              per_page: 100,
+            });
+            const paths = files.map((file) => file.filename);
+
+            const labels = new Set();
+            const reviewers = new Set();
+            const warnings = [];
+            const focus = new Set();
+
+            const addReviewer = (login) => {
+              if (login && login !== author) reviewers.add(login);
+            };
+            const listMatches = (predicate) => paths.filter(predicate);
+            const quoteList = (items) => items.map((item) => `\`${item}\``).join(", ");
+
+            const frontendFiles = listMatches((path) => path.startsWith("frontend/"));
+            const backendFiles = listMatches((path) => path.startsWith("backend/"));
+            const workflowFiles = listMatches((path) => path.startsWith(".github/"));
+            const vendorFiles = listMatches((path) => path.startsWith("vendor/"));
+            const contractFiles = listMatches((path) =>
+              [
+                "docs/API_CONTRACT.md",
+                "backend/app/models.py",
+                "backend/app/schemas.py",
+                "frontend/lib/api.ts",
+                "frontend/lib/types.ts",
+              ].includes(path)
+            );
+            const brightDataFiles = listMatches((path) =>
+              path.includes("brightdata") ||
+              path.includes("live_collection") ||
+              path.includes("live_evidence") ||
+              path.includes("replay_loader") ||
+              path === "docs/UPSTREAM_INTEGRATIONS.md"
+            );
+            const agentFiles = listMatches((path) =>
+              [
+                "extraction",
+                "verification",
+                "scoring",
+                "brief",
+                "evidence",
+                "replay",
+              ].some((token) => path.toLowerCase().includes(token))
+            );
+            const testFiles = listMatches((path) =>
+              path.includes("/tests/") ||
+              path.startsWith("tests/") ||
+              path.startsWith("scripts/") ||
+              path.endsWith(".spec.ts") ||
+              path.endsWith(".test.ts") ||
+              path.endsWith("_test.py")
+            );
+            const docsFiles = listMatches((path) =>
+              path.startsWith("docs/") ||
+              path.endsWith(".md") ||
+              path.startsWith("Proposal") ||
+              path.startsWith("Demo Script") ||
+              path === "PRD.md" ||
+              path === "Technical Architecture.md" ||
+              path === "MVP Backlog.md"
+            );
+            const dataFiles = listMatches((path) =>
+              path.includes("seed") ||
+              path.includes("snapshot") ||
+              path.includes("fixture") ||
+              path.includes("replay") ||
+              path.endsWith(".json") ||
+              path.endsWith(".sqlite")
+            );
+            const demoCriticalFiles = listMatches((path) =>
+              [
+                "CommandCenter",
+                "EvidenceDrawer",
+                "SourceExplorer",
+                "AssessmentBrief",
+                "brief",
+                "review",
+                "scheduler",
+                "scan",
+                "alerts",
+                "vendor",
+              ].some((token) => path.includes(token))
+            );
+            const secretSensitiveFiles = listMatches((path) =>
+              path.toLowerCase().includes(".env") ||
+              path.toLowerCase().includes("secret") ||
+              path.toLowerCase().includes("token") ||
+              path.toLowerCase().includes("credential") ||
+              brightDataFiles.includes(path)
+            );
+
+            if (frontendFiles.length > 0) {
+              labels.add("frontend");
+              addReviewer("axelray-dev");
+              addReviewer("NickOstz");
+              focus.add("Frontend: typecheck/build, API client compatibility, and Command Center/Evidence Drawer behavior.");
+            }
+            if (backendFiles.length > 0) {
+              labels.add("backend");
+              addReviewer("NickOstz");
+              addReviewer("axelray-dev");
+              focus.add("Backend: API tests, deterministic scoring, fallback/replay labeling, and trace persistence.");
+            }
+            if (docsFiles.length > 0) {
+              labels.add("documentation");
+              addReviewer("NickOstz");
+            }
+            if (workflowFiles.length > 0) {
+              labels.add("devops");
+              addReviewer("NickOstz");
+              focus.add("DevOps: workflow permissions, label existence, and no dependency on local secrets.");
+            }
+            if (testFiles.length > 0) labels.add("qa");
+            if (dataFiles.length > 0) labels.add("data");
+            if (brightDataFiles.length > 0) {
+              labels.add("integration");
+              labels.add("security");
+              addReviewer("NickOstz");
+              focus.add("Bright Data: public company-level sources only, exact vendor domains, and honest live/cached/fallback mode.");
+            }
+            if (agentFiles.length > 0) {
+              labels.add("ai-agent");
+              focus.add("Evidence agent: verified quotes gate scoring; unsupported evidence cannot create high-priority alerts.");
+            }
+            if (contractFiles.length > 0) {
+              labels.add("integration");
+              addReviewer("NickOstz");
+              warnings.push(`Shared contract files touched: ${quoteList(contractFiles)}.`);
+            }
+            if (demoCriticalFiles.length > 0) labels.add("demo-critical");
+            if (secretSensitiveFiles.length > 0) {
+              labels.add("security");
+              focus.add("Security: confirm no credentials, private data, local databases, or sensitive live output were committed.");
+            }
+            if (vendorFiles.length > 0) {
+              labels.add("integration");
+              addReviewer("NickOstz");
+              warnings.push(`Pinned vendor reference paths changed: ${quoteList(vendorFiles)}. Submodules are read-only unless explicitly coordinated.`);
+            }
+            if (!pr.draft) labels.add("needs-review");
+            if (pr.base.ref !== "main") {
+              warnings.push(`Stacked PR: base branch is \`${pr.base.ref}\`, not \`main\`. Check merge order before approval.`);
+            }
+            if (!pr.draft && reviewers.size === 0) {
+              for (const login of ["NickOstz", "axelray-dev"]) {
+                if (login !== author) {
+                  addReviewer(login);
+                  focus.add("Fallback: confirm scope, verification notes, and whether a lane specialist should be added.");
+                  break;
+                }
+              }
+            }
+
+            const labelNames = [...labels].sort();
+            if (labelNames.length > 0) {
+              try {
+                await github.rest.issues.addLabels({
+                  owner,
+                  repo,
+                  issue_number: pull_number,
+                  labels: labelNames,
+                });
+              } catch (error) {
+                core.warning(`Could not add labels (${labelNames.join(", ")}): ${error.message}`);
+              }
+            }
+
+            const reviewerNames = [...reviewers].sort();
+            if (!pr.draft && reviewerNames.length > 0) {
+              try {
+                await github.rest.pulls.requestReviewers({
+                  owner,
+                  repo,
+                  pull_number,
+                  reviewers: reviewerNames,
+                });
+              } catch (error) {
+                core.warning(`Could not request reviewers (${reviewerNames.join(", ")}): ${error.message}`);
+              }
+            }
+
+            const marker = "<!-- pulse-pr-triage -->";
+            const laneSummary = [
+              frontendFiles.length > 0 ? "frontend" : null,
+              backendFiles.length > 0 ? "backend" : null,
+              docsFiles.length > 0 ? "docs" : null,
+              workflowFiles.length > 0 ? "devops" : null,
+              brightDataFiles.length > 0 ? "Bright Data/integration" : null,
+              agentFiles.length > 0 ? "evidence agent" : null,
+            ].filter(Boolean);
+            const bodyLines = [
+              marker,
+              "## Pulse PR Triage",
+              "",
+              `Changed lanes: ${laneSummary.length > 0 ? laneSummary.join(", ") : "general"}.`,
+              `Labels: ${labelNames.length > 0 ? labelNames.map((label) => `\`${label}\``).join(", ") : "none"}.`,
+              `Requested reviewers: ${reviewerNames.length > 0 && !pr.draft ? reviewerNames.map((login) => `@${login}`).join(", ") : "none"}.`,
+              "",
+              "Review focus:",
+              ...(
+                focus.size > 0
+                  ? [...focus].sort().map((item) => `- ${item}`)
+                  : ["- Confirm the PR stays inside its issue scope and reports focused verification."]
+              ),
+              "",
+              "Warnings:",
+              ...(
+                warnings.length > 0
+                  ? warnings.map((item) => `- ${item}`)
+                  : ["- None detected from changed paths."]
+              ),
+              "",
+              "This is a routing aid, not approval. Human review still needs to confirm behavior, verification, and merge order.",
+            ];
+            const body = bodyLines.join("\n");
+
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner,
+              repo,
+              issue_number: pull_number,
+              per_page: 100,
+            });
+            const existing = comments.find((comment) =>
+              comment.user.type === "Bot" && comment.body && comment.body.includes(marker)
+            );
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner,
+                repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: pull_number,
+                body,
+              });
+            }
