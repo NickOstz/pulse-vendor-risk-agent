@@ -10,15 +10,17 @@ from sqlmodel import Session
 
 
 @pytest.fixture()
-def live_client(tmp_path: Path) -> TestClient:
+def live_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
     db_path = tmp_path / "pulse-live-test.db"
-    os.environ["DATABASE_URL"] = f"sqlite:///{db_path.as_posix()}"
-    os.environ["DEFAULT_REVIEW_MODE"] = "live_with_fallback"
-    os.environ["BRIGHTDATA_API_KEY"] = "test-api-key"
-    os.environ["BRIGHTDATA_SERP_ZONE"] = "test-serp-zone"
-    os.environ["BRIGHTDATA_UNLOCKER_ZONE"] = "test-unlocker-zone"
-    os.environ["BRIGHTDATA_DEMO_SOURCE_URL"] = "https://www.cloudflare.com/trust-hub/"
-    os.environ["BRIGHTDATA_LIVE_SNAPSHOT_DIR"] = str(tmp_path / "live-snapshots")
+    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{db_path.as_posix()}")
+    monkeypatch.setenv("DEFAULT_REVIEW_MODE", "live_with_fallback")
+    monkeypatch.setenv("BRIGHTDATA_API_KEY", "test-api-key")
+    monkeypatch.setenv("BRIGHTDATA_SERP_ZONE", "test-serp-zone")
+    monkeypatch.setenv("BRIGHTDATA_UNLOCKER_ZONE", "test-unlocker-zone")
+    monkeypatch.setenv("BRIGHTDATA_DEMO_SOURCE_URL", "https://www.cloudflare.com/trust-hub/")
+    monkeypatch.setenv("BRIGHTDATA_LIVE_SNAPSHOT_DIR", str(tmp_path / "live-snapshots"))
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "")
+    monkeypatch.setenv("LLM_EXTRACTION_ENABLED", "false")
 
     from app.config import get_settings
 
@@ -34,12 +36,6 @@ def live_client(tmp_path: Path) -> TestClient:
     with TestClient(create_app()) as test_client:
         yield test_client
 
-    os.environ.pop("BRIGHTDATA_API_KEY", None)
-    os.environ.pop("BRIGHTDATA_SERP_ZONE", None)
-    os.environ.pop("BRIGHTDATA_UNLOCKER_ZONE", None)
-    os.environ.pop("BRIGHTDATA_DEMO_SOURCE_URL", None)
-    os.environ.pop("BRIGHTDATA_LIVE_SNAPSHOT_DIR", None)
-    os.environ["DEFAULT_REVIEW_MODE"] = "replay"
     get_settings.cache_clear()
 
 
@@ -323,7 +319,7 @@ def test_unapproved_configured_url_is_not_requested_or_scored(monkeypatch, live_
         captured_zones.append(json["zone"])
         return httpx.Response(200, request=httpx.Request("POST", url), json={"organic": []})
 
-    os.environ["BRIGHTDATA_DEMO_SOURCE_URL"] = source_url
+    monkeypatch.setenv("BRIGHTDATA_DEMO_SOURCE_URL", source_url)
     from app.config import get_settings
 
     get_settings.cache_clear()
