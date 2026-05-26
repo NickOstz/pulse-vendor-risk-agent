@@ -11,6 +11,7 @@ import {
 import type {
   AgentStatusResponse,
   Alert,
+  AlertReviewStatus,
   BrightDataTrace,
   Company,
   EvidenceItem,
@@ -34,6 +35,7 @@ type TickResponse = Partial<AgentStatusResponse> & {
 };
 
 let companies = structuredClone(companiesFixture);
+let alerts = structuredClone(alertsFixture);
 let scanStep = 0;
 let activeScanId: string | null = null;
 
@@ -251,7 +253,7 @@ export async function listAlerts(
   const live = await requestJson<Alert[]>(`/api/alerts${suffix}`);
   if (live) return live;
 
-  return alertsFixture.filter((alert) => {
+  return alerts.filter((alert) => {
     if (filters.company_id && alert.company_id !== filters.company_id) {
       return false;
     }
@@ -260,6 +262,31 @@ export async function listAlerts(
     }
     return true;
   });
+}
+
+export async function updateAlertReviewStatus(
+  alertId: string,
+  status: AlertReviewStatus,
+): Promise<Alert> {
+  const live = await requestJson<Alert>(`/api/alerts/${alertId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ status }),
+  });
+
+  if (live) return live;
+
+  let updatedAlert: Alert | null = null;
+  alerts = alerts.map((alert) => {
+    if (alert.id !== alertId) return alert;
+    updatedAlert = { ...alert, status };
+    return updatedAlert;
+  });
+
+  if (!updatedAlert) {
+    throw new Error(`Unknown alert: ${alertId}`);
+  }
+
+  return updatedAlert;
 }
 
 export async function listEvidence(
