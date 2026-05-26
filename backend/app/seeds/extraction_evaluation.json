@@ -1,0 +1,101 @@
+{
+  "description": "Five bounded official Cloudflare public-source excerpts for structured extraction quality checks.",
+  "verified_on": "2026-05-26",
+  "cases": [
+    {
+      "id": "trust-hub-assurance",
+      "signal_type": "trust_security",
+      "source_url": "https://www.cloudflare.com/trust-hub/",
+      "source_type": "vendor_owned",
+      "source_text": "Compliance resources: Explore our posture around ISO 27001, ISO 27701, PCI DSS, SOC 2 Type II, and others.",
+      "expected_response": {
+        "vendor_id": "vendor-cloudflare-demo",
+        "signal_type": "trust_security",
+        "claim": "Cloudflare publicly identifies SOC 2 Type II and ISO 27001 among its compliance resources.",
+        "supporting_quote": "Explore our posture around ISO 27001, ISO 27701, PCI DSS, SOC 2 Type II, and others.",
+        "source_url": "https://www.cloudflare.com/trust-hub/",
+        "source_type": "vendor_owned",
+        "published_or_captured_at": "2026-05-26T00:00:00Z",
+        "severity_hint": "medium",
+        "confidence": 0.95,
+        "recommended_action": "Request the current in-scope compliance package for the renewal record."
+      }
+    },
+    {
+      "id": "compliance-reports",
+      "signal_type": "trust_security",
+      "source_url": "https://www.cloudflare.com/en-gb/trust-hub/compliance-resources/",
+      "source_type": "vendor_owned",
+      "source_text": "Certifications and Reports: ISO 27001:2022. SOC 2 Type II.",
+      "expected_response": {
+        "vendor_id": "vendor-cloudflare-demo",
+        "signal_type": "trust_security",
+        "claim": "Cloudflare lists ISO 27001:2022 and SOC 2 Type II in its compliance resources.",
+        "supporting_quote": "ISO 27001:2022. SOC 2 Type II.",
+        "source_url": "https://www.cloudflare.com/en-gb/trust-hub/compliance-resources/",
+        "source_type": "vendor_owned",
+        "published_or_captured_at": "2026-05-26T00:00:00Z",
+        "severity_hint": "medium",
+        "confidence": 0.92,
+        "recommended_action": "Obtain the current reports needed for vendor assurance review."
+      }
+    },
+    {
+      "id": "data-localization-addon",
+      "signal_type": "pricing_terms",
+      "source_url": "https://developers.cloudflare.com/data-localization/",
+      "source_type": "vendor_owned",
+      "source_text": "Data Localization Suite: Enterprise-only paid add-on.",
+      "expected_response": {
+        "vendor_id": "vendor-cloudflare-demo",
+        "signal_type": "pricing_terms",
+        "claim": "Cloudflare identifies Data Localization Suite as an Enterprise-only paid add-on.",
+        "supporting_quote": "Enterprise-only paid add-on",
+        "source_url": "https://developers.cloudflare.com/data-localization/",
+        "source_type": "vendor_owned",
+        "published_or_captured_at": "2026-05-26T00:00:00Z",
+        "severity_hint": "high",
+        "confidence": 0.97,
+        "recommended_action": "Confirm whether residency requirements require this add-on in renewal scope."
+      }
+    },
+    {
+      "id": "dedicated-egress-ip",
+      "signal_type": "pricing_terms",
+      "source_url": "https://developers.cloudflare.com/data-localization/how-to/zero-trust/",
+      "source_type": "vendor_owned",
+      "source_text": "Enterprise customers can purchase a dedicated egress IP (IPv4 and IPv6) or range of IPs geolocated to one or more Cloudflare network locations.",
+      "expected_response": {
+        "vendor_id": "vendor-cloudflare-demo",
+        "signal_type": "pricing_terms",
+        "claim": "Cloudflare documents a purchasable dedicated egress IP option for Enterprise customers.",
+        "supporting_quote": "Enterprise customers can purchase a dedicated egress IP",
+        "source_url": "https://developers.cloudflare.com/data-localization/how-to/zero-trust/",
+        "source_type": "vendor_owned",
+        "published_or_captured_at": "2026-05-26T00:00:00Z",
+        "severity_hint": "medium",
+        "confidence": 0.9,
+        "recommended_action": "Confirm whether dedicated egress addressing is required in commercial scope."
+      }
+    },
+    {
+      "id": "status-incident-history",
+      "signal_type": "adverse_media",
+      "source_url": "https://www.cloudflarestatus.com/uptime",
+      "source_type": "vendor_owned",
+      "source_text": "Increased HTTP 502 Errors in Buenos Aires. This incident has been resolved.",
+      "expected_response": {
+        "vendor_id": "vendor-cloudflare-demo",
+        "signal_type": "adverse_media",
+        "claim": "Cloudflare status history lists a resolved HTTP 502 error incident in Buenos Aires.",
+        "supporting_quote": "Increased HTTP 502 Errors in Buenos Aires. This incident has been resolved.",
+        "source_url": "https://www.cloudflarestatus.com/uptime",
+        "source_type": "vendor_owned",
+        "published_or_captured_at": "2026-05-26T00:00:00Z",
+        "severity_hint": "medium",
+        "confidence": 0.9,
+        "recommended_action": "Check whether the incident affected relevant business traffic or monitoring."
+      }
+    }
+  ]
+}
