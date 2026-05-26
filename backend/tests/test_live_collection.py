@@ -242,6 +242,45 @@ def test_opt_in_llm_extraction_validates_live_source_and_counts_call(monkeypatch
     assert len(model_prompts) == 1
 
 
+def test_invalid_opt_in_llm_extraction_records_failure_and_preserves_fallback(monkeypatch, live_client):
+    quote = "Explore our posture around ISO 27001, ISO 27701, PCI DSS, SOC 2 Type II, and others"
+    invalid_responses = iter(["not-json", '{"claim": "missing required fields"}'])
+    monkeypatch.setenv("LLM_EXTRACTION_ENABLED", "true")
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "test-llm-key")
+
+    from app.config import get_settings
+
+    get_settings.cache_clear()
+
+    def fake_post(url, *, headers, json, timeout):
+        if json["zone"] == "test-unlocker-zone":
+            return httpx.Response(200, request=httpx.Request("POST", url), text=f"Compliance: {quote}.")
+        return httpx.Response(200, request=httpx.Request("POST", url), json={"organic": []})
+
+    def fake_model_call(self, prompt):
+        return next(invalid_responses)
+
+    monkeypatch.setattr("app.services.brightdata_client.httpx.post", fake_post)
+    monkeypatch.setattr("app.services.extraction.DeepSeekExtractionClient.complete_json", fake_model_call)
+    scan_id = _start_live_scan(live_client)
+
+    terminal = _poll_until_terminal(live_client, scan_id)
+    evidence = live_client.get(f"/api/companies/vendor-cloudflare-demo/evidence?scan_id={scan_id}").json()
+    alerts = live_client.get(f"/api/alerts?company_id=vendor-cloudflare-demo&scan_id={scan_id}").json()
+    brief = live_client.post(
+        "/api/briefs/vendor-review",
+        json={"company_id": "vendor-cloudflare-demo", "scan_id": scan_id, "format": "markdown"},
+    ).json()["content"]
+
+    trust_items = [item for item in evidence if item["source_url"] == "https://www.cloudflare.com/trust-hub/"]
+    assert terminal["metrics"]["llm_calls_used"] == 2
+    assert terminal["metrics"]["verified_count"] == 3
+    assert {item["support_status"] for item in trust_items} == {"failed_source", "verified"}
+    assert not any(alert["title"] == "Live compliance posture captured for renewal review" for alert in alerts)
+    assert "3 fallback verified public-source signals" in brief
+    assert "| Trust / security | fallback | verified | https://www.cloudflare.com/trust-hub/" in brief
+
+
 def test_unverified_live_cloudflare_quote_cannot_create_live_alert(monkeypatch, live_client):
     def fake_post(url, *, headers, json, timeout):
         if json["zone"] == "test-unlocker-zone":
