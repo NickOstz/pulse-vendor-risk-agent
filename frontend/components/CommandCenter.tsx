@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
   CheckCircle,
+  Plus,
   Prohibit,
   ShieldWarning,
   WarningCircle,
+  X,
 } from "@phosphor-icons/react";
 import { AgentStatusPanel } from "@/components/AgentStatusPanel";
 import { AgentToggle } from "@/components/AgentToggle";
@@ -18,6 +20,7 @@ import { RiskAssessmentBrief } from "@/components/RiskAssessmentBrief";
 import { VendorCard } from "@/components/VendorCard";
 import { useScanPolling } from "@/hooks/useScanPolling";
 import {
+  createCompany,
   getAgentStatus,
   getDemoHealth,
   getVendorReviewBrief,
@@ -37,10 +40,29 @@ import type {
   AlertReviewStatus,
   BrightDataTrace,
   Company,
+  Criticality,
   EvidenceItem,
   HealthResponse,
   VendorReviewBrief,
 } from "@/lib/types";
+
+type VendorFormState = {
+  name: string;
+  domain: string;
+  relationship_type: string;
+  owner: string;
+  criticality: Criticality;
+  renewal_date: string;
+};
+
+const emptyVendorForm: VendorFormState = {
+  name: "",
+  domain: "",
+  relationship_type: "",
+  owner: "",
+  criticality: "important",
+  renewal_date: "",
+};
 
 export function CommandCenter() {
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -71,6 +93,12 @@ export function CommandCenter() {
   const [alertReviewPendingId, setAlertReviewPendingId] = useState<string | null>(
     null,
   );
+  const [vendorFormOpen, setVendorFormOpen] = useState(false);
+  const [vendorForm, setVendorForm] =
+    useState<VendorFormState>(emptyVendorForm);
+  const [vendorSubmitting, setVendorSubmitting] = useState(false);
+  const [vendorFormError, setVendorFormError] = useState<string | null>(null);
+  const [vendorFormNotice, setVendorFormNotice] = useState<string | null>(null);
 
   const { scan, pollingError, isTerminal } = useScanPolling(activeScanId);
 
@@ -279,6 +307,51 @@ export function CommandCenter() {
     }
   }
 
+  async function handleCreateVendor(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setVendorFormError(null);
+    setVendorFormNotice(null);
+
+    const validationError = validateVendorForm(vendorForm);
+    if (validationError) {
+      setVendorFormError(validationError);
+      return;
+    }
+
+    setVendorSubmitting(true);
+
+    try {
+      const createdCompany = await createCompany({
+        name: vendorForm.name,
+        domain: vendorForm.domain,
+        relationship_type: vendorForm.relationship_type,
+        owner: vendorForm.owner,
+        criticality: vendorForm.criticality,
+        renewal_date: vendorForm.renewal_date,
+      });
+      let nextCompanies: Company[];
+
+      try {
+        nextCompanies = await listCompanies();
+      } catch {
+        nextCompanies = [
+          ...companies.filter((company) => company.id !== createdCompany.id),
+          createdCompany,
+        ];
+      }
+
+      setCompanies(nextCompanies);
+      setSelectedCompanyId(createdCompany.id);
+      setVendorForm(emptyVendorForm);
+      setVendorFormOpen(false);
+      setVendorFormNotice(`${createdCompany.name} added to the watchlist.`);
+    } catch (error) {
+      setVendorFormError(toErrorMessage(error));
+    } finally {
+      setVendorSubmitting(false);
+    }
+  }
+
   if (initialLoading) {
     return (
       <main className="flex min-h-[100dvh] items-center justify-center p-6">
@@ -364,6 +437,138 @@ export function CommandCenter() {
                 sorted for demo
               </span>
             </div>
+            <section className="rounded-lg border border-zinc-200 bg-white p-4 shadow-soft">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-sm font-semibold text-ink-950">
+                    Add vendor
+                  </h3>
+                  <p className="mt-1 text-xs text-zinc-500">
+                    Exact public domain, owner, criticality, renewal date.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  aria-label={vendorFormOpen ? "Close add vendor form" : "Open add vendor form"}
+                  onClick={() => {
+                    setVendorFormOpen((open) => !open);
+                    setVendorFormError(null);
+                    setVendorFormNotice(null);
+                  }}
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-zinc-200 bg-white text-zinc-600 transition hover:border-zinc-300 active:scale-[0.96]"
+                >
+                  {vendorFormOpen ? <X size={16} /> : <Plus size={16} />}
+                </button>
+              </div>
+
+              {vendorFormNotice && !vendorFormOpen ? (
+                <p className="mt-3 rounded-md border border-signal-100 bg-signal-50 px-3 py-2 text-xs text-signal-700">
+                  {vendorFormNotice}
+                </p>
+              ) : null}
+
+              {vendorFormOpen ? (
+                <form className="mt-4 space-y-3" onSubmit={handleCreateVendor}>
+                  <VendorTextField
+                    id="vendor-name"
+                    label="Vendor name"
+                    value={vendorForm.name}
+                    placeholder="Akamai"
+                    onChange={(value) =>
+                      setVendorForm((form) => ({ ...form, name: value }))
+                    }
+                  />
+                  <VendorTextField
+                    id="vendor-domain"
+                    label="Exact domain"
+                    value={vendorForm.domain}
+                    placeholder="akamai.com"
+                    onChange={(value) =>
+                      setVendorForm((form) => ({ ...form, domain: value }))
+                    }
+                  />
+                  <VendorTextField
+                    id="vendor-relationship"
+                    label="Relationship type"
+                    value={vendorForm.relationship_type}
+                    placeholder="edge security"
+                    onChange={(value) =>
+                      setVendorForm((form) => ({
+                        ...form,
+                        relationship_type: value,
+                      }))
+                    }
+                  />
+                  <VendorTextField
+                    id="vendor-owner"
+                    label="Owner"
+                    value={vendorForm.owner}
+                    placeholder="Security"
+                    onChange={(value) =>
+                      setVendorForm((form) => ({ ...form, owner: value }))
+                    }
+                  />
+                  <label className="block text-xs font-medium text-zinc-600">
+                    Criticality
+                    <select
+                      value={vendorForm.criticality}
+                      onChange={(event) =>
+                        setVendorForm((form) => ({
+                          ...form,
+                          criticality: event.target.value as Criticality,
+                        }))
+                      }
+                      className="mt-1 h-10 w-full rounded-md border border-zinc-200 bg-white px-3 text-sm text-ink-950 outline-none transition focus:border-ink-900 focus:ring-2 focus:ring-ink-900/10"
+                    >
+                      <option value="critical">Critical</option>
+                      <option value="important">Important</option>
+                      <option value="normal">Normal</option>
+                    </select>
+                  </label>
+                  <label className="block text-xs font-medium text-zinc-600">
+                    Renewal date
+                    <input
+                      type="date"
+                      value={vendorForm.renewal_date}
+                      onChange={(event) =>
+                        setVendorForm((form) => ({
+                          ...form,
+                          renewal_date: event.target.value,
+                        }))
+                      }
+                      className="mt-1 h-10 w-full rounded-md border border-zinc-200 bg-white px-3 text-sm text-ink-950 outline-none transition focus:border-ink-900 focus:ring-2 focus:ring-ink-900/10"
+                    />
+                  </label>
+
+                  {vendorFormError ? (
+                    <p className="rounded-md border border-rose-100 bg-rose-50 px-3 py-2 text-xs leading-5 text-rose-700">
+                      {vendorFormError}
+                    </p>
+                  ) : null}
+
+                  <div className="flex items-center justify-end gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setVendorForm(emptyVendorForm);
+                        setVendorFormError(null);
+                        setVendorFormOpen(false);
+                      }}
+                      className="inline-flex h-9 items-center rounded-md border border-zinc-200 bg-white px-3 text-xs font-medium text-zinc-600 transition hover:border-zinc-300 active:scale-[0.98]"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={vendorSubmitting}
+                      className="inline-flex h-9 items-center rounded-md bg-ink-950 px-3 text-xs font-semibold text-white transition hover:bg-ink-800 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {vendorSubmitting ? "Adding..." : "Add vendor"}
+                    </button>
+                  </div>
+                </form>
+              ) : null}
+            </section>
             {sortedCompanies.map((company) => (
               <VendorCard
                 key={company.id}
@@ -581,6 +786,34 @@ function AlertSkeleton() {
   );
 }
 
+function VendorTextField({
+  id,
+  label,
+  value,
+  placeholder,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  placeholder: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label htmlFor={id} className="block text-xs font-medium text-zinc-600">
+      {label}
+      <input
+        id={id}
+        type="text"
+        value={value}
+        placeholder={placeholder}
+        onChange={(event) => onChange(event.target.value)}
+        className="mt-1 h-10 w-full rounded-md border border-zinc-200 bg-white px-3 text-sm text-ink-950 outline-none transition placeholder:text-zinc-400 focus:border-ink-900 focus:ring-2 focus:ring-ink-900/10"
+      />
+    </label>
+  );
+}
+
 function StatePanel({
   tone,
   title,
@@ -608,6 +841,25 @@ function toErrorMessage(error: unknown) {
   return error instanceof Error
     ? error.message
     : "Pulse API returned an unexpected error.";
+}
+
+function validateVendorForm(form: VendorFormState) {
+  if (!form.name.trim()) return "Vendor name is required.";
+  if (!form.domain.trim()) return "Exact domain is required.";
+  if (!form.relationship_type.trim()) return "Relationship type is required.";
+  if (!form.owner.trim()) return "Owner is required.";
+  if (!form.renewal_date) return "Renewal date is required.";
+
+  const domain = form.domain.trim().toLowerCase();
+  if (domain.includes("://") || domain.includes("/") || !domain.includes(".")) {
+    return "Use an exact host such as vendor.com, without protocol or path.";
+  }
+
+  if (Number.isNaN(new Date(`${form.renewal_date}T00:00:00`).getTime())) {
+    return "Renewal date must be a valid date.";
+  }
+
+  return null;
 }
 
 function pickInitialCompany(companies: Company[]) {
