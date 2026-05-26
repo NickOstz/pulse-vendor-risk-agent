@@ -200,7 +200,7 @@ export const evidenceFixture: EvidenceItem[] = [
     claim:
       "Cloudflare publicly identifies SOC 2 Type II and ISO 27001 among its compliance resources.",
     supporting_quote:
-      "Explore our posture around ISO 27001, ISO 27701, PCI DSS, SOC 2 Type II, and others.",
+      "Explore our posture around ISO 27001, ISO 27701, PCI DSS, SOC 2 Type II, and others",
     source_url: "https://www.cloudflare.com/trust-hub/",
     source_type: "vendor_owned",
     published_or_captured_at: "2026-05-26T03:45:00Z",
@@ -284,19 +284,6 @@ export const tracesFixture: BrightDataTrace[] = [
     created_at: "2026-05-26T03:45:01Z",
   },
   {
-    id: "trace_cache_trust_001",
-    scan_id: demoScanId,
-    product: "markdown_scrape",
-    operation: "scrape_markdown",
-    source_url: "https://www.cloudflare.com/trust-hub/",
-    status: "fallback_used",
-    latency_ms: 22,
-    retry_count: 0,
-    error: null,
-    source_mode: "fallback",
-    created_at: "2026-05-26T03:46:38Z",
-  },
-  {
     id: "trace_cache_terms_001",
     scan_id: demoScanId,
     product: "replay_loader",
@@ -325,6 +312,31 @@ export const tracesFixture: BrightDataTrace[] = [
 ];
 
 export const alertsFixture: Alert[] = [
+  {
+    id: "alert_trust_001",
+    company_id: demoCompanyId,
+    scan_id: demoScanId,
+    evidence_item_id: "evidence_trust_001",
+    alert_type: "signal",
+    title: "Live compliance posture captured for renewal review",
+    summary:
+      "Live Cloudflare Trust Hub evidence lists SOC 2 Type II and ISO 27001 among its compliance resources.",
+    score: 62,
+    severity: "medium",
+    status: "new",
+    owner: "Security",
+    recommended_action:
+      "Request the current in-scope compliance package for the renewal record.",
+    related_evidence_ids: ["evidence_trust_001"],
+    score_factors: {
+      base_severity: 0.6,
+      source_reliability: 0.9,
+      confidence: 0.95,
+      freshness: 1,
+      vendor_criticality: 1.2,
+    },
+    created_at: "2026-05-26T03:48:00Z",
+  },
   {
     id: "alert_terms_001",
     company_id: demoCompanyId,
@@ -356,20 +368,20 @@ export const alertsFixture: Alert[] = [
     scan_id: demoScanId,
     evidence_item_id: null,
     alert_type: "related_change",
-    title: "Renewal checkpoint: compliance evidence and data residency scope",
+    title: "Renewal checkpoint: live compliance and data residency scope",
     summary:
-      "Verified Cloudflare public sources identify compliance resources and an Enterprise-only data localization add-on relevant to due diligence.",
-    score: 78,
+      "A live Cloudflare compliance source and verified fallback documentation identify renewal-relevant assurance and data localization considerations.",
+    score: 72,
     severity: "high",
     status: "new",
     owner: "Security",
     recommended_action:
-      "Review compliance artifacts and regulated-data hosting needs together with Procurement.",
+      "Review live compliance posture and regulated-data localization scope with Procurement.",
     related_evidence_ids: ["evidence_trust_001", "evidence_terms_001"],
     score_factors: {
-      rule: "two_verified_compatible_signals",
-      verified_evidence_count: 2,
-      unsupported_evidence_excluded: 0,
+      rule: "same_vendor_same_review_window_two_or_more_verified_compatible_signals",
+      live_verified_evidence: 1,
+      fallback_verified_evidence: 1,
     },
     created_at: "2026-05-26T03:49:00Z",
   },
@@ -380,5 +392,5 @@ export const briefFixture: VendorReviewBrief = {
   scan_id: demoScanId,
   format: "markdown",
   content:
-    "# Vendor Risk Assessment Brief: Cloudflare\n\n## Summary\nCloudflare is a critical edge security vendor with renewal approaching. Pulse found three verified public signals from Cloudflare-owned pages in its curated fallback review.\n\n## Key verified signals\n- Cloudflare lists ISO 27001, ISO 27701, PCI DSS, and SOC 2 Type II among its compliance resources.\n- Data Localization Suite is identified as an Enterprise-only paid add-on.\n- Cloudflare reported that affected customers could see dashboard and API log delays during a resolved Log Explorer incident.\n\n## Risk interpretation\nThese signals do not establish a security breach or control failure. They create a review checkpoint for compliance evidence, commercial data-localization scope, and monitoring impact.\n\n## Recommended action\nSecurity and Procurement should request the applicable compliance package and confirm Data Localization Suite requirements before signature.\n\n## Suggested owner\nSecurity with Procurement support.\n\n## Review status\nCompleted with fallback. Live Bright Data collection telemetry is shown separately, while this brief remains based on verified cached fallback excerpts.",
+    "# Vendor Risk Assessment Brief: Cloudflare\n\n## Summary\nPulse captured and verified one live Cloudflare Trust Hub compliance signal, then used two clearly labeled fallback excerpts from official Cloudflare pages for data-localization scope and a resolved Log Explorer incident.\n\n## Key Verified Signals\n- Live trust/security: Cloudflare lists ISO 27001, ISO 27701, PCI DSS, and SOC 2 Type II among its compliance resources.\n- Fallback pricing/terms: Data Localization Suite is identified as an Enterprise-only paid add-on.\n- Fallback status: Cloudflare reported dashboard and API log delays during a resolved Log Explorer incident.\n\n## Risk Interpretation\nThe live compliance statement supports the vendor-assurance review; the labeled fallback signals add commercial-scope and operational context without being presented as live collection.\n\n## Recommended Action\nRequest the applicable compliance package and confirm Data Localization Suite requirements before signature.\n\n## Suggested Owner\nSecurity, with Procurement support.\n\n## Review Status\nNeeds review before renewal. One evidence item is verified from live Bright Data collection; two are verified fallback excerpts.",
 };

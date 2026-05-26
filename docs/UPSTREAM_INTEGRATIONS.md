@@ -117,7 +117,7 @@ public URL using Markdown output. A successful response is stored in the
 ignored local live-snapshot directory and added to the scan content hashes;
 the operation appears as a `web_unlocker` live trace.
 
-The selected demo vendor is Cloudflare and the tested live URL is:
+The selected demo vendor is Cloudflare, and the only approved live URL is:
 
 ```text
 BRIGHTDATA_DEMO_SOURCE_URL=https://www.cloudflare.com/trust-hub/
@@ -132,11 +132,17 @@ official public pages:
 | Data localization commercial scope | `https://developers.cloudflare.com/data-localization/` |
 | Resolved Log Explorer status incident | `https://www.cloudflarestatus.com/` |
 
-The evidence payload remains deterministic cached Cloudflare evidence while
-live extraction is built. In this live-proof mode, cached evidence source rows
-are recorded as `source_mode = fallback`, and the completed scan is marked
-`completed_with_fallback`; the UI must not imply cached claims came from the
-live request.
+For the Trust Hub URL, Pulse now extracts one bounded compliance candidate
+from the captured live snapshot and marks it `verified` only when exact or
+RapidFuzz quote matching meets the configured `0.8` threshold. A verified
+live Trust Hub item replaces its cached duplicate and may create a
+deterministically scored live compliance alert.
+
+The Data Localization and status-incident items remain deterministic fallback
+excerpts, with source rows recorded as `source_mode = fallback`. If the live
+Trust Hub content does not verify, it cannot create a live alert and the
+cached Trust Hub evidence remains visibly labeled fallback. A scan that uses
+any fallback evidence remains `completed_with_fallback`.
 
 When Bright Data credentials are absent, review cycles use replay mode and
 label source rows `cached`.
