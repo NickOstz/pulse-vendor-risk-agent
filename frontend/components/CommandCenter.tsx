@@ -53,6 +53,8 @@ type VendorFormState = {
   owner: string;
   criticality: Criticality;
   renewal_date: string;
+  allow_list_text: string;
+  block_list_text: string;
 };
 
 const emptyVendorForm: VendorFormState = {
@@ -62,6 +64,8 @@ const emptyVendorForm: VendorFormState = {
   owner: "",
   criticality: "important",
   renewal_date: "",
+  allow_list_text: "",
+  block_list_text: "",
 };
 
 export function CommandCenter() {
@@ -328,6 +332,8 @@ export function CommandCenter() {
         owner: vendorForm.owner,
         criticality: vendorForm.criticality,
         renewal_date: vendorForm.renewal_date,
+        allow_list: parseSourceRules(vendorForm.allow_list_text),
+        block_list: parseSourceRules(vendorForm.block_list_text),
       });
       let nextCompanies: Company[];
 
@@ -539,6 +545,34 @@ export function CommandCenter() {
                       className="mt-1 h-10 w-full rounded-md border border-zinc-200 bg-white px-3 text-sm text-ink-950 outline-none transition focus:border-ink-900 focus:ring-2 focus:ring-ink-900/10"
                     />
                   </label>
+                  <VendorTextArea
+                    id="vendor-allow-list"
+                    label="Allowed sources"
+                    value={vendorForm.allow_list_text}
+                    placeholder="trust.vendor.com, vendor.com/security"
+                    onChange={(value) =>
+                      setVendorForm((form) => ({
+                        ...form,
+                        allow_list_text: value,
+                      }))
+                    }
+                  />
+                  <VendorTextArea
+                    id="vendor-block-list"
+                    label="Blocked sources"
+                    value={vendorForm.block_list_text}
+                    placeholder="careers.vendor.com, community.vendor.com"
+                    onChange={(value) =>
+                      setVendorForm((form) => ({
+                        ...form,
+                        block_list_text: value,
+                      }))
+                    }
+                  />
+                  <p className="text-xs leading-5 text-zinc-500">
+                    Source rules are optional. Separate hosts or public paths with
+                    commas or new lines.
+                  </p>
 
                   {vendorFormError ? (
                     <p className="rounded-md border border-rose-100 bg-rose-50 px-3 py-2 text-xs leading-5 text-rose-700">
@@ -814,6 +848,34 @@ function VendorTextField({
   );
 }
 
+function VendorTextArea({
+  id,
+  label,
+  value,
+  placeholder,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  placeholder: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label htmlFor={id} className="block text-xs font-medium text-zinc-600">
+      {label}
+      <textarea
+        id={id}
+        value={value}
+        rows={2}
+        placeholder={placeholder}
+        onChange={(event) => onChange(event.target.value)}
+        className="mt-1 min-h-20 w-full resize-y rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-ink-950 outline-none transition placeholder:text-zinc-400 focus:border-ink-900 focus:ring-2 focus:ring-ink-900/10"
+      />
+    </label>
+  );
+}
+
 function StatePanel({
   tone,
   title,
@@ -860,6 +922,13 @@ function validateVendorForm(form: VendorFormState) {
   }
 
   return null;
+}
+
+function parseSourceRules(value: string) {
+  return value
+    .split(/[\n,]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
 }
 
 function pickInitialCompany(companies: Company[]) {
