@@ -129,3 +129,12 @@ export interface VendorReviewBrief {
   format: "markdown" | "html";
   content: string;
 }
+
+export interface HealthResponse {
+  status: string;
+  database: boolean;
+  scheduler: boolean;
+  replay_data: boolean;
+  brightdata_key_present: boolean;
+  llm_key_present: boolean;
+}

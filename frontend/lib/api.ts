@@ -14,6 +14,7 @@ import type {
   BrightDataTrace,
   Company,
   EvidenceItem,
+  HealthResponse,
   ScanStatusResponse,
   VendorReviewBrief,
 } from "@/lib/types";
@@ -39,6 +40,15 @@ let activeScanId: string | null = null;
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
 
 export const usesFixtureData = !apiBaseUrl;
+
+const fixtureHealth: HealthResponse = {
+  status: "ok",
+  database: true,
+  scheduler: true,
+  replay_data: true,
+  brightdata_key_present: false,
+  llm_key_present: false,
+};
 
 async function requestJson<T>(
   path: string,
@@ -73,6 +83,11 @@ async function requestJson<T>(
 export async function listCompanies(): Promise<Company[]> {
   const live = await requestJson<Company[]>("/api/companies");
   return live ?? companies;
+}
+
+export async function getDemoHealth(): Promise<HealthResponse> {
+  const live = await requestJson<HealthResponse>("/api/health");
+  return live ?? fixtureHealth;
 }
 
 export async function setVendorRiskAgent(
