@@ -6,14 +6,16 @@ from fastapi.testclient import TestClient
 
 
 @pytest.fixture()
-def client(tmp_path: Path) -> TestClient:
+def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
     db_path = tmp_path / "pulse-test.db"
-    os.environ["DATABASE_URL"] = f"sqlite:///{db_path.as_posix()}"
-    os.environ["DEFAULT_REVIEW_MODE"] = "replay"
-    os.environ["BRIGHTDATA_API_KEY"] = ""
-    os.environ["BRIGHTDATA_SERP_ZONE"] = ""
-    os.environ["BRIGHTDATA_UNLOCKER_ZONE"] = ""
-    os.environ["BRIGHTDATA_DEMO_SOURCE_URL"] = ""
+    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{db_path.as_posix()}")
+    monkeypatch.setenv("DEFAULT_REVIEW_MODE", "replay")
+    monkeypatch.setenv("BRIGHTDATA_API_KEY", "")
+    monkeypatch.setenv("BRIGHTDATA_SERP_ZONE", "")
+    monkeypatch.setenv("BRIGHTDATA_UNLOCKER_ZONE", "")
+    monkeypatch.setenv("BRIGHTDATA_DEMO_SOURCE_URL", "")
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "")
+    monkeypatch.setenv("LLM_EXTRACTION_ENABLED", "false")
 
     from app.config import get_settings
 
@@ -28,3 +30,4 @@ def client(tmp_path: Path) -> TestClient:
     )
     with TestClient(create_app()) as test_client:
         yield test_client
+    get_settings.cache_clear()
