@@ -229,9 +229,11 @@ export function EvidenceDrawer({
                     <tr>
                       <th className="py-2 pr-4 font-medium">Product</th>
                       <th className="py-2 pr-4 font-medium">Operation</th>
+                      <th className="py-2 pr-4 font-medium">Source</th>
                       <th className="py-2 pr-4 font-medium">Status</th>
                       <th className="py-2 pr-4 font-medium">Mode</th>
                       <th className="py-2 pr-4 font-medium">Latency</th>
+                      <th className="py-2 pr-4 font-medium">Retry</th>
                       <th className="py-2 pr-4 font-medium">Captured</th>
                     </tr>
                   </thead>
@@ -243,6 +245,21 @@ export function EvidenceDrawer({
                         </td>
                         <td className="max-w-64 truncate py-3 pr-4 text-zinc-600">
                           {trace.operation}
+                        </td>
+                        <td className="max-w-56 truncate py-3 pr-4 font-mono text-zinc-600">
+                          {trace.source_url ? (
+                            <a
+                              href={trace.source_url}
+                              target="_blank"
+                              rel="noreferrer"
+                              title={trace.source_url}
+                              className="hover:text-signal-700"
+                            >
+                              {trace.source_url}
+                            </a>
+                          ) : (
+                            "n/a"
+                          )}
                         </td>
                         <td className="py-3 pr-4 text-zinc-600">
                           {labelize(trace.status)}
@@ -259,6 +276,9 @@ export function EvidenceDrawer({
                           {trace.latency_ms === null
                             ? "n/a"
                             : `${trace.latency_ms}ms`}
+                        </td>
+                        <td className="py-3 pr-4 font-mono text-zinc-600">
+                          {trace.retry_count}
                         </td>
                         <td className="py-3 pr-4 text-zinc-600">
                           {formatDateTime(trace.created_at)}
