@@ -1,7 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, ShieldWarning } from "@phosphor-icons/react";
+import {
+  ArrowRight,
+  CheckCircle,
+  Prohibit,
+  ShieldWarning,
+  WarningCircle,
+} from "@phosphor-icons/react";
 import { AgentStatusPanel } from "@/components/AgentStatusPanel";
 import { AgentToggle } from "@/components/AgentToggle";
 import { Badge } from "@/components/Badge";
@@ -21,12 +27,14 @@ import {
   listEvidence,
   runAgentTick,
   setVendorRiskAgent,
+  updateAlertReviewStatus,
   usesFixtureData,
 } from "@/lib/api";
 import { formatDate, labelize } from "@/lib/formatters";
 import type {
   AgentStatusResponse,
   Alert,
+  AlertReviewStatus,
   BrightDataTrace,
   Company,
   EvidenceItem,
@@ -59,6 +67,10 @@ export function CommandCenter() {
   const [briefLoading, setBriefLoading] = useState(false);
   const [briefError, setBriefError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [alertReviewError, setAlertReviewError] = useState<string | null>(null);
+  const [alertReviewPendingId, setAlertReviewPendingId] = useState<string | null>(
+    null,
+  );
 
   const { scan, pollingError, isTerminal } = useScanPolling(activeScanId);
 
@@ -246,6 +258,27 @@ export function CommandCenter() {
     }
   }
 
+  async function handleAlertReviewStatus(
+    alertId: string,
+    status: AlertReviewStatus,
+  ) {
+    setAlertReviewPendingId(alertId);
+    setAlertReviewError(null);
+
+    try {
+      const updatedAlert = await updateAlertReviewStatus(alertId, status);
+      setAlerts((currentAlerts) =>
+        currentAlerts.map((alert) =>
+          alert.id === updatedAlert.id ? updatedAlert : alert,
+        ),
+      );
+    } catch (error) {
+      setAlertReviewError(toErrorMessage(error));
+    } finally {
+      setAlertReviewPendingId(null);
+    }
+  }
+
   if (initialLoading) {
     return (
       <main className="flex min-h-[100dvh] items-center justify-center p-6">
@@ -363,6 +396,13 @@ export function CommandCenter() {
                 body={actionError}
               />
             ) : null}
+            {alertReviewError ? (
+              <StatePanel
+                tone="danger"
+                title="Alert review action failed"
+                body={alertReviewError}
+              />
+            ) : null}
 
             <ReviewStatusStrip
               scan={scan}
@@ -408,17 +448,9 @@ export function CommandCenter() {
                   />
                 ) : (
                   selectedAlerts.map((alert) => (
-                  <button
+                  <div
                     key={alert.id}
-                    type="button"
-                    onClick={() => {
-                      const relatedIds = alert.related_evidence_ids;
-                      setSelectedEvidenceId(
-                        alert.evidence_item_id ?? relatedIds[0] ?? null,
-                      );
-                      setDrawerOpen(true);
-                    }}
-                    className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 text-left transition hover:border-zinc-300 active:scale-[0.99]"
+                    className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 text-left"
                   >
                     <div className="flex items-center justify-between gap-3">
                       <Badge tone={alert.severity === "high" ? "warn" : "neutral"}>
@@ -436,10 +468,47 @@ export function CommandCenter() {
                     <p className="mt-2 text-sm leading-6 text-zinc-600">
                       {alert.summary}
                     </p>
-                    <p className="mt-3 border-t border-zinc-200 pt-3 text-xs text-zinc-500">
-                      Owner: {alert.owner}. Status: {labelize(alert.status)}.
-                    </p>
-                  </button>
+                    <div className="mt-3 border-t border-zinc-200 pt-3">
+                      <p className="text-xs text-zinc-500">
+                        Owner: {alert.owner}. Status: {labelize(alert.status)}.
+                      </p>
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const relatedIds = alert.related_evidence_ids;
+                            setSelectedEvidenceId(
+                              alert.evidence_item_id ?? relatedIds[0] ?? null,
+                            );
+                            setDrawerOpen(true);
+                          }}
+                          className="inline-flex items-center gap-2 rounded-md border border-zinc-200 bg-white px-3 py-2 text-xs font-semibold text-ink-900 transition hover:border-zinc-300 active:scale-[0.98]"
+                        >
+                          Review evidence
+                          <ArrowRight size={14} weight="bold" />
+                        </button>
+                        {(["approved", "dismissed", "needs_review"] as const).map(
+                          (status) => (
+                            <button
+                              key={status}
+                              type="button"
+                              onClick={() =>
+                                handleAlertReviewStatus(alert.id, status)
+                              }
+                              disabled={alertReviewPendingId === alert.id}
+                              className="inline-flex items-center gap-2 rounded-md border border-zinc-200 bg-white px-3 py-2 text-xs font-semibold text-zinc-700 transition hover:border-zinc-300 disabled:cursor-not-allowed disabled:opacity-60 active:scale-[0.98]"
+                            >
+                              {alertReviewIcon(status)}
+                              {alertReviewPendingId === alert.id &&
+                              alert.status !== status
+                                ? "Updating"
+                                : labelize(status)}
+                            </button>
+                          ),
+                        )}
+                      </div>
+                    </div>
+                  </div>
                   ))
                 )}
               </div>
@@ -470,7 +539,10 @@ export function CommandCenter() {
         selectedEvidenceId={selectedEvidenceId}
         loading={detailLoading}
         error={detailError}
+        reviewError={alertReviewError}
+        pendingAlertId={alertReviewPendingId}
         onSelectEvidence={setSelectedEvidenceId}
+        onUpdateAlertStatus={handleAlertReviewStatus}
         onClose={() => setDrawerOpen(false)}
       />
     </main>
@@ -550,4 +622,14 @@ function pickInitialCompany(companies: Company[]) {
     })[0] ??
     null
   );
+}
+
+function alertReviewIcon(status: AlertReviewStatus) {
+  if (status === "approved") {
+    return <CheckCircle size={14} weight="bold" />;
+  }
+  if (status === "dismissed") {
+    return <Prohibit size={14} weight="bold" />;
+  }
+  return <WarningCircle size={14} weight="bold" />;
 }

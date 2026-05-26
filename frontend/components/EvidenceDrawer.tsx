@@ -1,6 +1,13 @@
 "use client";
 
-import { ArrowSquareOut, Rows, X } from "@phosphor-icons/react";
+import {
+  ArrowSquareOut,
+  CheckCircle,
+  Prohibit,
+  Rows,
+  WarningCircle,
+  X,
+} from "@phosphor-icons/react";
 import { Badge, SourceModeBadge, SupportBadge } from "@/components/Badge";
 import { QuoteVerificationView } from "@/components/QuoteVerificationView";
 import { ScoreTooltip } from "@/components/ScoreTooltip";
@@ -11,7 +18,12 @@ import {
   sourceModeDescription,
   summarizeSourceModes,
 } from "@/lib/sourceModes";
-import type { Alert, BrightDataTrace, EvidenceItem } from "@/lib/types";
+import type {
+  Alert,
+  AlertReviewStatus,
+  BrightDataTrace,
+  EvidenceItem,
+} from "@/lib/types";
 
 export function EvidenceDrawer({
   open,
@@ -21,7 +33,10 @@ export function EvidenceDrawer({
   selectedEvidenceId,
   loading,
   error,
+  reviewError,
+  pendingAlertId,
   onSelectEvidence,
+  onUpdateAlertStatus,
   onClose,
 }: {
   open: boolean;
@@ -31,7 +46,13 @@ export function EvidenceDrawer({
   selectedEvidenceId: string | null;
   loading: boolean;
   error: string | null;
+  reviewError: string | null;
+  pendingAlertId: string | null;
   onSelectEvidence: (id: string) => void;
+  onUpdateAlertStatus: (
+    alertId: string,
+    status: AlertReviewStatus,
+  ) => Promise<void>;
   onClose: () => void;
 }) {
   const selectedEvidence =
@@ -138,7 +159,7 @@ export function EvidenceDrawer({
 
           <div className="space-y-4">
             {selectedEvidence ? (
-              <section className="rounded-lg border border-zinc-200 bg-white p-4 shadow-soft">
+              <section className="space-y-4 rounded-lg border border-zinc-200 bg-white p-4 shadow-soft">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <h3 className="text-sm font-semibold text-ink-950">
@@ -156,6 +177,55 @@ export function EvidenceDrawer({
                   </div>
                   {selectedAlert ? <ScoreTooltip alert={selectedAlert} /> : null}
                 </div>
+
+                {selectedAlert ? (
+                  <div className="rounded-md border border-zinc-200 bg-zinc-50 p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.08em] text-zinc-500">
+                          Review status
+                        </p>
+                        <p className="mt-1 text-sm font-semibold text-ink-950">
+                          {labelize(selectedAlert.status)}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <ReviewActionButton
+                          icon={<CheckCircle size={15} weight="bold" />}
+                          label="Approve"
+                          active={selectedAlert.status === "approved"}
+                          disabled={pendingAlertId === selectedAlert.id}
+                          onClick={() =>
+                            onUpdateAlertStatus(selectedAlert.id, "approved")
+                          }
+                        />
+                        <ReviewActionButton
+                          icon={<Prohibit size={15} weight="bold" />}
+                          label="Dismiss"
+                          active={selectedAlert.status === "dismissed"}
+                          disabled={pendingAlertId === selectedAlert.id}
+                          onClick={() =>
+                            onUpdateAlertStatus(selectedAlert.id, "dismissed")
+                          }
+                        />
+                        <ReviewActionButton
+                          icon={<WarningCircle size={15} weight="bold" />}
+                          label="Needs review"
+                          active={selectedAlert.status === "needs_review"}
+                          disabled={pendingAlertId === selectedAlert.id}
+                          onClick={() =>
+                            onUpdateAlertStatus(selectedAlert.id, "needs_review")
+                          }
+                        />
+                      </div>
+                    </div>
+                    {reviewError ? (
+                      <p className="mt-2 text-xs leading-5 text-rose-700">
+                        {reviewError}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
 
                 <dl className="mt-4 grid grid-cols-2 gap-3 text-sm md:grid-cols-4">
                   <Detail label="Source type" value={selectedEvidence.source_type} />
@@ -294,6 +364,36 @@ export function EvidenceDrawer({
         </div>
       </div>
     </aside>
+  );
+}
+
+function ReviewActionButton({
+  icon,
+  label,
+  active,
+  disabled,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  active: boolean;
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={`inline-flex items-center gap-2 rounded-md border px-3 py-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 active:scale-[0.98] ${
+        active
+          ? "border-ink-900 bg-ink-950 text-white"
+          : "border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300"
+      }`}
+    >
+      {icon}
+      {disabled ? "Saving" : label}
+    </button>
   );
 }
 

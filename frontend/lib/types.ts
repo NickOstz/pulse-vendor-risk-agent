@@ -23,6 +23,7 @@ export type SupportStatus =
 export type SourceMode = "live" | "cached" | "fallback";
 export type Criticality = "critical" | "important" | "normal";
 export type SignalType = "trust_security" | "adverse_media" | "pricing_terms";
+export type AlertReviewStatus = "approved" | "dismissed" | "needs_review";
 
 export interface Company {
   id: string;
@@ -104,7 +105,7 @@ export interface Alert {
   summary: string;
   score: number;
   severity: "low" | "medium" | "high";
-  status: "new" | "approved" | "dismissed" | "needs_review";
+  status: "new" | AlertReviewStatus;
   owner: string;
   recommended_action: string;
   related_evidence_ids: string[];
