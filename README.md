@@ -27,6 +27,7 @@ Read first:
 - [Technical Architecture.md](./Technical%20Architecture.md)
 - [MVP Backlog.md](./MVP%20Backlog.md)
 - [Demo Script.md](./Demo%20Script.md)
+- [Judge Runbook](./docs/JUDGE_RUNBOOK.md)
 - [AGENTS.md](./AGENTS.md)
 
 ## MVP Architecture
@@ -104,6 +105,9 @@ cd backend
 The quality gate requires at least four of five pages to yield verified
 evidence with a quote-match score of at least `0.8`; a failed run reports the
 two best-performing signal templates.
+
+For full local startup, health-check, environment, and submission verification
+steps, see the [Judge Runbook](./docs/JUDGE_RUNBOOK.md).
 
 ## Upstream Integrations
 
