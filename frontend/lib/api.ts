@@ -190,32 +190,10 @@ export async function setVendorRiskAgent(
 
   companies = companies.map((company) => {
     if (company.id !== companyId) return company;
-
-    if (!agentEnabled) {
-      activeScanId = null;
-      return {
-        ...company,
-        agent_enabled: false,
-        agent_status: "inactive",
-        review_policy: null,
-        next_agent_run_at: null,
-      };
-    }
-
-    activeScanId = null;
-    scanStep = 0;
-
-    return {
-      ...company,
-      agent_enabled: true,
-      agent_status: "active",
-      review_policy:
-        company.criticality === "critical"
-          ? "critical_renewal_due"
-          : "weekly",
-      next_agent_run_at: "2026-05-26T03:44:00Z",
-    };
+    return withFixtureAgentState(company, agentEnabled);
   });
+  activeScanId = null;
+  if (agentEnabled) scanStep = 0;
 
   const updatedCompany = companies.find((company) => company.id === companyId);
   if (!updatedCompany) {
@@ -223,6 +201,19 @@ export async function setVendorRiskAgent(
   }
 
   return updatedCompany;
+}
+
+export async function setWatchlistRiskAgent(agentEnabled: boolean): Promise<Company[]> {
+  const live = await requestJson<Company[]>("/api/agents/watchlist", {
+    method: "PATCH",
+    body: JSON.stringify({ agent_enabled: agentEnabled }),
+  });
+  if (live) return live;
+
+  companies = companies.map((company) => withFixtureAgentState(company, agentEnabled));
+  activeScanId = null;
+  if (agentEnabled) scanStep = 0;
+  return companies;
 }
 
 export async function runAgentTick(): Promise<AgentStatusResponse> {
@@ -502,4 +493,36 @@ async function readErrorDetail(response: Response): Promise<string> {
 
 function normalizeRules(rules: string[]) {
   return Array.from(new Set(rules.map((rule) => rule.trim()).filter(Boolean)));
+}
+
+function withFixtureAgentState(company: Company, enabled: boolean): Company {
+  if (!enabled) {
+    return {
+      ...company,
+      agent_enabled: false,
+      agent_status: "inactive",
+      review_policy: null,
+      next_agent_run_at: null,
+    };
+  }
+
+  const reviewPolicy =
+    company.id === demoCompanyId
+      ? "critical_renewal_due"
+      : company.criticality === "normal"
+        ? "manual_low_frequency"
+        : "weekly";
+
+  return {
+    ...company,
+    agent_enabled: true,
+    agent_status: "active",
+    review_policy: reviewPolicy,
+    next_agent_run_at:
+      reviewPolicy === "critical_renewal_due"
+        ? "2026-05-26T03:44:00Z"
+        : reviewPolicy === "weekly"
+          ? "2026-06-02T03:44:00Z"
+          : null,
+  };
 }
