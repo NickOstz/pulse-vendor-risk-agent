@@ -54,6 +54,30 @@ Non-negotiables:
 - The score is calculated by code, not invented by the LLM.
 - Replay and fallback data are visibly labeled as `cached` or `fallback`.
 
+## Demo Rehearsal
+
+Run a disposable, credential-free full-flow check before a demo:
+
+```powershell
+cd backend
+.\.venv\Scripts\python -m scripts.rehearse_demo
+```
+
+For a controlled proof run using locally configured Bright Data credentials,
+the bounded discovery request, and the approved Cloudflare Trust Hub capture
+attempt:
+
+```powershell
+cd backend
+.\.venv\Scripts\python -m scripts.rehearse_demo --mode live_with_fallback
+```
+
+Both modes create a temporary SQLite database and temporary live-snapshot
+directory, exercise agent enablement through brief generation, validate
+verified-evidence alert invariants, and fail if the flow exceeds three
+minutes. The commands never print credentials or persist collected live
+snapshots in the repository.
+
 ## Upstream Integrations
 
 Three upstream reference resources are pinned as Git submodules:

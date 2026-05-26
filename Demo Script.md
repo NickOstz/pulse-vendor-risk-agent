@@ -68,7 +68,7 @@ This is a practical business workflow for security, compliance, and procurement 
 
 "The agent works inside strict limits. It checks targeted public sources, uses Bright Data for live web access, and keeps a visible trail of what it collected."
 
-"Today the live collection checks Cloudflare's Trust Hub. While live extraction is being hardened, the assessment uses verified cached excerpts from the same official Cloudflare source set and labels them as fallback."
+"Today the live collection checks Cloudflare's Trust Hub and verifies one live compliance quote. Two additional official Cloudflare excerpts remain clearly labeled fallback evidence, so the assessment is useful without overstating what was collected live."
 
 **Screen:**
 
@@ -184,6 +184,37 @@ Pulse turns live public web data into trusted third-party risk decisions.
 - Support status displays as `verified`.
 - Score explanation is visible.
 - Vendor Risk Assessment Brief displays successfully.
+
+## Pre-Demo Rehearsal
+
+Run the credential-free rehearsal before presenting. It creates a disposable
+database, observes the autonomous stages at the UI polling cadence, verifies
+that high-priority alerts link only to verified evidence, checks the
+related-change card and both brief formats, then removes its temporary state.
+
+```powershell
+cd D:\Brightdata\backend
+.\.venv\Scripts\python -m scripts.rehearse_demo
+```
+
+Once local Bright Data variables are configured in `backend/.env`, run the
+controlled live-with-fallback proof. This uses the bounded Cloudflare demo
+workflow, including a discovery trace and an approved Trust Hub capture
+attempt, and stores any captured snapshot in a temporary directory:
+
+```powershell
+cd D:\Brightdata\backend
+.\.venv\Scripts\python -m scripts.rehearse_demo --mode live_with_fallback
+```
+
+Expected report checks:
+
+- status is `completed` for replay or `completed_with_fallback` for live mode;
+- elapsed time remains below 180 seconds;
+- all five stages are observed;
+- all high-priority alert evidence is verified;
+- related-change card and Markdown/HTML briefs are present;
+- source modes are `cached` in replay, or `live` plus `fallback` in live mode.
 
 ## What Can Be Preloaded
 
