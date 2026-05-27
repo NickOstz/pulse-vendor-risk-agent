@@ -29,7 +29,8 @@ This follows the MVP architecture and the platform monorepo guidance:
 3. Set the Railway config file path to `/backend/railway.json`.
 4. Generate a public backend domain.
 5. Attach one persistent volume mounted at `/data`.
-6. Configure these server-side variables:
+6. Keep the backend service at one replica for the MVP demo.
+7. Configure these server-side variables:
 
 ```text
 DATABASE_URL=sqlite:////data/pulse.db
@@ -53,6 +54,11 @@ put secrets in Vercel public variables or committed files.
 Set `AUTONOMOUS_SCHEDULER_ENABLED=true` only when the monitored environment is
 ready to perform recurring reviews. With live Bright Data and DeepSeek keys,
 scheduled reviews can consume provider usage without an open browser.
+
+The MVP serializes review creation and stage progression inside one backend
+process so multiple operator tabs cannot repeat provider-backed work. Keep the
+Railway service at one replica. Scaling beyond one replica requires a
+database-backed scan claim or lease before live monitoring is safe.
 
 Set `DEMO_API_TOKEN` when the Railway backend is publicly reachable. With this
 value configured, write controls and manual review triggers require the

@@ -1,6 +1,8 @@
 import hashlib
 import json
 import os
+import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import httpx
@@ -131,6 +133,29 @@ def test_live_serp_attempt_is_traced_before_labeled_fallback(monkeypatch, live_c
     assert expected_hash in json.loads(saved_scan.content_hashes_json)
 
 
+def test_concurrent_polls_do_not_duplicate_live_collection_calls(monkeypatch, live_client):
+    captured: list[str] = []
+
+    def fake_post(url, *, headers, json, timeout):
+        captured.append(json["zone"])
+        time.sleep(0.05)
+        if json["zone"] == "test-unlocker-zone":
+            return httpx.Response(200, request=httpx.Request("POST", url), text="# Live trust source")
+        return httpx.Response(200, request=httpx.Request("POST", url), json={"organic": []})
+
+    monkeypatch.setattr("app.services.brightdata_client.httpx.post", fake_post)
+    scan_id = _start_live_scan(live_client)
+
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        poll_responses = list(executor.map(lambda _: live_client.get(f"/api/scans/{scan_id}"), range(3)))
+
+    traces = live_client.get(f"/api/brightdata/traces?scan_id={scan_id}").json()
+
+    assert all(response.status_code == 200 for response in poll_responses)
+    assert captured == ["test-serp-zone"] * 3 + ["test-unlocker-zone"]
+    assert sum(1 for trace in traces if trace["source_mode"] == "live") == 4
+
+
 def test_unlocker_timeout_is_traced_while_fallback_completes_review(monkeypatch, live_client):
     def fake_post(url, *, headers, json, timeout):
         if json["zone"] == "test-unlocker-zone":
@@ -228,6 +253,14 @@ def test_opt_in_llm_extraction_validates_live_source_and_counts_call(monkeypatch
 
     def fake_model_call(self, prompt):
         model_prompts.append(prompt)
+        if prompt.startswith("Produce a structured vendor risk assessment"):
+            return json.dumps(
+                {
+                    "executive_summary": "DeepSeek summarized verified Cloudflare renewal evidence.",
+                    "risk_interpretation": "Verified public statements require a renewal review.",
+                    "recommended_actions": ["Review current compliance artifacts."],
+                }
+            )
         return json.dumps(
             {
                 "vendor_id": "vendor-cloudflare-demo",
@@ -249,6 +282,10 @@ def test_opt_in_llm_extraction_validates_live_source_and_counts_call(monkeypatch
 
     terminal = _poll_until_terminal(live_client, scan_id)
     evidence = live_client.get(f"/api/companies/vendor-cloudflare-demo/evidence?scan_id={scan_id}").json()
+    brief = live_client.post(
+        "/api/briefs/vendor-review",
+        json={"company_id": "vendor-cloudflare-demo", "scan_id": scan_id, "format": "markdown"},
+    ).json()["content"]
 
     live_trust = next(
         item
@@ -256,10 +293,11 @@ def test_opt_in_llm_extraction_validates_live_source_and_counts_call(monkeypatch
         if item["source_url"] == "https://www.cloudflare.com/trust-hub/"
         and item["snapshot_path"].endswith(f"{scan_id}-configured-source.txt")
     )
-    assert terminal["metrics"]["llm_calls_used"] == 1
+    assert terminal["metrics"]["llm_calls_used"] == 2
     assert live_trust["support_status"] == "verified"
     assert live_trust["claim"] == "Cloudflare publicly identifies compliance resources."
-    assert len(model_prompts) == 1
+    assert "DeepSeek summarized verified Cloudflare renewal evidence." in brief
+    assert len(model_prompts) == 2
 
 
 def test_new_vendor_runs_bounded_live_model_review_from_allowed_vendor_source(monkeypatch, live_client):
@@ -502,7 +540,13 @@ def test_new_vendor_ignores_untrusted_configured_url_while_investigating_serp(mo
 
 def test_invalid_opt_in_llm_extraction_records_failure_and_preserves_fallback(monkeypatch, live_client):
     quote = "Explore our posture around ISO 27001, ISO 27701, PCI DSS, SOC 2 Type II, and others"
-    invalid_responses = iter(["not-json", '{"claim": "missing required fields"}'])
+    invalid_responses = iter(
+        [
+            "not-json",
+            '{"claim": "missing required fields"}',
+            '{"executive_summary": "missing assessment fields"}',
+        ]
+    )
     monkeypatch.setenv("LLM_EXTRACTION_ENABLED", "true")
     monkeypatch.setenv("DEEPSEEK_API_KEY", "test-llm-key")
 
@@ -531,7 +575,7 @@ def test_invalid_opt_in_llm_extraction_records_failure_and_preserves_fallback(mo
     ).json()["content"]
 
     trust_items = [item for item in evidence if item["source_url"] == "https://www.cloudflare.com/trust-hub/"]
-    assert terminal["metrics"]["llm_calls_used"] == 2
+    assert terminal["metrics"]["llm_calls_used"] == 3
     assert terminal["metrics"]["verified_count"] == 3
     assert {item["support_status"] for item in trust_items} == {"failed_source", "verified"}
     assert not any(alert["title"] == "Live compliance posture captured for renewal review" for alert in alerts)

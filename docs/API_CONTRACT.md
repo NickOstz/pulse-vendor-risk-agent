@@ -69,7 +69,10 @@ scan. In unprotected local mode its polling request advances the demo cycle as
 before. When `DEMO_API_TOKEN` is configured, an unauthenticated poll is
 read-only; only an operator-token poll may invoke poll-driven progression.
 The opt-in backend scheduler may independently advance intentionally enabled
-monitoring cycles.
+monitoring cycles. The single-replica runtime serializes due-scan creation and
+scan-stage advancement so concurrent operator tabs or scheduler/poll overlap
+cannot start duplicate reviews, execute a provider-backed stage more than
+once, or bypass per-review budgets.
 
 ## Core Response Shapes
 

@@ -279,12 +279,13 @@ def _complete_brief(session: Session, company: Company, scan: Scan) -> None:
     evidence_items = session.exec(select(EvidenceItem).where(EvidenceItem.scan_id == scan.id)).all()
     verified_items = [item for item in evidence_items if item.support_status == "verified"]
     traces = session.exec(select(BrightDataTrace).where(BrightDataTrace.scan_id == scan.id)).all()
+    live_review = scan.mode in {"live", "live_with_fallback"}
     change_statuses = (
         classify_live_evidence_changes(session, scan, _verified_live_evidence(session, scan.id))
-        if scan.mode == "live"
+        if live_review
         else None
     )
-    assessment = draft_verified_assessment(company, scan, verified_items) if scan.mode == "live" else None
+    assessment = draft_verified_assessment(company, scan, verified_items) if live_review else None
     markdown, html = render_vendor_review_brief(company, verified_items, traces, assessment, change_statuses)
     session.add(Brief(company_id=company.id, scan_id=scan.id, markdown=markdown, html=html, created_at=now))
 
