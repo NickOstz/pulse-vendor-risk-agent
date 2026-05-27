@@ -1,5 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlmodel import Session
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlmodel import Session, select
 
 from app.db import get_session
 from app.models import Company, Scan
@@ -28,13 +28,28 @@ def run_scan(payload: ManualScanRequest, session: Session = Depends(get_session)
     return scan_to_read(scan)
 
 
+@router.get("/latest", response_model=ScanRead | None)
+def get_latest_scan(
+    company_id: str = Query(...),
+    session: Session = Depends(get_session),
+) -> ScanRead | None:
+    if session.get(Company, company_id) is None:
+        raise HTTPException(status_code=404, detail="company not found")
+    scan = session.exec(
+        select(Scan)
+        .where(Scan.company_id == company_id)
+        .order_by(Scan.started_at.desc())
+    ).first()
+    return scan_to_read(scan) if scan else None
+
+
 @router.get("/{scan_id}", response_model=ScanRead)
 def get_scan(scan_id: str, session: Session = Depends(get_session)) -> ScanRead:
     scan = session.get(Scan, scan_id)
     if scan is None:
         raise HTTPException(status_code=404, detail="scan not found")
     response = scan_to_read(scan)
-    if scan.status == "running" and scan.mode in {"replay", "live_with_fallback"}:
+    if scan.status == "running" and scan.mode in {"live", "replay", "live_with_fallback"}:
         company = session.get(Company, scan.company_id)
         if company is not None:
             ReviewRunner().advance(session, company, scan)

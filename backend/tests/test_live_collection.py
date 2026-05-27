@@ -48,6 +48,30 @@ def _start_live_scan(client: TestClient) -> str:
     return tick.json()["started_scan_ids"][0]
 
 
+def _create_due_vendor(client: TestClient, allow_list: list[str]) -> tuple[str, str]:
+    created = client.post(
+        "/api/companies",
+        json={
+            "name": "SecureForms",
+            "domain": "secureforms.example",
+            "relationship_type": "documents",
+            "owner": "Legal",
+            "criticality": "critical",
+            "renewal_date": "2026-06-10",
+            "allow_list": allow_list,
+            "block_list": [],
+        },
+    )
+    assert created.status_code == 201
+    company_id = created.json()["id"]
+    enabled = client.patch(f"/api/companies/{company_id}/agent", json={"agent_enabled": True})
+    assert enabled.status_code == 200
+    tick = client.post("/api/agents/tick")
+    assert tick.status_code == 200
+    assert tick.json()["started_scan_ids"]
+    return company_id, tick.json()["started_scan_ids"][0]
+
+
 def _poll_until_terminal(client: TestClient, scan_id: str) -> dict:
     for _ in range(8):
         scan = client.get(f"/api/scans/{scan_id}").json()
@@ -73,17 +97,16 @@ def test_live_serp_attempt_is_traced_before_labeled_fallback(monkeypatch, live_c
 
     assert terminal["mode"] == "live_with_fallback"
     assert terminal["status"] == "completed_with_fallback"
-    assert terminal["metrics"]["serp_queries_used"] == 1
+    assert terminal["metrics"]["serp_queries_used"] == 3
     assert terminal["metrics"]["urls_scraped"] == 1
     assert terminal["metrics"]["source_count"] == 4
     assert terminal["metrics"]["llm_calls_used"] == 0
     assert captured[0]["payload"]["zone"] == "test-serp-zone"
     assert "brd_json=1" in captured[0]["payload"]["url"]
-    assert captured[1]["payload"] == {
+    assert captured[3]["payload"] == {
         "zone": "test-unlocker-zone",
         "url": "https://www.cloudflare.com/trust-hub/",
         "format": "raw",
-        "data_format": "markdown",
     }
     assert {call["timeout"] for call in captured} == {8.0}
     assert any(
@@ -95,7 +118,7 @@ def test_live_serp_attempt_is_traced_before_labeled_fallback(monkeypatch, live_c
         for trace in traces
     )
     assert any(trace["source_mode"] == "fallback" and trace["status"] == "fallback_used" for trace in traces)
-    snapshot = Path(os.environ["BRIGHTDATA_LIVE_SNAPSHOT_DIR"]) / f"{scan_id}-configured-source.md"
+    snapshot = Path(os.environ["BRIGHTDATA_LIVE_SNAPSHOT_DIR"]) / f"{scan_id}-configured-source.txt"
     assert snapshot.read_text(encoding="utf-8") == "# Live trust source"
     import app.db as db
     from app.models import Scan
@@ -230,12 +253,250 @@ def test_opt_in_llm_extraction_validates_live_source_and_counts_call(monkeypatch
         item
         for item in evidence
         if item["source_url"] == "https://www.cloudflare.com/trust-hub/"
-        and item["snapshot_path"].endswith(f"{scan_id}-configured-source.md")
+        and item["snapshot_path"].endswith(f"{scan_id}-configured-source.txt")
     )
     assert terminal["metrics"]["llm_calls_used"] == 1
     assert live_trust["support_status"] == "verified"
     assert live_trust["claim"] == "Cloudflare publicly identifies compliance resources."
     assert len(model_prompts) == 1
+
+
+def test_new_vendor_runs_bounded_live_model_review_from_allowed_vendor_source(monkeypatch, live_client):
+    source_url = "https://trust.secureforms.example/security"
+    quote = "SOC 2 Type II report is available upon request."
+    model_prompts: list[str] = []
+    monkeypatch.setenv("LLM_EXTRACTION_ENABLED", "true")
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "test-llm-key")
+
+    from app.config import get_settings
+
+    get_settings.cache_clear()
+
+    def fake_post(url, *, headers, json, timeout):
+        if json["zone"] == "test-unlocker-zone":
+            assert json["url"] == source_url
+            return httpx.Response(200, request=httpx.Request("POST", url), text=f"Security assurance: {quote}")
+        return httpx.Response(200, request=httpx.Request("POST", url), json={"organic": []})
+
+    def fake_model_call(self, prompt):
+        model_prompts.append(prompt)
+        vendor_id = prompt.split("Vendor: SecureForms (", 1)[1].split(")", 1)[0]
+        return json.dumps(
+            {
+                "vendor_id": vendor_id,
+                "signal_type": "trust_security",
+                "claim": "SecureForms makes a SOC 2 Type II report available on request.",
+                "supporting_quote": quote,
+                "source_url": source_url,
+                "source_type": "vendor_owned",
+                "published_or_captured_at": "2026-05-27T08:00:00Z",
+                "severity_hint": "medium",
+                "confidence": 0.9,
+                "recommended_action": "Request the current report for review.",
+            }
+        )
+
+    monkeypatch.setattr("app.services.brightdata_client.httpx.post", fake_post)
+    monkeypatch.setattr("app.services.extraction.DeepSeekExtractionClient.complete_json", fake_model_call)
+    company_id, scan_id = _create_due_vendor(live_client, [source_url])
+
+    terminal = _poll_until_terminal(live_client, scan_id)
+    traces = live_client.get(f"/api/brightdata/traces?scan_id={scan_id}").json()
+    evidence = live_client.get(f"/api/companies/{company_id}/evidence?scan_id={scan_id}").json()
+    alerts = live_client.get(f"/api/alerts?company_id={company_id}&scan_id={scan_id}").json()
+    brief = live_client.post(
+        "/api/briefs/vendor-review",
+        json={"company_id": company_id, "scan_id": scan_id, "format": "markdown"},
+    ).json()["content"]
+
+    assert terminal["mode"] == "live"
+    assert terminal["status"] == "completed"
+    assert terminal["metrics"]["llm_calls_used"] == 1
+    assert terminal["metrics"]["verified_count"] == 1
+    assert {trace["source_mode"] for trace in traces} == {"live"}
+    assert any(
+        trace["operation"] == "capture_text:trust_security:configured"
+        and trace["product"] == "web_unlocker"
+        for trace in traces
+    )
+    assert evidence[0]["source_url"] == source_url
+    assert evidence[0]["support_status"] == "verified"
+    assert len(alerts) == 1
+    assert alerts[0]["title"] == "Verified live trust security signal requires review"
+    assert "SecureForms" in alerts[0]["summary"]
+    assert "Vendor Risk Assessment Brief: SecureForms" in brief
+    assert "cloudflare.com" not in brief.casefold()
+    assert len(model_prompts) == 1
+
+
+def test_serp_discoveries_drive_broad_live_investigation_and_ai_assessment(monkeypatch, live_client):
+    source_text = {
+        "https://secureforms.example/trust": "SOC 2 Type II report available for customer assurance review.",
+        "https://secureforms.example/pricing": "Enterprise renewal pricing now includes an audit export add-on.",
+        "https://securitynews.example/secureforms-incident": "SecureForms reported a service incident affecting audit exports.",
+    }
+    monkeypatch.setenv("LLM_EXTRACTION_ENABLED", "true")
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "test-llm-key")
+
+    from app.config import get_settings
+
+    get_settings.cache_clear()
+
+    def fake_post(url, *, headers, json, timeout):
+        if json["zone"] == "test-serp-zone":
+            search_url = json["url"]
+            if "pricing" in search_url:
+                target = "https://secureforms.example/pricing"
+            elif "breach" in search_url:
+                target = "https://securitynews.example/secureforms-incident"
+            else:
+                target = "https://secureforms.example/trust"
+            return httpx.Response(200, request=httpx.Request("POST", url), json={"organic": [{"link": target}]})
+        target = json["url"]
+        return httpx.Response(200, request=httpx.Request("POST", url), text=source_text[target])
+
+    def fake_model_call(self, prompt):
+        if prompt.startswith("Produce a structured vendor risk assessment"):
+            return json.dumps(
+                {
+                    "executive_summary": "SecureForms has three verified public risk indicators requiring renewal review.",
+                    "risk_interpretation": "Verified assurance, commercial, and incident statements justify coordinated review.",
+                    "recommended_actions": ["Confirm assurance and incident remediation before renewal."],
+                }
+            )
+        vendor_id = prompt.split("Vendor: SecureForms (", 1)[1].split(")", 1)[0]
+        if "/pricing" in prompt:
+            signal_type = "pricing_terms"
+            source_url = "https://secureforms.example/pricing"
+            source_type = "vendor_owned"
+            quote = source_text[source_url]
+        elif "securitynews.example" in prompt:
+            signal_type = "adverse_media"
+            source_url = "https://securitynews.example/secureforms-incident"
+            source_type = "news"
+            quote = source_text[source_url]
+        else:
+            signal_type = "trust_security"
+            source_url = "https://secureforms.example/trust"
+            source_type = "vendor_owned"
+            quote = source_text[source_url]
+        return json.dumps(
+            {
+                "vendor_id": vendor_id,
+                "signal_type": signal_type,
+                "claim": f"Verified {signal_type} finding for SecureForms.",
+                "supporting_quote": quote,
+                "source_url": source_url,
+                "source_type": source_type,
+                "published_or_captured_at": "2026-05-27T08:00:00Z",
+                "severity_hint": "medium",
+                "confidence": 0.9,
+                "recommended_action": "Review this verified signal.",
+            }
+        )
+
+    monkeypatch.setattr("app.services.brightdata_client.httpx.post", fake_post)
+    monkeypatch.setattr("app.services.extraction.DeepSeekExtractionClient.complete_json", fake_model_call)
+    company_id, scan_id = _create_due_vendor(live_client, [])
+
+    terminal = _poll_until_terminal(live_client, scan_id)
+    traces = live_client.get(f"/api/brightdata/traces?scan_id={scan_id}").json()
+    evidence = live_client.get(f"/api/companies/{company_id}/evidence?scan_id={scan_id}").json()
+    alerts = live_client.get(f"/api/alerts?company_id={company_id}&scan_id={scan_id}").json()
+    brief = live_client.post(
+        "/api/briefs/vendor-review",
+        json={"company_id": company_id, "scan_id": scan_id, "format": "markdown"},
+    ).json()["content"]
+
+    assert terminal["mode"] == "live"
+    assert terminal["metrics"]["serp_queries_used"] == 3
+    assert terminal["metrics"]["urls_scraped"] == 3
+    assert terminal["metrics"]["llm_calls_used"] == 4
+    assert terminal["metrics"]["verified_count"] == 3
+    assert {item["signal_type"] for item in evidence} == {"trust_security", "pricing_terms", "adverse_media"}
+    assert any(item["source_type"] == "news" for item in evidence)
+    assert sum(1 for trace in traces if trace["operation"].endswith(":serp")) == 3
+    assert any(alert["alert_type"] == "related_change" for alert in alerts)
+    assert "three verified public risk indicators" in brief
+
+
+def test_repeated_verified_live_finding_is_retained_without_duplicate_alert(monkeypatch, live_client):
+    source_url = "https://trust.secureforms.example/security"
+    quote = "SOC 2 Type II report is available upon request."
+    monkeypatch.setenv("LLM_EXTRACTION_ENABLED", "true")
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "test-llm-key")
+
+    from app.config import get_settings
+
+    get_settings.cache_clear()
+
+    def fake_post(url, *, headers, json, timeout):
+        if json["zone"] == "test-unlocker-zone":
+            return httpx.Response(200, request=httpx.Request("POST", url), text=quote)
+        return httpx.Response(200, request=httpx.Request("POST", url), json={"organic": []})
+
+    def fake_model_call(self, prompt):
+        vendor_id = prompt.split("Vendor: SecureForms (", 1)[1].split(")", 1)[0]
+        return json.dumps(
+            {
+                "vendor_id": vendor_id,
+                "signal_type": "trust_security",
+                "claim": "SecureForms makes a SOC 2 Type II report available on request.",
+                "supporting_quote": quote,
+                "source_url": source_url,
+                "source_type": "vendor_owned",
+                "published_or_captured_at": "2026-05-27T08:00:00Z",
+                "severity_hint": "medium",
+                "confidence": 0.9,
+                "recommended_action": "Request the current report for review.",
+            }
+        )
+
+    monkeypatch.setattr("app.services.brightdata_client.httpx.post", fake_post)
+    monkeypatch.setattr("app.services.extraction.DeepSeekExtractionClient.complete_json", fake_model_call)
+    company_id, first_scan_id = _create_due_vendor(live_client, [source_url])
+    _poll_until_terminal(live_client, first_scan_id)
+
+    live_client.patch(f"/api/companies/{company_id}/agent", json={"agent_enabled": True})
+    second_scan_id = live_client.post("/api/agents/tick").json()["started_scan_ids"][0]
+    _poll_until_terminal(live_client, second_scan_id)
+
+    second_alerts = live_client.get(f"/api/alerts?company_id={company_id}&scan_id={second_scan_id}").json()
+    brief = live_client.post(
+        "/api/briefs/vendor-review",
+        json={"company_id": company_id, "scan_id": second_scan_id, "format": "markdown"},
+    ).json()["content"]
+
+    assert second_alerts == []
+    assert "## No New Verified Changes" in brief
+    assert "SecureForms makes a SOC 2 Type II report available on request." in brief
+
+
+def test_new_vendor_ignores_untrusted_configured_url_while_investigating_serp(monkeypatch, live_client):
+    captured_zones: list[str] = []
+    monkeypatch.setenv("LLM_EXTRACTION_ENABLED", "true")
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "test-llm-key")
+
+    from app.config import get_settings
+
+    get_settings.cache_clear()
+
+    def fake_post(url, *, headers, json, timeout):
+        captured_zones.append(json["zone"])
+        return httpx.Response(200, request=httpx.Request("POST", url), json={"organic": []})
+
+    monkeypatch.setattr("app.services.brightdata_client.httpx.post", fake_post)
+    company_id, scan_id = _create_due_vendor(live_client, ["https://www.cloudflare.com/trust-hub/"])
+
+    terminal = _poll_until_terminal(live_client, scan_id)
+    evidence = live_client.get(f"/api/companies/{company_id}/evidence?scan_id={scan_id}").json()
+    traces = live_client.get(f"/api/brightdata/traces?scan_id={scan_id}").json()
+
+    assert terminal["mode"] == "live"
+    assert terminal["status"] == "completed"
+    assert evidence == []
+    assert len(traces) == 3
+    assert captured_zones == ["test-serp-zone"] * 3
 
 
 def test_invalid_opt_in_llm_extraction_records_failure_and_preserves_fallback(monkeypatch, live_client):
@@ -331,7 +592,7 @@ def test_unapproved_configured_url_is_not_requested_or_scored(monkeypatch, live_
     traces = live_client.get(f"/api/brightdata/traces?scan_id={scan_id}").json()
 
     assert terminal["metrics"]["urls_scraped"] == 0
-    assert captured_zones == ["test-serp-zone"]
+    assert captured_zones == ["test-serp-zone"] * 3
     assert not any(trace["source_mode"] == "live" and trace["product"] == "web_unlocker" for trace in traces)
     assert not any(alert["title"] == "Live compliance posture captured for renewal review" for alert in alerts)
 
@@ -366,7 +627,7 @@ def test_blocked_configured_source_is_not_requested_or_scored(monkeypatch, live_
     assert terminal["metrics"]["source_count"] == 2
     assert terminal["metrics"]["evidence_count"] == 2
     assert terminal["metrics"]["verified_count"] == 2
-    assert captured_zones == ["test-serp-zone"]
+    assert captured_zones == ["test-serp-zone"] * 3
     assert not any(trace["source_mode"] == "live" and trace["product"] == "web_unlocker" for trace in traces)
     assert not any(trace["source_url"] == source_url for trace in traces)
     assert not any(item["source_url"] == source_url for item in evidence)

@@ -41,11 +41,17 @@ BRIGHTDATA_UNLOCKER_ZONE=
 BRIGHTDATA_DEMO_SOURCE_URL=
 DEEPSEEK_API_KEY=
 LLM_EXTRACTION_ENABLED=false
+AUTONOMOUS_SCHEDULER_ENABLED=false
+AUTONOMOUS_SCHEDULER_INTERVAL_SECONDS=10
 ```
 
 Keep replay mode enabled for the credential-free hosted proof. Add Bright Data
 and extraction variables only for a controlled live-with-fallback proof; never
 put secrets in Vercel public variables or committed files.
+
+Set `AUTONOMOUS_SCHEDULER_ENABLED=true` only when the monitored environment is
+ready to perform recurring reviews. With live Bright Data and DeepSeek keys,
+scheduled reviews can consume provider usage without an open browser.
 
 `backend/railway.json` starts Uvicorn on Railway's assigned port and uses
 `/api/health` for deployment health. The replay JSON files remain in the

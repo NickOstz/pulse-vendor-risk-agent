@@ -19,5 +19,5 @@ def health(session: Session = Depends(get_session), settings: Settings = Depends
         scheduler=True,
         replay_data=replay_data_available(),
         brightdata_key_present=bool(settings.brightdata_api_key),
-        llm_key_present=bool(settings.deepseek_api_key or settings.openai_api_key),
+        llm_key_present=bool(settings.deepseek_api_key),
     )

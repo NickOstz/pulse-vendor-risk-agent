@@ -108,14 +108,18 @@ The initial active integration paths are:
 
 When `BRIGHTDATA_API_KEY`, `BRIGHTDATA_SERP_ZONE`, and
 `DEFAULT_REVIEW_MODE=live_with_fallback` are configured, an autonomous review
-cycle makes one server-side Bright Data SERP request for vendor-risk discovery
-during the Collect stage. Its trace is recorded as `source_mode = live`.
+cycle makes bounded server-side Bright Data SERP requests for trust/security,
+pricing/terms, and adverse-media investigation during the Collect stage.
+Their traces are recorded as `source_mode = live`.
 
-When `BRIGHTDATA_UNLOCKER_ZONE` and `BRIGHTDATA_DEMO_SOURCE_URL` are also set,
-the Collect stage makes one bounded Web Unlocker request for that explicit
-public URL using Markdown output. A successful response is stored in the
-ignored local live-snapshot directory and added to the scan content hashes;
-the operation appears as a `web_unlocker` live trace.
+When `BRIGHTDATA_UNLOCKER_ZONE` is also set, the Collect stage follows eligible
+SERP discoveries through bounded Web Unlocker requests. Vendor-owned security
+and pricing discoveries must match the monitored vendor's exact domain or
+subdomain; public adverse-media results may come from third-party public
+sources. When `BRIGHTDATA_DEMO_SOURCE_URL` is set, the rehearsed demo also
+includes that approved known page. Successful responses are stored as source
+text in the ignored local live-snapshot directory and added to the scan
+content hashes; each operation appears as a `web_unlocker` live trace.
 
 The selected demo vendor is Cloudflare, and the only approved live URL is:
 
@@ -132,11 +136,19 @@ official public pages:
 | Data localization commercial scope | `https://developers.cloudflare.com/data-localization/` |
 | Resolved Log Explorer status incident | `https://www.cloudflarestatus.com/` |
 
-For the Trust Hub URL, Pulse now extracts one bounded compliance candidate
-from the captured live snapshot and marks it `verified` only when exact or
-RapidFuzz quote matching meets the configured `0.8` threshold. A verified
-live Trust Hub item replaces its cached duplicate and may create a
-deterministically scored live compliance alert.
+For captured live URLs, Pulse uses bounded DeepSeek extraction for configured
+live-model runs and marks candidates `verified` only when exact or RapidFuzz
+quote matching meets the configured `0.8` threshold. A verified live Trust Hub
+item replaces its cached duplicate and may create a deterministically scored
+live compliance alert. When at least two live findings verify, DeepSeek may
+draft a structured assessment from those verified findings only; it never
+bypasses verification or deterministic scoring.
+
+For recurring live reviews, Pulse compares each verified source/signal quote
+with the prior completed review. The first observation is a baseline; an
+identical later observation is retained in the assessment record without
+creating a duplicate alert, while changed or newly discovered verified
+evidence remains actionable.
 
 The Data Localization and status-incident items remain deterministic fallback
 excerpts, with source rows recorded as `source_mode = fallback`. If the live
@@ -146,6 +158,26 @@ any fallback evidence remains `completed_with_fallback`.
 
 When Bright Data credentials are absent, review cycles use replay mode and
 label source rows `cached`.
+
+### Opt-in Live Vendor Investigation
+
+The fixed Cloudflare path remains the fallback-safe rehearsed demo. For a live
+investigation of a newly added vendor, Pulse can run one bounded review when all
+of the following are true:
+
+- `DEFAULT_REVIEW_MODE=live_with_fallback`;
+- Bright Data SERP and Web Unlocker credentials are configured;
+- `LLM_EXTRACTION_ENABLED=true` and a DeepSeek key is configured;
+- the vendor has an exact public domain; an allowed HTTPS vendor-owned source
+  may optionally seed collection in addition to SERP discoveries.
+
+For example, a vendor with domain `example.com` may allow
+`https://trust.example.com/security`. Pulse issues fixed-template SERP
+investigation queries, captures bounded eligible discovered pages and the
+optional approved known page, then submits captured text to DeepSeek extraction
+and deterministic quote verification. A newly added vendor does not receive
+the curated Cloudflare fallback payload or Cloudflare alert text. If its live
+extraction does not verify, no scored signal alert is created.
 
 ## Credential Policy
 
@@ -159,7 +191,11 @@ BRIGHTDATA_UNLOCKER_ZONE=
 BRIGHTDATA_DEMO_SOURCE_URL=
 BRIGHTDATA_LIVE_SNAPSHOT_DIR=
 BRIGHTDATA_LIVE_FETCH_TIMEOUT_SECONDS=8
+DEEPSEEK_API_KEY=
+LLM_EXTRACTION_ENABLED=false
 DEFAULT_REVIEW_MODE=live_with_fallback
+AUTONOMOUS_SCHEDULER_ENABLED=false
+AUTONOMOUS_SCHEDULER_INTERVAL_SECONDS=10
 ```
 
 Never place tokens in source, prompts, committed fixtures, URLs, screenshots,

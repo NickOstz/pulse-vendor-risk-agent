@@ -21,6 +21,10 @@ export function ReviewStatusStrip({
 }) {
   const sourceSummary = summarizeSourceModes(traces, scan?.mode);
   const sourceModes = getSourceModes(traces);
+  const usedModelExtraction = (scan?.metrics.llm_calls_used ?? 0) > 0;
+  const usedModelAssessment =
+    (scan?.metrics.llm_calls_used ?? 0) > (scan?.metrics.evidence_count ?? 0) &&
+    (scan?.metrics.verified_count ?? 0) >= 2;
 
   return (
     <section className="rounded-lg border border-zinc-200 bg-white p-4 shadow-soft">
@@ -86,10 +90,39 @@ export function ReviewStatusStrip({
           <p className="mt-4 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs leading-5 text-zinc-600">
             {sourceSummary.detail}
           </p>
+          <div className="mt-3 grid gap-2 rounded-md border border-zinc-200 bg-white p-3 text-xs sm:grid-cols-[1.25fr_0.75fr_1fr]">
+            <ReviewProof
+              label="Extraction"
+              value={
+                usedModelAssessment
+                  ? "DeepSeek assessment"
+                  : usedModelExtraction
+                    ? "DeepSeek extraction"
+                  : "Bounded extraction"
+              }
+              detail={
+                usedModelAssessment
+                  ? "Synthesized from verified findings."
+                  : usedModelExtraction
+                    ? "Candidates passed to quote verification."
+                  : "No model call recorded for this review."
+              }
+            />
+            <ReviewProof
+              label="Model calls"
+              value={String(scan.metrics.llm_calls_used)}
+              detail={usedModelExtraction ? "DeepSeek investigation" : "Not used"}
+            />
+            <ReviewProof
+              label="Verification"
+              value="Quote match gate"
+              detail="Only verified signals can score."
+            />
+          </div>
           <div className="mt-4 grid grid-cols-2 gap-3 border-t border-zinc-100 pt-4 text-xs sm:grid-cols-5">
-            <Metric label="SERP" value={scan.metrics.serp_queries_used} max={6} />
-            <Metric label="URLs" value={scan.metrics.urls_scraped} max={12} />
-            <Metric label="LLM" value={scan.metrics.llm_calls_used} max={20} />
+            <Metric label="Search calls" value={scan.metrics.serp_queries_used} max={6} />
+            <Metric label="Pages fetched" value={scan.metrics.urls_scraped} max={12} />
+            <Metric label="DeepSeek calls" value={scan.metrics.llm_calls_used} max={20} />
             <Metric label="Evidence" value={scan.metrics.evidence_count} />
             <Metric label="Verified" value={scan.metrics.verified_count} />
           </div>
@@ -102,6 +135,24 @@ export function ReviewStatusStrip({
         </p>
       ) : null}
     </section>
+  );
+}
+
+function ReviewProof({
+  label,
+  value,
+  detail,
+}: {
+  label: string;
+  value: string;
+  detail: string;
+}) {
+  return (
+    <div className="rounded-md bg-zinc-50 p-3">
+      <p className="text-zinc-500">{label}</p>
+      <p className="mt-1 text-sm font-semibold text-ink-950">{value}</p>
+      <p className="mt-1 leading-5 text-zinc-500">{detail}</p>
+    </div>
   );
 }
 

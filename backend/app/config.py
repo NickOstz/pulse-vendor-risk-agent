@@ -21,8 +21,9 @@ class Settings(BaseSettings):
     deepseek_extraction_model: str = "deepseek-v4-flash"
     llm_extraction_enabled: bool = False
     llm_extraction_timeout_seconds: float = 12.0
-    openai_api_key: str | None = None
     default_review_mode: str = "live_with_fallback"
+    autonomous_scheduler_enabled: bool = False
+    autonomous_scheduler_interval_seconds: float = 10.0
     demo_api_token: str | None = None
 
     model_config = SettingsConfigDict(

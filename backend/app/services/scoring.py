@@ -32,10 +32,14 @@ def calculate_signal_score(
     return min(100, round(product * 100)), factors
 
 
-def build_live_compliance_alert(company: Company, scan: Scan, evidence: EvidenceItem) -> Alert | None:
+def build_live_compliance_alert(
+    company: Company, scan: Scan, evidence: EvidenceItem, change_status: str | None = None
+) -> Alert | None:
     score, factors = calculate_signal_score(evidence, company)
     if not score:
         return None
+    if change_status:
+        factors["change_status"] = change_status
     return Alert(
         company_id=company.id,
         scan_id=scan.id,
@@ -46,6 +50,33 @@ def build_live_compliance_alert(company: Company, scan: Scan, evidence: Evidence
         score=score,
         severity=evidence.severity_hint,
         owner="Security",
+        recommended_action=evidence.recommended_action,
+        related_evidence_ids_json=dump_json([evidence.id]),
+        score_factors_json=dump_json(factors),
+        created_at=utc_now(),
+    )
+
+
+def build_live_signal_alert(
+    company: Company, scan: Scan, evidence: EvidenceItem, change_status: str | None = None
+) -> Alert | None:
+    score, factors = calculate_signal_score(evidence, company)
+    if not score:
+        return None
+    if change_status:
+        factors["change_status"] = change_status
+    signal_label = evidence.signal_type.replace("_", " ")
+    title_action = "change requires review" if change_status == "changed" else "signal requires review"
+    return Alert(
+        company_id=company.id,
+        scan_id=scan.id,
+        evidence_item_id=evidence.id,
+        alert_type="signal",
+        title=f"Verified live {signal_label} {title_action}",
+        summary=f"Live public-source evidence for {company.name}: {evidence.claim}",
+        score=score,
+        severity=evidence.severity_hint,
+        owner=company.owner,
         recommended_action=evidence.recommended_action,
         related_evidence_ids_json=dump_json([evidence.id]),
         score_factors_json=dump_json(factors),
@@ -74,6 +105,39 @@ def build_mixed_related_change_alert(
                 "rule": "same_vendor_same_review_window_two_or_more_verified_compatible_signals",
                 "live_verified_evidence": 1,
                 "fallback_verified_evidence": 1,
+            }
+        ),
+        created_at=utc_now(),
+    )
+
+
+def build_related_live_signal_alert(
+    company: Company, scan: Scan, evidence_items: list[EvidenceItem]
+) -> Alert | None:
+    verified = [item for item in evidence_items if item.support_status == "verified"]
+    categories = {item.signal_type for item in verified}
+    if len(categories) < 2:
+        return None
+    scored = [(item, calculate_signal_score(item, company)[0]) for item in verified]
+    strongest_score = max(score for _, score in scored)
+    score = min(100, strongest_score + 10 * (len(categories) - 1))
+    signals = ", ".join(sorted(category.replace("_", " ") for category in categories))
+    return Alert(
+        company_id=company.id,
+        scan_id=scan.id,
+        alert_type="related_change",
+        title="Multiple verified live risk indicators require coordinated review",
+        summary=f"Pulse verified live {signals} evidence for {company.name} in the same autonomous review cycle.",
+        score=score,
+        severity="high" if score >= 60 else "medium",
+        owner=company.owner,
+        recommended_action="Review the related verified findings together before the next vendor decision.",
+        related_evidence_ids_json=dump_json([item.id for item in verified]),
+        score_factors_json=dump_json(
+            {
+                "rule": "same_vendor_same_review_window_two_or_more_verified_signal_categories",
+                "verified_categories": len(categories),
+                "strongest_signal_score": strongest_score,
             }
         ),
         created_at=utc_now(),

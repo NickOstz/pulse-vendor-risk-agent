@@ -34,6 +34,7 @@ signal_type: trust_security | adverse_media | pricing_terms
 | `GET /api/agents/status` | Status panel | Return active scans and due vendors |
 | `POST /api/agents/tick` | Demo recovery | Run the same due-vendor scheduling check |
 | `POST /api/scans/run` | Hidden recovery | Start explicit fallback-only cycle |
+| `GET /api/scans/latest?company_id={id}` | Completed result view | Return the most recent scan even when it created no alert |
 | `GET /api/scans/{id}` | Polling strip | Return stages, status, mode, and budgets |
 | `GET /api/alerts` | Alert list | Filter by `company_id` or `scan_id`; verified priority alerts only |
 | `PATCH /api/alerts/{id}` | Review action | Accept `approved`, `dismissed`, or `needs_review` |
@@ -119,7 +120,7 @@ signal_type: trust_security | adverse_media | pricing_terms
   "id": "trace_uuid",
   "scan_id": "scan_uuid",
   "product": "web_unlocker",
-  "operation": "scrape_markdown",
+  "operation": "capture_text:trust_security:serp",
   "source_url": "https://example.com/trust",
   "status": "success",
   "latency_ms": 740,
@@ -132,12 +133,29 @@ signal_type: trust_security | adverse_media | pricing_terms
 
 ## Demo-Critical Behavior
 
-- Toggling the demo vendor on sets a due-now policy and starts a review by the
-  scheduler or the same tick mechanism.
+- Toggling one selected vendor on schedules its first review due now. The
+  in-process scheduler advances due and running scans when enabled; the tick
+  endpoint remains a demo recovery trigger.
+- Completed monitored vendors receive their next review time from policy:
+  daily for critical renewal reviews and weekly for weekly reviews.
 - The frontend polls a running scan every two seconds and stops at terminal
   status.
 - A live attempt that fails or exceeds eight seconds creates an honest failed
   trace followed by a fallback/cached trace.
-- The configured live public page is requested only when the selected vendor's
-  allow/block source rules permit that approved URL.
+- Live investigation issues bounded trust/security, pricing/terms, and
+  adverse-media SERP queries, then captures eligible discovered public pages.
+- Vendor-owned discoveries must match the exact configured vendor domain or a
+  subdomain. Public adverse-media discoveries may use third-party public
+  sources, while block rules remain enforced.
+- A configured vendor-owned URL may be included as a reliable known source
+  only when allow/block rules permit it.
+- The rehearsed Cloudflare vendor may use its labeled fallback payload. An
+  added vendor may run a bounded SERP-led live/model review and never receives
+  Cloudflare fallback evidence.
+- DeepSeek extracts candidate findings from captured pages and may synthesize
+  a brief from two or more verified live findings. Quote verification remains
+  the scoring gate.
+- A first verified live review establishes a baseline. A later identical
+  source-backed finding remains auditable in its brief but does not create a
+  duplicate alert; changed or newly discovered verified evidence may alert.
 - Alert presentation never implies unsupported evidence is verified.

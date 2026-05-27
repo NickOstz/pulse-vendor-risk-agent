@@ -60,6 +60,8 @@ def toggle_agent(company_id: str, payload: AgentToggle, session: Session = Depen
     if company is None:
         raise HTTPException(status_code=404, detail="company not found")
     apply_agent_state(company, payload.agent_enabled)
+    if payload.agent_enabled:
+        company.next_agent_run_at = utc_now()
     session.add(company)
     session.commit()
     session.refresh(company)
