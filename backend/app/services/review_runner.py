@@ -1,3 +1,5 @@
+from threading import Lock
+
 from sqlmodel import Session
 
 from app.config import get_settings
@@ -6,6 +8,9 @@ from app.services.brightdata_client import BrightDataClient
 from app.services.live_collection import record_live_collection_attempt
 from app.services.live_evidence import is_demo_company
 from app.services.replay_loader import advance_replay_scan, prepare_replay_scan
+
+
+_ADVANCE_LOCK = Lock()
 
 
 class ReviewRunner:
@@ -30,6 +35,13 @@ class ReviewRunner:
         prepare_replay_scan(session, company, scan)
 
     def advance(self, session: Session, company: Company, scan: Scan) -> None:
-        if scan.mode in {"live", "live_with_fallback"} and scan.current_stage == "collect":
-            record_live_collection_attempt(session, company, scan)
-        advance_replay_scan(session, company, scan)
+        # One service replica may receive polls from several open dashboard tabs.
+        # Refresh under a lock so only one request performs each provider-backed stage.
+        with _ADVANCE_LOCK:
+            session.refresh(scan)
+            session.refresh(company)
+            if scan.status != "running":
+                return
+            if scan.mode in {"live", "live_with_fallback"} and scan.current_stage == "collect":
+                record_live_collection_attempt(session, company, scan)
+            advance_replay_scan(session, company, scan)
