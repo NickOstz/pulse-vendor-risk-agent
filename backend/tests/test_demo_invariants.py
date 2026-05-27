@@ -1,4 +1,5 @@
 from collections.abc import Iterable
+from concurrent.futures import ThreadPoolExecutor
 import hashlib
 from pathlib import Path
 
@@ -82,6 +83,25 @@ def test_repeated_tick_while_scan_is_running_does_not_start_duplicate(client):
     assert active.json()["active_runs"] == [
         {"company_id": DEMO_COMPANY_ID, "scan_id": scan_id, "current_stage": "collect"}
     ]
+
+
+def test_concurrent_ticks_start_only_one_due_review_cycle(client):
+    response = client.patch(f"/api/companies/{DEMO_COMPANY_ID}/agent", json={"agent_enabled": True})
+    assert response.status_code == 200
+
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        ticks = list(executor.map(lambda _: client.post("/api/agents/tick"), range(3)))
+
+    active = client.get("/api/agents/status").json()["active_runs"]
+    started_ids = [
+        scan_id
+        for tick in ticks
+        for scan_id in tick.json()["started_scan_ids"]
+    ]
+
+    assert all(tick.status_code == 200 for tick in ticks)
+    assert len(started_ids) == 1
+    assert active == [{"company_id": DEMO_COMPANY_ID, "scan_id": started_ids[0], "current_stage": "collect"}]
 
 
 def test_manual_recovery_scan_stays_replay_only_with_cached_trace_labels(client):
