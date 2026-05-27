@@ -4,7 +4,7 @@ from sqlmodel import Session, select
 from app.db import get_session
 from app.models import Company, Scan
 from app.schemas import ManualScanRequest, ScanRead
-from app.api.operator_access import require_operator_access
+from app.api.operator_access import operator_access_granted, require_operator_access
 from app.services.review_runner import ReviewRunner
 from app.services.serializers import scan_to_read
 
@@ -49,12 +49,16 @@ def get_latest_scan(
 
 
 @router.get("/{scan_id}", response_model=ScanRead)
-def get_scan(scan_id: str, session: Session = Depends(get_session)) -> ScanRead:
+def get_scan(
+    scan_id: str,
+    session: Session = Depends(get_session),
+    may_advance: bool = Depends(operator_access_granted),
+) -> ScanRead:
     scan = session.get(Scan, scan_id)
     if scan is None:
         raise HTTPException(status_code=404, detail="scan not found")
     response = scan_to_read(scan)
-    if scan.status == "running" and scan.mode in {"live", "replay", "live_with_fallback"}:
+    if may_advance and scan.status == "running" and scan.mode in {"live", "replay", "live_with_fallback"}:
         company = session.get(Company, scan.company_id)
         if company is not None:
             ReviewRunner().advance(session, company, scan)

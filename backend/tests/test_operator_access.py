@@ -25,6 +25,32 @@ def test_operator_token_protects_agent_actions_and_manual_scan(protected_client)
     assert tick.json()["started_scan_ids"]
 
 
+def test_public_poll_reads_but_cannot_advance_protected_running_scan(protected_client):
+    protected_client.patch(
+        "/api/companies/vendor-cloudflare-demo/agent",
+        json={"agent_enabled": True},
+        headers=OPERATOR_HEADERS,
+    )
+    started = protected_client.post("/api/agents/tick", headers=OPERATOR_HEADERS)
+    scan_id = started.json()["started_scan_ids"][0]
+
+    public_first = protected_client.get(f"/api/scans/{scan_id}")
+    public_second = protected_client.get(f"/api/scans/{scan_id}")
+    still_collecting = protected_client.get("/api/agents/status")
+
+    assert public_first.status_code == 200
+    assert public_second.status_code == 200
+    assert public_first.json()["current_stage"] == "collect"
+    assert public_second.json()["current_stage"] == "collect"
+    assert still_collecting.json()["active_runs"][0]["current_stage"] == "collect"
+
+    authorized_poll = protected_client.get(f"/api/scans/{scan_id}", headers=OPERATOR_HEADERS)
+    advanced_status = protected_client.get("/api/agents/status")
+
+    assert authorized_poll.status_code == 200
+    assert advanced_status.json()["active_runs"][0]["current_stage"] == "extract"
+
+
 def test_operator_token_protects_watchlist_and_vendor_configuration(protected_client):
     blocked_create = protected_client.post(
         "/api/companies",
