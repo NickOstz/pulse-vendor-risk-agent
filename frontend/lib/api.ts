@@ -42,6 +42,7 @@ let scanStep = 0;
 let activeScanId: string | null = null;
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
+const operatorTokenStorageKey = "pulse.operator-token";
 
 export const usesFixtureData = !apiBaseUrl;
 
@@ -52,6 +53,7 @@ const fixtureHealth: HealthResponse = {
   replay_data: true,
   brightdata_key_present: false,
   llm_key_present: false,
+  write_protection_enabled: false,
 };
 
 async function requestJson<T>(
@@ -59,11 +61,13 @@ async function requestJson<T>(
   init?: RequestInit,
 ): Promise<T | null> {
   if (!apiBaseUrl) return null;
+  const operatorToken = getOperatorToken();
 
   const response = await fetch(`${apiBaseUrl}${path}`, {
     ...init,
     headers: {
       "content-type": "application/json",
+      ...(operatorToken ? { "X-Pulse-Operator-Token": operatorToken } : {}),
       ...init?.headers,
     },
   });
@@ -87,6 +91,30 @@ async function requestJson<T>(
   }
 
   return JSON.parse(text) as T;
+}
+
+export function hasOperatorToken(): boolean {
+  return Boolean(getOperatorToken());
+}
+
+export function setOperatorToken(token: string): void {
+  if (typeof window === "undefined") return;
+  const normalized = token.trim();
+  if (normalized) {
+    window.sessionStorage.setItem(operatorTokenStorageKey, normalized);
+  } else {
+    window.sessionStorage.removeItem(operatorTokenStorageKey);
+  }
+}
+
+export function clearOperatorToken(): void {
+  if (typeof window === "undefined") return;
+  window.sessionStorage.removeItem(operatorTokenStorageKey);
+}
+
+function getOperatorToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return window.sessionStorage.getItem(operatorTokenStorageKey);
 }
 
 export async function listCompanies(): Promise<Company[]> {

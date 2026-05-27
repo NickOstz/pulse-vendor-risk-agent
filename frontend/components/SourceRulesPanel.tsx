@@ -6,9 +6,11 @@ import type { Company } from "@/lib/types";
 
 export function SourceRulesPanel({
   company,
+  locked = false,
   onSave,
 }: {
   company: Company;
+  locked?: boolean;
   onSave: (allowList: string[], blockList: string[]) => Promise<void>;
 }) {
   const [editing, setEditing] = useState(false);
@@ -60,7 +62,9 @@ export function SourceRulesPanel({
             type="button"
             aria-label="Edit source rules"
             onClick={beginEdit}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-zinc-200 bg-white text-zinc-600 transition hover:border-zinc-300 active:scale-[0.96]"
+            disabled={locked}
+            title={locked ? "Operator token required" : "Edit source rules"}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-zinc-200 bg-white text-zinc-600 transition hover:border-zinc-300 active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-50"
           >
             <PencilSimple size={16} />
           </button>

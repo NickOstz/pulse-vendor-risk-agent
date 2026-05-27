@@ -4,6 +4,7 @@ from sqlmodel import Session, select
 from app.db import get_session
 from app.models import Alert
 from app.schemas import AlertRead, AlertUpdate
+from app.api.operator_access import require_operator_access
 from app.services.serializers import alert_to_read
 
 router = APIRouter(prefix="/api/alerts", tags=["alerts"])
@@ -25,7 +26,12 @@ def list_alerts(
 
 
 @router.patch("/{alert_id}", response_model=AlertRead)
-def update_alert(alert_id: str, payload: AlertUpdate, session: Session = Depends(get_session)) -> AlertRead:
+def update_alert(
+    alert_id: str,
+    payload: AlertUpdate,
+    session: Session = Depends(get_session),
+    _operator_access: None = Depends(require_operator_access),
+) -> AlertRead:
     alert = session.get(Alert, alert_id)
     if alert is None:
         raise HTTPException(status_code=404, detail="alert not found")

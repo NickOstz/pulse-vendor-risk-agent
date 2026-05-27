@@ -649,7 +649,9 @@ For local demo:
 For hosted demo:
 
 - use a private demo URL when possible
-- optionally protect backend write endpoints with one shared demo API token
+- protect hosted backend write endpoints with one shared demo API token sent
+  as `X-Pulse-Operator-Token`; the frontend stores it only per operator tab,
+  never as a public build variable
 - do not implement user accounts, SSO, RBAC, roles, teams, or tenant isolation
 
 The frontend must never expose Bright Data or LLM credentials.

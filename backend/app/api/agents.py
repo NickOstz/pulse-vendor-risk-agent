@@ -4,6 +4,7 @@ from sqlmodel import Session, select
 from app.db import get_session
 from app.models import Company
 from app.schemas import ActiveRun, AgentStatusRead, AgentTickRead, AgentToggle, CompanyRead
+from app.api.operator_access import require_operator_access
 from app.services.agent_scheduler import scheduler
 from app.services.serializers import apply_agent_state, company_to_read
 
@@ -11,7 +12,11 @@ router = APIRouter(prefix="/api/agents", tags=["agents"])
 
 
 @router.patch("/watchlist", response_model=list[CompanyRead])
-def toggle_watchlist(payload: AgentToggle, session: Session = Depends(get_session)) -> list[CompanyRead]:
+def toggle_watchlist(
+    payload: AgentToggle,
+    session: Session = Depends(get_session),
+    _operator_access: None = Depends(require_operator_access),
+) -> list[CompanyRead]:
     companies = session.exec(select(Company).order_by(Company.renewal_date, Company.name)).all()
     for company in companies:
         apply_agent_state(company, payload.agent_enabled)
@@ -31,7 +36,10 @@ def agent_status(session: Session = Depends(get_session)) -> AgentStatusRead:
 
 
 @router.post("/tick", response_model=AgentTickRead)
-def tick_agents(session: Session = Depends(get_session)) -> AgentTickRead:
+def tick_agents(
+    session: Session = Depends(get_session),
+    _operator_access: None = Depends(require_operator_access),
+) -> AgentTickRead:
     due_vendors = scheduler.due_companies(session)
     scans = scheduler.tick(session)
     return AgentTickRead(

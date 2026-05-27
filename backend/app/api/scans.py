@@ -4,6 +4,7 @@ from sqlmodel import Session, select
 from app.db import get_session
 from app.models import Company, Scan
 from app.schemas import ManualScanRequest, ScanRead
+from app.api.operator_access import require_operator_access
 from app.services.review_runner import ReviewRunner
 from app.services.serializers import scan_to_read
 
@@ -11,7 +12,11 @@ router = APIRouter(prefix="/api/scans", tags=["scans"])
 
 
 @router.post("/run", response_model=ScanRead)
-def run_scan(payload: ManualScanRequest, session: Session = Depends(get_session)) -> ScanRead:
+def run_scan(
+    payload: ManualScanRequest,
+    session: Session = Depends(get_session),
+    _operator_access: None = Depends(require_operator_access),
+) -> ScanRead:
     company = session.get(Company, payload.company_id)
     if company is None:
         raise HTTPException(status_code=404, detail="company not found")

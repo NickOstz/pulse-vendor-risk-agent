@@ -42,6 +42,28 @@ signal_type: trust_security | adverse_media | pricing_terms
 | `GET /api/brightdata/traces?scan_id=...` | Source Explorer | Return trace rows including source mode |
 | `POST /api/briefs/vendor-review` | Brief view | Return `markdown` or `html` output from verified evidence |
 
+## Operator Write Protection
+
+When the backend is configured with `DEMO_API_TOKEN`, mutating and
+manual-trigger endpoints require `X-Pulse-Operator-Token: <token>`. This
+protects hosted Bright Data and DeepSeek usage from public clicks while all
+read-only evidence, trace, and completed brief views remain shareable.
+
+Protected endpoints are:
+
+- `POST /api/companies`
+- `PATCH /api/companies/{id}/source-rules`
+- `PATCH /api/companies/{id}/agent`
+- `PATCH /api/agents/watchlist`
+- `POST /api/agents/tick`
+- `POST /api/scans/run`
+- `PATCH /api/alerts/{id}`
+
+`GET /api/health` returns `write_protection_enabled` so the frontend can show
+the operator-lock control. The frontend may keep an operator token in
+per-tab session storage for demo operation; it must never put this token in a
+public build-time variable.
+
 ## Core Response Shapes
 
 ### Company
