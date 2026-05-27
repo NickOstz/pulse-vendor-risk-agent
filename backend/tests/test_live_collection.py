@@ -21,6 +21,7 @@ def live_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
     monkeypatch.setenv("BRIGHTDATA_LIVE_SNAPSHOT_DIR", str(tmp_path / "live-snapshots"))
     monkeypatch.setenv("DEEPSEEK_API_KEY", "")
     monkeypatch.setenv("LLM_EXTRACTION_ENABLED", "false")
+    monkeypatch.setenv("DEMO_API_TOKEN", "")
 
     from app.config import get_settings
 

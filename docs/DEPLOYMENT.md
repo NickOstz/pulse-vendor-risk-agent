@@ -43,6 +43,7 @@ DEEPSEEK_API_KEY=
 LLM_EXTRACTION_ENABLED=false
 AUTONOMOUS_SCHEDULER_ENABLED=false
 AUTONOMOUS_SCHEDULER_INTERVAL_SECONDS=10
+DEMO_API_TOKEN=<generate-a-private-operator-token>
 ```
 
 Keep replay mode enabled for the credential-free hosted proof. Add Bright Data
@@ -52,6 +53,13 @@ put secrets in Vercel public variables or committed files.
 Set `AUTONOMOUS_SCHEDULER_ENABLED=true` only when the monitored environment is
 ready to perform recurring reviews. With live Bright Data and DeepSeek keys,
 scheduled reviews can consume provider usage without an open browser.
+
+Set `DEMO_API_TOKEN` when the Railway backend is publicly reachable. With this
+value configured, write controls and manual review triggers require the
+operator token, while completed evidence and brief views remain readable.
+Enter the token in the frontend's **Controls locked** menu during your own
+session. It is retained only in that browser tab. Do not add it as a Vercel
+`NEXT_PUBLIC_*` variable.
 
 `backend/railway.json` starts Uvicorn on Railway's assigned port and uses
 `/api/health` for deployment health. The replay JSON files remain in the

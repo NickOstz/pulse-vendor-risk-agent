@@ -380,9 +380,9 @@ The MVP supports three extraction templates:
 
 Model requirements:
 
-- Default extraction and brief wording model: DeepSeek V4 Flash.
-- Escalation model for messy pages, failed extraction retries, or low-confidence evidence: DeepSeek V4 Pro.
-- Fallback model if DeepSeek access, latency, or reliability blocks the demo: GPT-5.4-mini.
+- Extraction and assessment wording model: DeepSeek V4 Flash.
+- Malformed structured output is retried once with a simpler prompt through the configured DeepSeek model.
+- If DeepSeek access, latency, or reliability blocks a live review, Pulse retains the captured source or honestly labeled fallback/replay evidence and creates no model-derived alert without verified quote support.
 
 Validation requirements:
 

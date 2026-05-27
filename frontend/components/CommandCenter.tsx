@@ -16,6 +16,7 @@ import { AgentToggle } from "@/components/AgentToggle";
 import { Badge } from "@/components/Badge";
 import { DemoHealthIndicator } from "@/components/DemoHealthIndicator";
 import { EvidenceDrawer } from "@/components/EvidenceDrawer";
+import { OperatorAccess } from "@/components/OperatorAccess";
 import { ReviewStatusStrip } from "@/components/ReviewStatusStrip";
 import { RiskAssessmentBrief } from "@/components/RiskAssessmentBrief";
 import { SourceRulesPanel } from "@/components/SourceRulesPanel";
@@ -31,6 +32,7 @@ import {
   listBrightDataTraces,
   listCompanies,
   listEvidence,
+  hasOperatorToken,
   runAgentTick,
   setVendorRiskAgent,
   setWatchlistRiskAgent,
@@ -113,6 +115,7 @@ export function CommandCenter() {
   const [vendorFormError, setVendorFormError] = useState<string | null>(null);
   const [vendorFormNotice, setVendorFormNotice] = useState<string | null>(null);
   const [watchlistBusy, setWatchlistBusy] = useState(false);
+  const [operatorTokenSet, setOperatorTokenSet] = useState(false);
 
   const { scan, pollingError, isTerminal } = useScanPolling(activeScanId);
   const displayScan = scan ?? assessmentScan;
@@ -143,6 +146,14 @@ export function CommandCenter() {
   ).length;
   const allVendorsMonitored =
     companies.length > 0 && monitoredVendorCount === companies.length;
+  const controlsLocked =
+    !usesFixtureData &&
+    Boolean(health?.write_protection_enabled) &&
+    !operatorTokenSet;
+
+  useEffect(() => {
+    setOperatorTokenSet(hasOperatorToken());
+  }, []);
 
   useEffect(() => {
     async function loadInitialData() {
@@ -471,6 +482,12 @@ export function CommandCenter() {
                 loading={healthLoading}
                 fixtureMode={usesFixtureData}
               />
+              {!usesFixtureData && health?.write_protection_enabled ? (
+                <OperatorAccess
+                  tokenSet={operatorTokenSet}
+                  onTokenStateChange={setOperatorTokenSet}
+                />
+              ) : null}
             </div>
             <h1 className="mt-4 max-w-3xl text-3xl font-semibold tracking-tight text-ink-950 sm:text-4xl">
               Autonomous vendor risk command center
@@ -513,7 +530,8 @@ export function CommandCenter() {
               <button
                 type="button"
                 onClick={handleEnableWatchlist}
-                disabled={watchlistBusy || busy || allVendorsMonitored}
+                disabled={watchlistBusy || busy || allVendorsMonitored || controlsLocked}
+                title={controlsLocked ? "Operator token required" : "Enable all vendors"}
                 className="inline-flex h-9 items-center gap-2 rounded-md border border-zinc-200 bg-white px-3 text-xs font-semibold text-ink-900 transition hover:border-zinc-300 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <Power size={14} weight="bold" />
@@ -533,12 +551,14 @@ export function CommandCenter() {
                 <button
                   type="button"
                   aria-label={vendorFormOpen ? "Close add vendor form" : "Open add vendor form"}
+                  disabled={controlsLocked}
+                  title={controlsLocked ? "Operator token required" : "Add vendor"}
                   onClick={() => {
                     setVendorFormOpen((open) => !open);
                     setVendorFormError(null);
                     setVendorFormNotice(null);
                   }}
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-zinc-200 bg-white text-zinc-600 transition hover:border-zinc-300 active:scale-[0.96]"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-zinc-200 bg-white text-zinc-600 transition hover:border-zinc-300 active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {vendorFormOpen ? <X size={16} /> : <Plus size={16} />}
                 </button>
@@ -695,7 +715,7 @@ export function CommandCenter() {
             <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
               <AgentToggle
                 company={selectedCompany}
-                busy={busy || watchlistBusy}
+                busy={busy || watchlistBusy || controlsLocked}
                 onToggle={handleToggle}
               />
               <AgentStatusPanel
@@ -708,6 +728,7 @@ export function CommandCenter() {
             <SourceRulesPanel
               key={selectedCompany.id}
               company={selectedCompany}
+              locked={controlsLocked}
               onSave={handleSaveSourceRules}
             />
             {actionError ? (

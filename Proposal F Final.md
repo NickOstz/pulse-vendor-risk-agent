@@ -205,7 +205,7 @@ The MVP narrows extraction to three signal templates:
 - Adverse-media, breach, outage, lawsuit, or regulatory mentions from public sources.
 - Pricing, packaging, terms, or renewal-relevant page changes.
 
-Default LLM: DeepSeek V4 Flash, because the MVP needs low-cost, low-latency JSON extraction across many scraped pages. Escalation model: DeepSeek V4 Pro for messy pages, failed extraction retries, or low-confidence evidence. OpenAI fallback: GPT-5.4-mini if DeepSeek API access, latency, or reliability becomes a blocker during the demo.
+LLM path: DeepSeek V4 Flash performs bounded JSON extraction and verified-evidence assessment wording. Malformed structured output is retried once with a simpler prompt. If DeepSeek API access, latency, or reliability blocks the live review, Pulse preserves the captured source or honestly labeled fallback/replay evidence and creates no model-derived alert without verified quote support.
 
 The LLM must return a strict JSON schema validated by Pydantic:
 
@@ -377,9 +377,9 @@ The scheduler:
 
 ### AI Implementation
 
-- DeepSeek V4 Flash as the default extraction and brief-generation model.
-- DeepSeek V4 Pro as the escalation model for messy pages, failed extraction retries, or low-confidence evidence.
-- GPT-5.4-mini as the OpenAI fallback if DeepSeek access, latency, or reliability becomes a blocker.
+- DeepSeek V4 Flash as the bounded extraction and verified-evidence assessment model.
+- One simpler-prompt retry for malformed structured output.
+- Honest captured-source, fallback, or replay handling when DeepSeek is unavailable; no model-derived alert bypasses quote verification.
 - Three extraction prompts aligned to the MVP signal templates.
 - Pydantic validation before database insert.
 - One retry on malformed JSON.
@@ -626,7 +626,7 @@ It is not a chatbot. It is not alert spam. It is an auditable AI agent that turn
 - [ ] Implement `GET /api/brightdata/traces?scan_id=...`.
 - [ ] Implement `POST /api/briefs/vendor-review`.
 - [ ] Build the bounded autonomous agent workflow: due check, collect, extract/verify, score/assess.
-- [ ] Add DeepSeek V4 Flash JSON extraction with DeepSeek V4 Pro escalation and GPT-5.4-mini fallback.
+- [ ] Add DeepSeek V4 Flash JSON extraction and assessment wording with one simpler-prompt retry and honest no-alert failure handling.
 - [ ] Create three extraction prompts: trust/security, adverse media, pricing/terms.
 - [ ] Validate LLM output with Pydantic before database insert.
 - [ ] Retry malformed JSON once with a simpler prompt.

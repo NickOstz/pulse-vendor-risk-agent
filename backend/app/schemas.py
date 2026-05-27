@@ -203,3 +203,4 @@ class HealthRead(BaseModel):
     replay_data: bool
     brightdata_key_present: bool
     llm_key_present: bool
+    write_protection_enabled: bool

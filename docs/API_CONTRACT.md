@@ -35,12 +35,41 @@ signal_type: trust_security | adverse_media | pricing_terms
 | `POST /api/agents/tick` | Demo recovery | Run the same due-vendor scheduling check |
 | `POST /api/scans/run` | Hidden recovery | Start explicit fallback-only cycle |
 | `GET /api/scans/latest?company_id={id}` | Completed result view | Return the most recent scan even when it created no alert |
-| `GET /api/scans/{id}` | Polling strip | Return stages, status, mode, and budgets |
+| `GET /api/scans/{id}` | Polling strip | Return stages, status, mode, and budgets; polling progression requires operator access when protected |
 | `GET /api/alerts` | Alert list | Filter by `company_id` or `scan_id`; verified priority alerts only |
 | `PATCH /api/alerts/{id}` | Review action | Accept `approved`, `dismissed`, or `needs_review` |
 | `GET /api/companies/{id}/evidence` | Evidence drawer | Return evidence and source excerpt for a scan |
 | `GET /api/brightdata/traces?scan_id=...` | Source Explorer | Return trace rows including source mode |
 | `POST /api/briefs/vendor-review` | Brief view | Return `markdown` or `html` output from verified evidence |
+
+## Operator Write Protection
+
+When the backend is configured with `DEMO_API_TOKEN`, mutating and
+manual-trigger endpoints require `X-Pulse-Operator-Token: <token>`. This
+protects hosted Bright Data and DeepSeek usage from public clicks while all
+read-only evidence, trace, and completed brief views remain shareable.
+
+Protected endpoints are:
+
+- `POST /api/companies`
+- `PATCH /api/companies/{id}/source-rules`
+- `PATCH /api/companies/{id}/agent`
+- `PATCH /api/agents/watchlist`
+- `POST /api/agents/tick`
+- `POST /api/scans/run`
+- `PATCH /api/alerts/{id}`
+
+`GET /api/health` returns `write_protection_enabled` so the frontend can show
+the operator-lock control. The frontend may keep an operator token in
+per-tab session storage for demo operation; it must never put this token in a
+public build-time variable.
+
+`GET /api/scans/{id}` stays readable without a token, including for a running
+scan. In unprotected local mode its polling request advances the demo cycle as
+before. When `DEMO_API_TOKEN` is configured, an unauthenticated poll is
+read-only; only an operator-token poll may invoke poll-driven progression.
+The opt-in backend scheduler may independently advance intentionally enabled
+monitoring cycles.
 
 ## Core Response Shapes
 
@@ -139,7 +168,8 @@ signal_type: trust_security | adverse_media | pricing_terms
 - Completed monitored vendors receive their next review time from policy:
   daily for critical renewal reviews and weekly for weekly reviews.
 - The frontend polls a running scan every two seconds and stops at terminal
-  status.
+  status; in a protected hosted demo the operator token is required for that
+  polling to advance a cycle.
 - A live attempt that fails or exceeds eight seconds creates an honest failed
   trace followed by a fallback/cached trace.
 - Live investigation issues bounded trust/security, pricing/terms, and

@@ -4,6 +4,7 @@ from sqlmodel import Session, select
 from app.db import get_session
 from app.models import Company, utc_now
 from app.schemas import AgentToggle, CompanyCreate, CompanyRead, SourceRulesUpdate
+from app.api.operator_access import require_operator_access
 from app.services.serializers import apply_agent_state, company_to_read, dump_json
 
 router = APIRouter(prefix="/api/companies", tags=["companies"])
@@ -16,7 +17,11 @@ def list_companies(session: Session = Depends(get_session)) -> list[CompanyRead]
 
 
 @router.post("", response_model=CompanyRead, status_code=201)
-def create_company(payload: CompanyCreate, session: Session = Depends(get_session)) -> CompanyRead:
+def create_company(
+    payload: CompanyCreate,
+    session: Session = Depends(get_session),
+    _operator_access: None = Depends(require_operator_access),
+) -> CompanyRead:
     existing = session.exec(select(Company).where(Company.domain == payload.domain)).first()
     if existing:
         raise HTTPException(status_code=409, detail="company domain already exists")
@@ -41,6 +46,7 @@ def update_source_rules(
     company_id: str,
     payload: SourceRulesUpdate,
     session: Session = Depends(get_session),
+    _operator_access: None = Depends(require_operator_access),
 ) -> CompanyRead:
     company = session.get(Company, company_id)
     if company is None:
@@ -55,7 +61,12 @@ def update_source_rules(
 
 
 @router.patch("/{company_id}/agent", response_model=CompanyRead)
-def toggle_agent(company_id: str, payload: AgentToggle, session: Session = Depends(get_session)) -> CompanyRead:
+def toggle_agent(
+    company_id: str,
+    payload: AgentToggle,
+    session: Session = Depends(get_session),
+    _operator_access: None = Depends(require_operator_access),
+) -> CompanyRead:
     company = session.get(Company, company_id)
     if company is None:
         raise HTTPException(status_code=404, detail="company not found")

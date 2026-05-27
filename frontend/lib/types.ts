@@ -156,4 +156,5 @@ export interface HealthResponse {
   replay_data: boolean;
   brightdata_key_present: boolean;
   llm_key_present: boolean;
+  write_protection_enabled: boolean;
 }
