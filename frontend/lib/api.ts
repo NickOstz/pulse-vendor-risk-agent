@@ -565,23 +565,11 @@ function withFixtureAgentState(company: Company, enabled: boolean): Company {
     };
   }
 
-  const reviewPolicy =
-    company.id === demoCompanyId
-      ? "critical_renewal_due"
-      : company.criticality === "normal"
-        ? "manual_low_frequency"
-        : "weekly";
-
   return {
     ...company,
     agent_enabled: true,
     agent_status: "active",
-    review_policy: reviewPolicy,
-    next_agent_run_at:
-      reviewPolicy === "critical_renewal_due"
-        ? "2026-05-26T03:44:00Z"
-        : reviewPolicy === "weekly"
-          ? "2026-06-02T03:44:00Z"
-          : null,
+    review_policy: "daily",
+    next_agent_run_at: "2026-05-26T03:44:00Z",
   };
 }

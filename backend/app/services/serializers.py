@@ -1,5 +1,5 @@
 import json
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from app.models import Alert, Company, Scan
 from app.schemas import AlertRead, CompanyRead, ScanMetrics, ScanRead, StageRead
@@ -123,15 +123,8 @@ def as_utc(value: datetime | None) -> datetime | None:
     return value.astimezone(UTC)
 
 
-def policy_for_company(company: Company) -> tuple[str, datetime | None]:
-    today = date.today()
-    days_to_renewal = (company.renewal_date - today).days
-    now = now_utc()
-    if company.criticality == "critical" and days_to_renewal <= 60:
-        return "critical_renewal_due", now
-    if company.criticality in {"critical", "important"}:
-        return "weekly", now + timedelta(days=7)
-    return "manual_low_frequency", None
+def policy_for_company(_company: Company) -> tuple[str, datetime]:
+    return "daily", now_utc()
 
 
 def apply_agent_state(company: Company, enabled: bool) -> None:
@@ -149,8 +142,24 @@ def apply_agent_state(company: Company, enabled: bool) -> None:
 def next_review_after_run(company: Company, completed_at: datetime) -> datetime | None:
     if not company.agent_enabled:
         return None
-    if company.review_policy == "critical_renewal_due":
-        return completed_at + timedelta(days=1)
-    if company.review_policy == "weekly":
-        return completed_at + timedelta(days=7)
-    return None
+    company.review_policy = "daily"
+    return completed_at + timedelta(days=1)
+
+
+def migrate_enabled_company_to_daily_policy(company: Company) -> bool:
+    if not company.agent_enabled:
+        return False
+    next_daily_run = (
+        as_utc(company.last_agent_run_at) + timedelta(days=1)
+        if company.last_agent_run_at
+        else now_utc()
+    )
+    existing_next_run = as_utc(company.next_agent_run_at)
+    changed = company.review_policy != "daily" or existing_next_run is None or existing_next_run > next_daily_run
+    if not changed:
+        return False
+    company.review_policy = "daily"
+    if existing_next_run is None or existing_next_run > next_daily_run:
+        company.next_agent_run_at = next_daily_run
+    company.updated_at = now_utc()
+    return True

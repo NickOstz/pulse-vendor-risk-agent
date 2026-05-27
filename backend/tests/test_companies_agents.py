@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from sqlmodel import Session, select
 
@@ -168,7 +168,7 @@ def test_seed_does_not_duplicate_a_manually_added_matching_domain(client):
     assert vercel_rows[0]["name"] == "Vercel Custom"
 
 
-def test_enable_agent_makes_demo_vendor_due_now(client):
+def test_enable_agent_makes_vendor_due_now_on_daily_policy(client):
     company = next(item for item in client.get("/api/companies").json() if item["id"] == "vendor-cloudflare-demo")
 
     response = client.patch(f"/api/companies/{company['id']}/agent", json={"agent_enabled": True})
@@ -177,19 +177,19 @@ def test_enable_agent_makes_demo_vendor_due_now(client):
     body = response.json()
     assert body["agent_enabled"] is True
     assert body["agent_status"] == "active"
-    assert body["review_policy"] == "critical_renewal_due"
+    assert body["review_policy"] == "daily"
     assert datetime.fromisoformat(body["next_agent_run_at"]) <= datetime.now(timezone.utc)
 
     status = client.get("/api/agents/status").json()
     assert [vendor["id"] for vendor in status["due_vendors"]] == ["vendor-cloudflare-demo"]
 
 
-def test_manual_enable_runs_seeded_snowflake_now_without_changing_policy(client):
+def test_enable_normal_vendor_runs_now_on_daily_policy(client):
     response = client.patch("/api/companies/vendor-snowflake/agent", json={"agent_enabled": True})
 
     assert response.status_code == 200
     body = response.json()
-    assert body["review_policy"] == "manual_low_frequency"
+    assert body["review_policy"] == "daily"
     assert datetime.fromisoformat(body["next_agent_run_at"]) <= datetime.now(timezone.utc)
 
     status = client.get("/api/agents/status").json()
@@ -203,16 +203,33 @@ def test_enable_watchlist_assigns_policy_to_each_vendor(client):
     companies = {company["id"]: company for company in response.json()}
     assert len(companies) == 5
     assert all(company["agent_enabled"] for company in companies.values())
-    assert companies["vendor-cloudflare-demo"]["review_policy"] == "critical_renewal_due"
-    assert companies["vendor-aws"]["review_policy"] == "weekly"
-    assert companies["vendor-lemon-squeezy"]["review_policy"] == "weekly"
-    assert companies["vendor-vercel"]["review_policy"] == "weekly"
-    assert companies["vendor-snowflake"]["review_policy"] == "manual_low_frequency"
+    assert all(company["review_policy"] == "daily" for company in companies.values())
 
     status = client.get("/api/agents/status").json()
-    assert [vendor["id"] for vendor in status["due_vendors"]] == ["vendor-cloudflare-demo"]
+    assert {vendor["id"] for vendor in status["due_vendors"]} == set(companies)
 
     disabled = client.patch("/api/agents/watchlist", json={"agent_enabled": False})
     assert disabled.status_code == 200
     assert all(not company["agent_enabled"] for company in disabled.json())
     assert all(company["review_policy"] is None for company in disabled.json())
+
+
+def test_seed_migrates_already_enabled_weekly_vendor_to_daily_due_schedule(client):
+    import app.db as db
+
+    with Session(db.engine) as session:
+        company = session.get(Company, "vendor-aws")
+        assert company is not None
+        last_run = utc_now() - timedelta(days=2)
+        company.agent_enabled = True
+        company.review_policy = "weekly"
+        company.last_agent_run_at = last_run
+        company.next_agent_run_at = utc_now() + timedelta(days=5)
+        session.add(company)
+        session.commit()
+        seed_companies(session)
+        session.refresh(company)
+
+        assert company.review_policy == "daily"
+        assert company.next_agent_run_at is not None
+        assert company.next_agent_run_at.replace(tzinfo=timezone.utc) <= last_run + timedelta(days=1)

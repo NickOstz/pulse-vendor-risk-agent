@@ -17,7 +17,7 @@ from app.services.scoring import (
     build_mixed_related_change_alert,
     build_related_live_signal_alert,
 )
-from app.services.serializers import dump_json, next_review_after_run
+from app.services.serializers import dump_json, migrate_enabled_company_to_daily_policy, next_review_after_run
 
 RETIRED_SEEDED_COMPANY_IDS = {"vendor-auth0", "vendor-stripe", "vendor-datadog"}
 
@@ -72,6 +72,9 @@ def seed_companies(session: Session) -> None:
         retired_company = session.get(Company, retired_id)
         if retired_company is not None:
             session.delete(retired_company)
+    for company in session.exec(select(Company)).all():
+        if migrate_enabled_company_to_daily_policy(company):
+            session.add(company)
     session.commit()
 
 
