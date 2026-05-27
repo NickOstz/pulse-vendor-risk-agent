@@ -39,6 +39,9 @@ def seed_companies(session: Session) -> None:
     for row in payload["companies"]:
         company = session.get(Company, row["id"])
         if company is None:
+            existing_domain = session.exec(select(Company).where(Company.domain == row["domain"])).first()
+            if existing_domain is not None:
+                continue
             company = Company(
                 id=row["id"],
                 name=row["name"],

@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from sqlmodel import Session, select
 
 from app.models import Alert, Brief, BrightDataTrace, Company, EvidenceItem, Scan, utc_now
+from app.services.replay_loader import seed_companies
 
 
 def test_seeded_companies_and_create_company(client):
@@ -10,9 +11,14 @@ def test_seeded_companies_and_create_company(client):
 
     assert response.status_code == 200
     companies = response.json()
-    assert len(companies) == 2
-    assert companies[0]["name"] == "Cloudflare"
-    assert companies[1]["name"] == "Snowflake"
+    assert len(companies) == 5
+    assert [company["name"] for company in companies] == [
+        "Cloudflare",
+        "AWS",
+        "Lemon Squeezy",
+        "Vercel",
+        "Snowflake",
+    ]
 
     create_response = client.post(
         "/api/companies",
@@ -132,6 +138,36 @@ def test_delete_company_removes_vendor_and_review_records(client):
         assert session.exec(select(Brief).where(Brief.company_id == company_id)).all() == []
 
 
+def test_seed_does_not_duplicate_a_manually_added_matching_domain(client):
+    assert client.delete("/api/companies/vendor-vercel").status_code == 204
+    created = client.post(
+        "/api/companies",
+        json={
+            "name": "Vercel Custom",
+            "domain": "vercel.com",
+            "relationship_type": "hosting",
+            "owner": "Platform",
+            "criticality": "important",
+            "renewal_date": "2026-09-20",
+            "allow_list": ["https://vercel.com/security"],
+            "block_list": [],
+        },
+    )
+    assert created.status_code == 201
+
+    import app.db as db
+
+    with Session(db.engine) as session:
+        seed_companies(session)
+
+    vercel_rows = [
+        company for company in client.get("/api/companies").json() if company["domain"] == "vercel.com"
+    ]
+    assert len(vercel_rows) == 1
+    assert vercel_rows[0]["id"] == created.json()["id"]
+    assert vercel_rows[0]["name"] == "Vercel Custom"
+
+
 def test_enable_agent_makes_demo_vendor_due_now(client):
     company = next(item for item in client.get("/api/companies").json() if item["id"] == "vendor-cloudflare-demo")
 
@@ -165,9 +201,12 @@ def test_enable_watchlist_assigns_policy_to_each_vendor(client):
 
     assert response.status_code == 200
     companies = {company["id"]: company for company in response.json()}
-    assert len(companies) == 2
+    assert len(companies) == 5
     assert all(company["agent_enabled"] for company in companies.values())
     assert companies["vendor-cloudflare-demo"]["review_policy"] == "critical_renewal_due"
+    assert companies["vendor-aws"]["review_policy"] == "weekly"
+    assert companies["vendor-lemon-squeezy"]["review_policy"] == "weekly"
+    assert companies["vendor-vercel"]["review_policy"] == "weekly"
     assert companies["vendor-snowflake"]["review_policy"] == "manual_low_frequency"
 
     status = client.get("/api/agents/status").json()

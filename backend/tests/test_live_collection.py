@@ -1198,21 +1198,12 @@ def test_adverse_media_ignores_promotional_security_vendor_reports(monkeypatch, 
 
     monkeypatch.setattr("app.services.brightdata_client.httpx.post", fake_post)
 
-    created = live_client.post(
-        "/api/companies",
-        json={
-            "name": "Vercel",
-            "domain": "vercel.com",
-            "relationship_type": "hosting platform",
-            "owner": "Engineering",
-            "criticality": "important",
-            "renewal_date": "2026-12-31",
-            "allow_list": [],
-            "block_list": [],
-        },
+    company_id = "vendor-vercel"
+    cleared_rules = live_client.patch(
+        f"/api/companies/{company_id}/source-rules",
+        json={"allow_list": [], "block_list": []},
     )
-    assert created.status_code == 201
-    company_id = created.json()["id"]
+    assert cleared_rules.status_code == 200
     enabled = live_client.patch(f"/api/companies/{company_id}/agent", json={"agent_enabled": True})
     assert enabled.status_code == 200
     scan_id = live_client.post("/api/agents/tick").json()["started_scan_ids"][0]
