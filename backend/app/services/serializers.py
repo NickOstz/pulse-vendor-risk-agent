@@ -144,3 +144,13 @@ def apply_agent_state(company: Company, enabled: bool) -> None:
         company.agent_status = "inactive"
         company.review_policy = None
         company.next_agent_run_at = None
+
+
+def next_review_after_run(company: Company, completed_at: datetime) -> datetime | None:
+    if not company.agent_enabled:
+        return None
+    if company.review_policy == "critical_renewal_due":
+        return completed_at + timedelta(days=1)
+    if company.review_policy == "weekly":
+        return completed_at + timedelta(days=7)
+    return None

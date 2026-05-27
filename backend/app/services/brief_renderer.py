@@ -2,6 +2,7 @@ from collections.abc import Iterable
 from html import escape
 
 from app.models import BrightDataTrace, Company, EvidenceItem
+from app.services.assessment import AssessmentDraft
 
 
 SIGNAL_LABELS = {
@@ -16,34 +17,39 @@ def render_vendor_review_brief(
     company: Company,
     evidence_items: Iterable[EvidenceItem],
     traces: Iterable[BrightDataTrace],
+    assessment: AssessmentDraft | None = None,
+    change_statuses: dict[str, str] | None = None,
 ) -> tuple[str, str]:
     verified_items = [item for item in evidence_items if item.support_status == "verified"]
     modes_by_url = _source_modes_by_url(traces)
     modes = [_evidence_mode(item, modes_by_url) for item in verified_items]
     mode_summary = _mode_summary(modes)
 
-    summary = (
+    deterministic_summary = (
         f"{company.name} is a {company.criticality} {company.relationship_type} vendor with renewal on "
         f"{company.renewal_date.isoformat()}. Pulse assembled {mode_summary} from public sources for "
         "renewal review."
     )
-    interpretation = (
+    deterministic_interpretation = (
         "These verified public statements are review triggers, not proof of a control failure or unresolved "
         "incident. Security and Procurement should confirm assurance documentation, commercial scope, and "
         "any operational impact before renewal."
     )
+    summary = assessment.executive_summary if assessment else deterministic_summary
+    interpretation = assessment.risk_interpretation if assessment else deterministic_interpretation
     status = (
         f"Needs review before renewal. This brief includes only verified evidence: {mode_summary}. "
         "Live, fallback, and cached labels identify how each source was obtained."
     )
 
+    findings_heading = _findings_heading(change_statuses)
     markdown_lines = [
         f"# Vendor Risk Assessment Brief: {company.name}",
         "",
         "## Summary",
         summary,
         "",
-        "## Key Verified Changes",
+        f"## {findings_heading}",
     ]
     if verified_items:
         for item in verified_items:
@@ -76,7 +82,9 @@ def render_vendor_review_brief(
             "## Recommended Action",
         ]
     )
-    if verified_items:
+    if assessment:
+        markdown_lines.extend(f"- {action}" for action in assessment.recommended_actions)
+    elif verified_items:
         markdown_lines.extend(f"- {item.recommended_action}" for item in verified_items)
     else:
         markdown_lines.append("- Do not escalate until public-source evidence verifies.")
@@ -109,14 +117,15 @@ def render_vendor_review_brief(
     html_changes = "".join(f"<li>{escape(item.claim)}</li>" for item in verified_items)
     if not html_changes:
         html_changes = "<li>No verified public-source change was available for assessment.</li>"
-    html_actions = "".join(f"<li>{escape(item.recommended_action)}</li>" for item in verified_items)
+    action_items = assessment.recommended_actions if assessment else [item.recommended_action for item in verified_items]
+    html_actions = "".join(f"<li>{escape(action)}</li>" for action in action_items)
     if not html_actions:
         html_actions = "<li>Do not escalate until public-source evidence verifies.</li>"
 
     html = (
         f"<article><h1>Vendor Risk Assessment Brief: {escape(company.name)}</h1>"
         f"<h2>Summary</h2><p>{escape(summary)}</p>"
-        f"<h2>Key Verified Changes</h2><ul>{html_changes}</ul>"
+        f"<h2>{escape(findings_heading)}</h2><ul>{html_changes}</ul>"
         "<h2>Evidence Table</h2><table><thead><tr><th>Signal</th><th>Mode</th><th>Support</th>"
         "<th>Source</th><th>Recommended action</th></tr></thead>"
         f"<tbody>{html_rows}</tbody></table>"
@@ -126,6 +135,17 @@ def render_vendor_review_brief(
         f"<h2>Review Status</h2><p>{escape(status)}</p></article>"
     )
     return "\n".join(markdown_lines), html
+
+
+def _findings_heading(change_statuses: dict[str, str] | None) -> str:
+    if not change_statuses:
+        return "Key Verified Changes"
+    statuses = set(change_statuses.values())
+    if "changed" in statuses:
+        return "Key Verified Changes"
+    if statuses == {"unchanged"}:
+        return "No New Verified Changes"
+    return "Verified Baseline Findings"
 
 
 def _source_modes_by_url(traces: Iterable[BrightDataTrace]) -> dict[str, set[str]]:

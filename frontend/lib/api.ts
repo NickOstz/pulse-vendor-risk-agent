@@ -315,6 +315,20 @@ export async function getScan(scanId: string): Promise<ScanStatusResponse> {
   return scan;
 }
 
+export async function getLatestScan(
+  companyId: string,
+): Promise<ScanStatusResponse | null> {
+  const live = await requestJson<ScanStatusResponse | null>(
+    `/api/scans/latest?company_id=${encodeURIComponent(companyId)}`,
+  );
+  if (usesFixtureData) {
+    return companyId === demoCompanyId
+      ? scanProgression[scanProgression.length - 1]
+      : null;
+  }
+  return live;
+}
+
 export async function listAlerts(
   filters: AlertFilters = {},
 ): Promise<Alert[]> {

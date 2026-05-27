@@ -64,6 +64,18 @@ def test_enable_agent_makes_demo_vendor_due_now(client):
     assert [vendor["id"] for vendor in status["due_vendors"]] == ["vendor-cloudflare-demo"]
 
 
+def test_manual_enable_runs_weekly_vendor_now_without_changing_policy(client):
+    response = client.patch("/api/companies/vendor-stripe/agent", json={"agent_enabled": True})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["review_policy"] == "weekly"
+    assert datetime.fromisoformat(body["next_agent_run_at"]) <= datetime.now(timezone.utc)
+
+    status = client.get("/api/agents/status").json()
+    assert [vendor["id"] for vendor in status["due_vendors"]] == ["vendor-stripe"]
+
+
 def test_enable_watchlist_assigns_policy_to_each_vendor(client):
     response = client.patch("/api/agents/watchlist", json={"agent_enabled": True})
 

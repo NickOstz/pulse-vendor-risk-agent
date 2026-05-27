@@ -25,6 +25,7 @@ import {
   createCompany,
   getAgentStatus,
   getDemoHealth,
+  getLatestScan,
   getVendorReviewBrief,
   listAlerts,
   listBrightDataTraces,
@@ -47,6 +48,7 @@ import type {
   Criticality,
   EvidenceItem,
   HealthResponse,
+  ScanStatusResponse,
   VendorReviewBrief,
 } from "@/lib/types";
 
@@ -78,9 +80,12 @@ export function CommandCenter() {
     null,
   );
   const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [watchlistAlerts, setWatchlistAlerts] = useState<Alert[]>([]);
   const [evidence, setEvidence] = useState<EvidenceItem[]>([]);
   const [traces, setTraces] = useState<BrightDataTrace[]>([]);
   const [brief, setBrief] = useState<VendorReviewBrief | null>(null);
+  const [assessmentScan, setAssessmentScan] =
+    useState<ScanStatusResponse | null>(null);
   const [agentStatus, setAgentStatus] = useState<AgentStatusResponse | null>(null);
   const [activeScanId, setActiveScanId] = useState<string | null>(null);
   const [selectedEvidenceId, setSelectedEvidenceId] = useState<string | null>(
@@ -110,6 +115,7 @@ export function CommandCenter() {
   const [watchlistBusy, setWatchlistBusy] = useState(false);
 
   const { scan, pollingError, isTerminal } = useScanPolling(activeScanId);
+  const displayScan = scan ?? assessmentScan;
 
   const sortedCompanies = useMemo(
     () =>
@@ -151,6 +157,7 @@ export function CommandCenter() {
         setCompanies(nextCompanies);
         setAgentStatus(nextAgentStatus);
         setSelectedCompanyId(initialCompany?.id ?? null);
+        setWatchlistAlerts(await listLatestWatchlistAlerts(nextCompanies));
       } catch (error) {
         setInitialError(toErrorMessage(error));
       } finally {
@@ -187,11 +194,12 @@ export function CommandCenter() {
       setBriefError(null);
 
       try {
-        const alertFilters = scan?.id
-          ? { company_id: company.id, scan_id: scan.id }
+        const nextAssessmentScan = scan ?? (await getLatestScan(company.id));
+        const scanId = nextAssessmentScan?.id ?? null;
+        const alertFilters = scanId
+          ? { company_id: company.id, scan_id: scanId }
           : { company_id: company.id };
         const nextAlerts = await listAlerts(alertFilters);
-        const scanId = scan?.id ?? nextAlerts[0]?.scan_id ?? null;
         let nextEvidence: EvidenceItem[] = [];
         let nextTraces: BrightDataTrace[] = [];
         let nextBrief: VendorReviewBrief | null = null;
@@ -230,6 +238,7 @@ export function CommandCenter() {
         setEvidence(nextEvidence);
         setTraces(nextTraces);
         setBrief(nextBrief);
+        setAssessmentScan(nextAssessmentScan);
         setBriefError(nextBriefError);
         setSelectedEvidenceId((current) =>
           current && nextEvidence.some((item) => item.id === current)
@@ -241,6 +250,7 @@ export function CommandCenter() {
         setEvidence([]);
         setTraces([]);
         setBrief(null);
+        setAssessmentScan(null);
         setSelectedEvidenceId(null);
         setDetailError(toErrorMessage(error));
         setBriefError(null);
@@ -264,6 +274,7 @@ export function CommandCenter() {
 
       setCompanies(nextCompanies);
       setAgentStatus(nextAgentStatus);
+      setWatchlistAlerts(await listLatestWatchlistAlerts(nextCompanies));
       setActiveScanId(null);
     }
 
@@ -310,6 +321,11 @@ export function CommandCenter() {
     try {
       const updatedAlert = await updateAlertReviewStatus(alertId, status);
       setAlerts((currentAlerts) =>
+        currentAlerts.map((alert) =>
+          alert.id === updatedAlert.id ? updatedAlert : alert,
+        ),
+      );
+      setWatchlistAlerts((currentAlerts) =>
         currentAlerts.map((alert) =>
           alert.id === updatedAlert.id ? updatedAlert : alert,
         ),
@@ -471,10 +487,10 @@ export function CommandCenter() {
               </span>
               <div>
                 <p className="text-sm font-semibold text-ink-950">
-                  Selected demo vendor: {selectedCompany.name}
+                  Selected vendor: {selectedCompany.name}
                 </p>
                 <p className="mt-1 text-sm leading-6 text-zinc-600">
-                  Critical {selectedCompany.relationship_type} vendor. Renewal{" "}
+                  {labelize(selectedCompany.criticality)} {selectedCompany.relationship_type} vendor. Renewal{" "}
                   {formatDate(selectedCompany.renewal_date)}. The frontend never
                   calls Bright Data or exposes keys.
                 </p>
@@ -668,7 +684,7 @@ export function CommandCenter() {
               <VendorCard
                 key={company.id}
                 company={company}
-                alerts={alerts}
+                alerts={watchlistAlerts}
                 selected={company.id === selectedCompany.id}
                 onSelect={() => setSelectedCompanyId(company.id)}
               />
@@ -710,7 +726,7 @@ export function CommandCenter() {
             ) : null}
 
             <ReviewStatusStrip
-              scan={scan}
+              scan={displayScan}
               traces={traces}
               pollingError={pollingError}
             />
@@ -822,7 +838,7 @@ export function CommandCenter() {
 
           <RiskAssessmentBrief
             brief={brief}
-            scan={scan}
+            scan={displayScan}
             traces={traces}
             loading={briefLoading}
             error={briefError}
@@ -1009,6 +1025,25 @@ function pickInitialCompany(companies: Company[]) {
     })[0] ??
     null
   );
+}
+
+async function listLatestWatchlistAlerts(companies: Company[]) {
+  const latestAlerts = await Promise.all(
+    companies.map(async (company) => {
+      try {
+        const latestScan = await getLatestScan(company.id);
+        if (!latestScan) return [];
+        return listAlerts({
+          company_id: company.id,
+          scan_id: latestScan.id,
+        });
+      } catch {
+        return [];
+      }
+    }),
+  );
+
+  return latestAlerts.flat();
 }
 
 function alertReviewIcon(status: AlertReviewStatus) {

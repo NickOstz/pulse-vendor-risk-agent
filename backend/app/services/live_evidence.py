@@ -1,22 +1,58 @@
 import json
+from pathlib import Path
+from urllib.parse import urlsplit
+
+from sqlmodel import Session, select
 
 from app.config import get_settings
-from app.models import Company, EvidenceItem, Scan, utc_now
+from app.models import BrightDataTrace, Company, EvidenceItem, Scan, utc_now
 from app.services.extraction import DeepSeekExtractionClient, ExtractedEvidence, evidence_from_extraction, extract_source
 
 
+DEMO_COMPANY_ID = "vendor-cloudflare-demo"
 CLOUDFLARE_COMPLIANCE_QUOTE = (
     "Explore our posture around ISO 27001, ISO 27701, PCI DSS, SOC 2 Type II, and others"
 )
 CLOUDFLARE_TRUST_HUB_URL = "https://www.cloudflare.com/trust-hub/"
 
 
+def is_demo_company(company: Company) -> bool:
+    return company.id == DEMO_COMPANY_ID
+
+
+def configured_live_source_url(company: Company) -> str | None:
+    if is_demo_company(company):
+        configured_source = get_settings().brightdata_demo_source_url
+        if configured_source and is_supported_live_source(company, configured_source):
+            return configured_source
+        return None
+
+    for source_url in _read_rules(company.allow_list_json):
+        if is_supported_live_source(company, source_url):
+            return source_url
+    return None
+
+
 def is_supported_live_source(company: Company, source_url: str) -> bool:
-    return (
-        company.domain == "cloudflare.com"
-        and source_url == CLOUDFLARE_TRUST_HUB_URL
-        and source_rules_allow(company, source_url)
-    )
+    if not source_rules_allow(company, source_url):
+        return False
+    if is_demo_company(company):
+        return company.domain == "cloudflare.com" and source_url == CLOUDFLARE_TRUST_HUB_URL
+
+    try:
+        parsed = urlsplit(source_url)
+        host = (parsed.hostname or "").casefold()
+        domain = company.domain.casefold()
+        allowed_host = host == domain or host.endswith(f".{domain}")
+        return (
+            parsed.scheme == "https"
+            and parsed.username is None
+            and parsed.password is None
+            and parsed.port in {None, 443}
+            and allowed_host
+        )
+    except ValueError:
+        return False
 
 
 def source_rules_allow(company: Company, source_url: str) -> bool:
@@ -32,34 +68,66 @@ def _read_rules(serialized_rules: str | None) -> list[str]:
     return parsed if isinstance(parsed, list) else []
 
 
-def extract_live_cloudflare_trust_evidence(company: Company, scan: Scan) -> EvidenceItem | None:
+def extract_live_source_evidence_items(session: Session, company: Company, scan: Scan) -> list[EvidenceItem]:
+    from app.services.live_collection import snapshot_path_for_target, target_from_capture_trace
+
     settings = get_settings()
-    source_url = settings.brightdata_demo_source_url
-    if not source_url or not is_supported_live_source(company, source_url):
-        return None
-
-    snapshot_path = settings.live_snapshot_dir / f"{scan.id}-configured-source.md"
-    if not snapshot_path.exists():
-        return None
-
-    content = snapshot_path.read_text(encoding="utf-8")
-    if settings.llm_extraction_enabled and settings.deepseek_api_key:
-        return extract_source(
-            company=company,
-            scan=scan,
-            source_text=content,
-            source_url=source_url,
-            source_type="vendor_owned",
-            snapshot_path=snapshot_path,
-            signal_type="trust_security",
-            client=DeepSeekExtractionClient(
+    extraction_client = (
+        DeepSeekExtractionClient(
                 api_key=settings.deepseek_api_key,
                 endpoint=settings.deepseek_api_endpoint,
                 model=settings.deepseek_extraction_model,
                 timeout_seconds=settings.llm_extraction_timeout_seconds,
-            ),
         )
+        if settings.llm_extraction_enabled and settings.deepseek_api_key
+        else None
+    )
+    traces = session.exec(
+        select(BrightDataTrace).where(
+            BrightDataTrace.scan_id == scan.id,
+            BrightDataTrace.source_mode == "live",
+            BrightDataTrace.product == "web_unlocker",
+            BrightDataTrace.status == "success",
+        )
+    ).all()
+    evidence_items: list[EvidenceItem] = []
+    for trace in traces:
+        target = target_from_capture_trace(company, trace)
+        if target is None:
+            continue
+        snapshot_path = snapshot_path_for_target(scan.id, target)
+        if not snapshot_path.exists():
+            continue
+        content = snapshot_path.read_text(encoding="utf-8")
+        if extraction_client is not None:
+            evidence_items.append(
+                extract_source(
+                    company=company,
+                    scan=scan,
+                    source_text=content,
+                    source_url=target.source_url,
+                    source_type=target.source_type,
+                    snapshot_path=snapshot_path,
+                    signal_type=target.signal_type,
+                    client=extraction_client,
+                )
+            )
+        elif (
+            is_demo_company(company)
+            and target.origin == "configured"
+            and target.signal_type == "trust_security"
+        ):
+            evidence_items.append(_demo_trust_evidence(company, scan, target.source_url, content, snapshot_path))
+    return evidence_items
 
+
+def _demo_trust_evidence(
+    company: Company,
+    scan: Scan,
+    source_url: str,
+    content: str,
+    snapshot_path: Path,
+) -> EvidenceItem:
     candidate = ExtractedEvidence.model_validate(
         {
             "vendor_id": company.id,

@@ -34,12 +34,18 @@ class BrightDataClient:
     def unlocker_configured(self) -> bool:
         return bool(self.settings.brightdata_api_key and self.settings.brightdata_unlocker_zone)
 
-    def search_vendor_risk(self, company: Company) -> BrightDataAttempt:
-        query = f"{company.name} {company.domain} trust security SOC 2 incident terms"
+    def search_vendor_risk(
+        self,
+        company: Company,
+        *,
+        signal_type: str = "trust_security",
+        query: str | None = None,
+    ) -> BrightDataAttempt:
+        search_query = query or f"{company.name} {company.domain} trust security SOC 2 incident terms"
         target_url = "https://www.google.com/search?" + urlencode(
-            {"q": query, "hl": "en", "gl": "us", "brd_json": "1"}
+            {"q": search_query, "hl": "en", "gl": "us", "brd_json": "1"}
         )
-        operation = f"query:{company.name.lower()} vendor risk public signals"
+        operation = f"discover:{signal_type}"
         started_at = perf_counter()
 
         try:
@@ -63,6 +69,7 @@ class BrightDataClient:
                 source_url=target_url,
                 status="success",
                 latency_ms=_elapsed_ms(started_at),
+                content=response.text,
             )
         except httpx.TimeoutException:
             return BrightDataAttempt(
@@ -92,8 +99,14 @@ class BrightDataClient:
                 error=f"Bright Data SERP request failed: {exc.__class__.__name__}.",
             )
 
-    def fetch_markdown(self, source_url: str) -> BrightDataAttempt:
-        operation = "scrape_markdown:configured_demo_source"
+    def fetch_source_text(
+        self,
+        source_url: str,
+        *,
+        signal_type: str = "trust_security",
+        origin: str = "configured",
+    ) -> BrightDataAttempt:
+        operation = f"capture_text:{signal_type}:{origin}"
         started_at = perf_counter()
 
         try:
@@ -107,7 +120,6 @@ class BrightDataClient:
                     "zone": self.settings.brightdata_unlocker_zone,
                     "url": source_url,
                     "format": "raw",
-                    "data_format": "markdown",
                 },
                 timeout=self.settings.brightdata_live_fetch_timeout_seconds,
             )

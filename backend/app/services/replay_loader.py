@@ -7,10 +7,17 @@ from sqlmodel import Session, select
 from app.config import get_settings
 from app.models import Alert, BrightDataTrace, Brief, Company, EvidenceItem, Scan, utc_now
 from app.services.brief_renderer import render_vendor_review_brief
+from app.services.assessment import draft_verified_assessment
+from app.services.change_detection import classify_live_evidence_changes
 from app.services.extraction import ExtractedEvidence
-from app.services.live_evidence import extract_live_cloudflare_trust_evidence, source_rules_allow
-from app.services.scoring import build_live_compliance_alert, build_mixed_related_change_alert
-from app.services.serializers import dump_json
+from app.services.live_evidence import extract_live_source_evidence_items, is_demo_company, source_rules_allow
+from app.services.scoring import (
+    build_live_compliance_alert,
+    build_live_signal_alert,
+    build_mixed_related_change_alert,
+    build_related_live_signal_alert,
+)
+from app.services.serializers import dump_json, next_review_after_run
 
 
 def _seed_path(name: str) -> Path:
@@ -85,15 +92,17 @@ def _complete_collect(session: Session, company: Company, scan: Scan) -> None:
     payload = load_replay_payload()
     now = utc_now()
     live_with_fallback = scan.mode == "live_with_fallback"
-    if not live_with_fallback:
+    uses_demo_payload = is_demo_company(company)
+    if not live_with_fallback and uses_demo_payload:
         scan.serp_queries_used = payload["metrics"]["serp_queries_used"]
-    if not live_with_fallback:
+    if not live_with_fallback and uses_demo_payload:
         scan.urls_scraped = 0
-    scan.llm_calls_used = 0 if live_with_fallback else payload["metrics"]["llm_calls_used"]
-    if not live_with_fallback:
+    if uses_demo_payload:
+        scan.llm_calls_used = 0 if live_with_fallback else payload["metrics"]["llm_calls_used"]
+    if not live_with_fallback and uses_demo_payload:
         scan.source_count = 0
 
-    for trace_row in payload["traces"]:
+    for trace_row in payload["traces"] if uses_demo_payload else []:
         if live_with_fallback and trace_row["product"] == "serp_api":
             continue
         source_url = trace_row.get("source_url")
@@ -128,19 +137,23 @@ def _complete_extract(session: Session, company: Company, scan: Scan) -> None:
     payload = load_replay_payload()
     now = utc_now()
     scan.current_stage = "extract"
-    live_evidence = extract_live_cloudflare_trust_evidence(company, scan) if scan.mode == "live_with_fallback" else None
-    verified_live_url = None
-    if live_evidence is not None:
+    live_evidence_items = (
+        extract_live_source_evidence_items(session, company, scan)
+        if scan.mode in {"live", "live_with_fallback"}
+        else []
+    )
+    verified_live_urls: set[str] = set()
+    for live_evidence in live_evidence_items:
         session.add(live_evidence)
         session.flush()
         if live_evidence.support_status == "verified":
-            verified_live_url = live_evidence.source_url
-            _remove_replaced_fallback_trace(session, scan, verified_live_url)
+            verified_live_urls.add(live_evidence.source_url)
+            _remove_replaced_fallback_trace(session, scan, live_evidence.source_url)
 
-    for evidence_row in payload["evidence_items"]:
+    for evidence_row in payload["evidence_items"] if is_demo_company(company) else []:
         if not source_rules_allow(company, evidence_row["source_url"]):
             continue
-        if verified_live_url and evidence_row["source_url"] == verified_live_url:
+        if evidence_row["source_url"] in verified_live_urls:
             continue
         candidate = ExtractedEvidence.model_validate(
             {
@@ -198,10 +211,14 @@ def _complete_score(session: Session, company: Company, scan: Scan) -> None:
     payload = load_replay_payload()
     now = utc_now()
     evidence_id_map = _evidence_id_map(session, scan.id)
-    live_evidence = _verified_live_evidence(session, scan.id)
+    live_evidence_items = _verified_live_evidence(session, scan.id)
+    live_change_statuses = classify_live_evidence_changes(session, scan, live_evidence_items)
+    actionable_live_evidence = [
+        item for item in live_evidence_items if live_change_statuses.get(item.id) != "unchanged"
+    ]
     scan.current_stage = "score"
-    for alert_row in payload["alerts"]:
-        if live_evidence is not None and alert_row["alert_type"] == "related_change":
+    for alert_row in payload["alerts"] if is_demo_company(company) else []:
+        if actionable_live_evidence and alert_row["alert_type"] == "related_change":
             continue
         related_fixture_ids = alert_row.get("related_evidence_fixture_ids", [])
         related_ids = [evidence_id_map[item] for item in related_fixture_ids if item in evidence_id_map]
@@ -228,10 +245,14 @@ def _complete_score(session: Session, company: Company, scan: Scan) -> None:
                 created_at=now,
             )
         )
-    if live_evidence is not None:
-        live_alert = build_live_compliance_alert(company, scan, live_evidence)
+    for live_evidence in actionable_live_evidence:
+        change_status = live_change_statuses.get(live_evidence.id)
+        live_alert = build_live_signal_alert(company, scan, live_evidence, change_status)
+        if is_demo_company(company) and live_evidence.signal_type == "trust_security":
+            live_alert = build_live_compliance_alert(company, scan, live_evidence, change_status)
         if live_alert is not None:
             session.add(live_alert)
+    if is_demo_company(company) and actionable_live_evidence:
         pricing_evidence = session.exec(
             select(EvidenceItem).where(
                 EvidenceItem.scan_id == scan.id,
@@ -239,8 +260,15 @@ def _complete_score(session: Session, company: Company, scan: Scan) -> None:
                 EvidenceItem.support_status == "verified",
             )
         ).first()
-        if pricing_evidence is not None:
-            session.add(build_mixed_related_change_alert(company, scan, live_evidence, pricing_evidence))
+        trust_evidence = next(
+            (item for item in actionable_live_evidence if item.signal_type == "trust_security"), None
+        )
+        if pricing_evidence is not None and trust_evidence is not None:
+            session.add(build_mixed_related_change_alert(company, scan, trust_evidence, pricing_evidence))
+    elif actionable_live_evidence:
+        related_alert = build_related_live_signal_alert(company, scan, actionable_live_evidence)
+        if related_alert is not None:
+            session.add(related_alert)
     scan.current_stage = "brief"
     session.add(scan)
     session.commit()
@@ -251,17 +279,27 @@ def _complete_brief(session: Session, company: Company, scan: Scan) -> None:
     evidence_items = session.exec(select(EvidenceItem).where(EvidenceItem.scan_id == scan.id)).all()
     verified_items = [item for item in evidence_items if item.support_status == "verified"]
     traces = session.exec(select(BrightDataTrace).where(BrightDataTrace.scan_id == scan.id)).all()
-    markdown, html = render_vendor_review_brief(company, verified_items, traces)
+    change_statuses = (
+        classify_live_evidence_changes(session, scan, _verified_live_evidence(session, scan.id))
+        if scan.mode == "live"
+        else None
+    )
+    assessment = draft_verified_assessment(company, scan, verified_items) if scan.mode == "live" else None
+    markdown, html = render_vendor_review_brief(company, verified_items, traces, assessment, change_statuses)
     session.add(Brief(company_id=company.id, scan_id=scan.id, markdown=markdown, html=html, created_at=now))
 
     scan.evidence_count = len(evidence_items)
     scan.verified_count = len(verified_items)
     scan.current_stage = "brief"
-    scan.status = "completed_with_fallback" if scan.mode == "live_with_fallback" else "completed"
+    scan.status = (
+        "completed_with_fallback"
+        if any(trace.source_mode == "fallback" for trace in traces)
+        else "completed"
+    )
     scan.completed_at = now
     company.agent_status = "completed"
     company.last_agent_run_at = now
-    company.next_agent_run_at = None
+    company.next_agent_run_at = next_review_after_run(company, now)
     session.add(scan)
     session.add(company)
     session.commit()
@@ -282,11 +320,10 @@ def _evidence_id_map(session: Session, scan_id: str) -> dict[str, str]:
     return result
 
 
-def _verified_live_evidence(session: Session, scan_id: str) -> EvidenceItem | None:
-    live_snapshot_path = str(get_settings().live_snapshot_dir / f"{scan_id}-configured-source.md")
-    live_source_urls = {
-        trace.source_url
-        for trace in session.exec(
+def _verified_live_evidence(session: Session, scan_id: str) -> list[EvidenceItem]:
+    from app.services.live_collection import snapshot_path_for_target, target_from_capture_trace
+
+    live_traces = session.exec(
             select(BrightDataTrace).where(
                 BrightDataTrace.scan_id == scan_id,
                 BrightDataTrace.source_mode == "live",
@@ -294,18 +331,26 @@ def _verified_live_evidence(session: Session, scan_id: str) -> EvidenceItem | No
                 BrightDataTrace.product == "web_unlocker",
             )
         ).all()
-        if trace.source_url
+    if not live_traces:
+        return []
+    company_id = live_traces[0].company_id
+    company = session.get(Company, company_id)
+    if company is None:
+        return []
+    live_snapshot_paths = {
+        str(snapshot_path_for_target(scan_id, target))
+        for trace in live_traces
+        if (target := target_from_capture_trace(company, trace)) is not None
     }
-    if not live_source_urls:
-        return None
-    return session.exec(
+    if not live_snapshot_paths:
+        return []
+    return list(session.exec(
         select(EvidenceItem).where(
             EvidenceItem.scan_id == scan_id,
-            EvidenceItem.source_url.in_(live_source_urls),
             EvidenceItem.support_status == "verified",
-            EvidenceItem.snapshot_path == live_snapshot_path,
+            EvidenceItem.snapshot_path.in_(live_snapshot_paths),
         )
-    ).first()
+    ).all())
 
 
 def _remove_replaced_fallback_trace(session: Session, scan: Scan, source_url: str) -> None:

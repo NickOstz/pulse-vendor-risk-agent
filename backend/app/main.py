@@ -1,5 +1,6 @@
+import asyncio
 from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -7,12 +8,22 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api import agents, alerts, briefs, companies, evidence, health, scans, traces
 from app.config import get_settings
 from app.db import init_db
+from app.services.agent_scheduler import run_scheduler_loop
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     init_db()
-    yield
+    task: asyncio.Task[None] | None = None
+    if get_settings().autonomous_scheduler_enabled:
+        task = asyncio.create_task(run_scheduler_loop())
+    try:
+        yield
+    finally:
+        if task is not None:
+            task.cancel()
+            with suppress(asyncio.CancelledError):
+                await task
 
 
 def create_app() -> FastAPI:
