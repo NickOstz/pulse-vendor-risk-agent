@@ -7,6 +7,15 @@ import httpx
 from app.config import Settings, get_settings
 from app.models import Company
 
+BLOCK_PAGE_SIGNATURES = (
+    "access denied",
+    "attention required",
+    "checking your browser",
+    "cf-browser-verification",
+    "captcha",
+    "just a moment",
+)
+
 
 @dataclass(frozen=True)
 class BrightDataAttempt:
@@ -43,7 +52,7 @@ class BrightDataClient:
     ) -> BrightDataAttempt:
         search_query = query or f"{company.name} {company.domain} trust security SOC 2 incident terms"
         target_url = "https://www.google.com/search?" + urlencode(
-            {"q": search_query, "hl": "en", "gl": "us", "brd_json": "1"}
+            {"q": search_query, "hl": "en", "gl": "us", "brd_json": "1", "brd_browser": "chrome"}
         )
         operation = f"discover:{signal_type}"
         started_at = perf_counter()
@@ -60,7 +69,7 @@ class BrightDataClient:
                     "url": target_url,
                     "format": "raw",
                 },
-                timeout=self.settings.brightdata_live_fetch_timeout_seconds,
+                timeout=self.settings.brightdata_serp_timeout_seconds,
             )
             response.raise_for_status()
             return BrightDataAttempt(
@@ -108,38 +117,70 @@ class BrightDataClient:
     ) -> BrightDataAttempt:
         operation = f"capture_text:{signal_type}:{origin}"
         started_at = perf_counter()
+        payloads = [
+            {
+                "zone": self.settings.brightdata_unlocker_zone,
+                "url": source_url,
+                "format": "raw",
+                "data_format": "markdown",
+            },
+            {
+                "zone": self.settings.brightdata_unlocker_zone,
+                "url": source_url,
+                "format": "raw",
+                "data_format": "markdown",
+                "country": "us",
+            },
+            {
+                "zone": self.settings.brightdata_unlocker_zone,
+                "url": source_url,
+                "format": "raw",
+            },
+        ]
+        last_content_error = "Bright Data Web Unlocker returned an empty response body."
+        attempt_index = 0
 
         try:
-            response = httpx.post(
-                self.settings.brightdata_unlocker_request_endpoint,
-                headers={
-                    "Authorization": f"Bearer {self.settings.brightdata_api_key}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "zone": self.settings.brightdata_unlocker_zone,
-                    "url": source_url,
-                    "format": "raw",
-                },
-                timeout=self.settings.brightdata_live_fetch_timeout_seconds,
-            )
-            response.raise_for_status()
-            if not response.text.strip():
+            for attempt_index, payload in enumerate(payloads):
+                response = httpx.post(
+                    self.settings.brightdata_unlocker_request_endpoint,
+                    headers={
+                        "Authorization": f"Bearer {self.settings.brightdata_api_key}",
+                        "Content-Type": "application/json",
+                    },
+                    json=payload,
+                    timeout=self.settings.brightdata_live_fetch_timeout_seconds,
+                )
+                response.raise_for_status()
+                body = response.text.strip()
+                if not body:
+                    last_content_error = "Bright Data Web Unlocker returned an empty response body."
+                    continue
+                provider_error = _bright_data_body_error(body)
+                if provider_error is not None:
+                    last_content_error = provider_error
+                    continue
+                block_page_error = _block_page_error(body)
+                if block_page_error is not None:
+                    last_content_error = block_page_error
+                    continue
                 return BrightDataAttempt(
                     product="web_unlocker",
                     operation=operation,
                     source_url=source_url,
-                    status="failed",
+                    status="success",
                     latency_ms=_elapsed_ms(started_at),
-                    error="Bright Data Web Unlocker returned an empty response body.",
+                    retry_count=attempt_index,
+                    content=body,
                 )
             return BrightDataAttempt(
                 product="web_unlocker",
                 operation=operation,
                 source_url=source_url,
-                status="success",
+                status="failed",
                 latency_ms=_elapsed_ms(started_at),
-                content=response.text,
+                retry_count=len(payloads) - 1,
+                error=last_content_error,
             )
         except httpx.TimeoutException:
             return BrightDataAttempt(
@@ -148,6 +189,7 @@ class BrightDataClient:
                 source_url=source_url,
                 status="timeout",
                 latency_ms=_elapsed_ms(started_at),
+                retry_count=attempt_index,
                 error="Live page collection exceeded the configured demo timeout.",
             )
         except httpx.HTTPStatusError as exc:
@@ -157,6 +199,7 @@ class BrightDataClient:
                 source_url=source_url,
                 status="failed",
                 latency_ms=_elapsed_ms(started_at),
+                retry_count=attempt_index,
                 error=f"Bright Data Web Unlocker returned HTTP {exc.response.status_code}.",
             )
         except httpx.RequestError as exc:
@@ -166,9 +209,27 @@ class BrightDataClient:
                 source_url=source_url,
                 status="failed",
                 latency_ms=_elapsed_ms(started_at),
+                retry_count=attempt_index,
                 error=f"Bright Data Web Unlocker request failed: {exc.__class__.__name__}.",
             )
 
-
 def _elapsed_ms(started_at: float) -> int:
     return max(0, round((perf_counter() - started_at) * 1000))
+
+
+def _bright_data_body_error(body: str) -> str | None:
+    first_line = body.splitlines()[0].strip()
+    if first_line.startswith("Request Failed"):
+        return first_line[:500]
+    return None
+
+
+def _block_page_error(body: str) -> str | None:
+    normalized = body.casefold()
+    normalized_prefix = body[:3000].casefold()
+    for signature in BLOCK_PAGE_SIGNATURES:
+        if signature in normalized_prefix:
+            return f"Bright Data Web Unlocker returned a block page signature: {signature}."
+    if len(body.encode("utf-8")) < 2000 and "cloudflare" in normalized:
+        return "Bright Data Web Unlocker returned a likely block page instead of source content."
+    return None

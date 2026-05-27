@@ -32,7 +32,7 @@ def test_failed_quality_gate_identifies_best_two_templates() -> None:
     passing_adverse = _response(
         "adverse_media",
         "https://www.cloudflarestatus.com/uptime",
-        "This incident has been resolved.",
+        "Increased HTTP 502 Errors in Buenos Aires. This incident has been resolved.",
     )
     client = SequencedClient(
         [

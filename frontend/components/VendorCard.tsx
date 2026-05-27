@@ -1,4 +1,4 @@
-import { CalendarBlank, Database, Pulse } from "@phosphor-icons/react";
+import { CalendarBlank, Database, Pulse, Trash } from "@phosphor-icons/react";
 import { Badge } from "@/components/Badge";
 import { formatDate, labelize } from "@/lib/formatters";
 import type { Alert, Company } from "@/lib/types";
@@ -8,25 +8,32 @@ export function VendorCard({
   alerts,
   selected,
   onSelect,
+  onDelete,
+  deleteDisabled = false,
 }: {
   company: Company;
   alerts: Alert[];
   selected: boolean;
   onSelect: () => void;
+  onDelete?: () => void;
+  deleteDisabled?: boolean;
 }) {
   const topAlert = alerts.find((alert) => alert.company_id === company.id);
 
   return (
-    <button
-      type="button"
-      onClick={onSelect}
-      className={`group w-full rounded-lg border bg-white p-4 text-left shadow-soft transition duration-300 active:scale-[0.99] ${
+    <article
+      className={`group relative rounded-lg border bg-white shadow-soft transition duration-300 ${
         selected
           ? "border-ink-900 ring-2 ring-ink-900/5"
           : "border-zinc-200 hover:border-zinc-300"
       }`}
     >
-      <div className="flex items-start justify-between gap-3">
+      <button
+        type="button"
+        onClick={onSelect}
+        className="w-full p-4 pr-12 text-left active:scale-[0.99]"
+      >
+        <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <Database size={17} weight="duotone" className="text-signal-700" />
@@ -41,9 +48,9 @@ export function VendorCard({
         <Badge tone={company.criticality === "critical" ? "warn" : "neutral"}>
           {company.criticality}
         </Badge>
-      </div>
+        </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-3 text-xs">
+        <div className="mt-4 grid grid-cols-2 gap-3 text-xs">
         <div>
           <p className="text-zinc-500">Owner</p>
           <p className="mt-1 font-medium text-ink-900">{company.owner}</p>
@@ -51,16 +58,16 @@ export function VendorCard({
         <div>
           <p className="text-zinc-500">Alert score</p>
           <p className="mt-1 font-mono font-semibold text-ink-900">
-            {topAlert ? topAlert.score : "n/a"}
+            {topAlert ? topAlert.score : "no new"}
           </p>
         </div>
         <div className="col-span-2 flex items-center gap-2 border-t border-zinc-100 pt-3">
           <CalendarBlank size={15} className="text-zinc-500" />
           <span className="text-zinc-600">Renewal {formatDate(company.renewal_date)}</span>
         </div>
-      </div>
+        </div>
 
-      <div className="mt-3 flex items-center justify-between gap-3 border-t border-zinc-100 pt-3">
+        <div className="mt-3 flex items-center justify-between gap-3 border-t border-zinc-100 pt-3">
         <span className="inline-flex items-center gap-2 text-xs text-zinc-600">
           <Pulse
             size={14}
@@ -74,9 +81,22 @@ export function VendorCard({
             {topAlert.score} score
           </span>
         ) : (
-          <span className="text-xs text-zinc-400">No verified alert</span>
+          <span className="text-xs text-zinc-400">No scored alert</span>
         )}
-      </div>
-    </button>
+        </div>
+      </button>
+      {onDelete ? (
+        <button
+          type="button"
+          onClick={onDelete}
+          disabled={deleteDisabled}
+          title={deleteDisabled ? "Operator token required" : `Delete ${company.name}`}
+          aria-label={`Delete ${company.name}`}
+          className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-md border border-zinc-200 bg-white text-zinc-500 transition hover:border-rose-100 hover:bg-rose-50 hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <Trash size={15} weight="bold" />
+        </button>
+      ) : null}
+    </article>
   );
 }

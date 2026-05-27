@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
+import re
 from typing import Literal, Protocol
 
 import httpx
@@ -17,8 +18,16 @@ SignalType = Literal["trust_security", "adverse_media", "pricing_terms"]
 SourceType = Literal["vendor_owned", "news", "regulator", "general_web"]
 
 TEMPLATE_GUIDANCE: dict[SignalType, str] = {
-    "trust_security": "Look only for public trust, security, privacy, certification, or assurance evidence.",
-    "adverse_media": "Look only for public incident, outage, breach, enforcement, or adverse reporting evidence.",
+    "trust_security": (
+        "Look only for public trust, security, privacy, certification, compliance, assurance, "
+        "or security-process evidence. Normal vendor-authored security guidance belongs here, not adverse_media."
+    ),
+    "adverse_media": (
+        "Look only for a real negative event involving this vendor: incident, outage, breach, compromise, "
+        "lawsuit, regulator action, enforcement action, or customer-impacting security failure. "
+        "Do not treat routine security guidance, penetration-testing documentation, compliance pages, "
+        "marketing claims, or hypothetical risk language as adverse media."
+    ),
     "pricing_terms": "Look only for public pricing, contract, add-on, renewal, or product term evidence.",
 }
 
@@ -145,6 +154,12 @@ def extract_source(
             return _no_evidence_item(
                 company, scan, source_text, source_url, source_type, snapshot_path, signal_type, captured
             )
+        if _unsupported_adverse_quote(result, source_text):
+            if not simpler_prompt:
+                continue
+            return _no_evidence_item(
+                company, scan, source_text, source_url, source_type, snapshot_path, signal_type, captured
+            )
         return evidence_from_extraction(
             company=company,
             scan=scan,
@@ -167,6 +182,8 @@ def evidence_from_extraction(
 ) -> EvidenceItem:
     _require_source_binding(candidate, company, candidate.source_url, candidate.source_type, candidate.signal_type)
     support_status, quote_match_score = verify_quote(source_text, candidate.supporting_quote)
+    if support_status == "verified" and _unsupported_adverse_quote(candidate, source_text):
+        support_status = "needs_review"
     return EvidenceItem(
         scan_id=scan.id,
         company_id=company.id,
@@ -210,6 +227,38 @@ def _require_source_binding(
         or result.source_type != source_type
     ):
         raise ValueError("Extraction result does not match the requested vendor source and template.")
+
+
+def _unsupported_adverse_quote(candidate: ExtractedEvidence, source_text: str) -> bool:
+    if candidate.signal_type != "adverse_media":
+        return False
+    words = re.findall(r"[A-Za-z0-9]+", candidate.supporting_quote)
+    if len(words) < 8:
+        return True
+    quote = candidate.supporting_quote.strip()
+    if quote and not re.search(r"[.!?][\"')\]]?$", quote):
+        return True
+    return _quote_looks_like_title_or_heading(source_text, quote)
+
+
+def _quote_looks_like_title_or_heading(source_text: str, quote: str) -> bool:
+    if not quote:
+        return False
+    start = source_text.casefold().find(quote.casefold())
+    if start < 0:
+        return False
+    line_start = source_text.rfind("\n", 0, start) + 1
+    line_end = source_text.find("\n", start)
+    if line_end < 0:
+        line_end = len(source_text)
+    line = source_text[line_start:line_end].strip()
+    cleaned_line = re.sub(r"^[#>*\-\s]+", "", line)
+    if line.startswith("#") and quote.casefold() in cleaned_line.casefold():
+        return True
+    quote_has_sentence_end = bool(re.search(r"[.!?][\"')\]]?$", quote))
+    return cleaned_line.casefold().startswith(quote.casefold()) and (
+        "|" in cleaned_line or (not quote_has_sentence_end and len(cleaned_line) <= len(quote) + 80)
+    )
 
 
 def _no_evidence_item(
@@ -292,10 +341,26 @@ def _extraction_prompt(
         % (company.id, signal_type, source_url, source_type, captured_at.isoformat())
     )
     instruction = (
-        "Retry: output JSON only with exactly one of the two schemas below."
+        "Retry: output JSON only with exactly one of the two schemas below. "
+        "Use a short verbatim quote copied from the captured text."
         if simpler
-        else TEMPLATE_GUIDANCE[signal_type] + " Output JSON only with exactly one of the two schemas below."
+        else (
+            TEMPLATE_GUIDANCE[signal_type]
+            + " Output JSON only with exactly one of the two schemas below. "
+            "If this page does not match the requested signal type, return the no-evidence schema. "
+            "The supporting_quote must be a short verbatim span copied from the captured source text, "
+            "preferably under 35 words. Do not stitch together separate sentences or summarize. "
+            "Do not include navigation text, page titles, markdown image syntax, or unrelated boilerplate in the quote. "
+            "For adverse_media, the quote must be a substantive body sentence that describes what happened, "
+            "who/what was affected, or how the issue was remediated; never use only a headline or title. "
+            "If the only matching adverse-media text is a page title or headline, return no_evidence."
+        )
     )
+    if simpler and signal_type == "adverse_media":
+        instruction += (
+            " For adverse_media, use a complete body sentence ending in punctuation; "
+            "if only a title/headline matches, return no_evidence."
+        )
     return (
         f"{instruction}\nEvidence schema: {evidence_json}\nNo-evidence schema: {no_evidence_json}\n"
         f"Vendor: {company.name} ({company.id})\nPublic source URL: {source_url}\n"

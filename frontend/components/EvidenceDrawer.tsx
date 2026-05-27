@@ -2,10 +2,7 @@
 
 import {
   ArrowSquareOut,
-  CheckCircle,
-  Prohibit,
   Rows,
-  WarningCircle,
   X,
 } from "@phosphor-icons/react";
 import { Badge, SourceModeBadge, SupportBadge } from "@/components/Badge";
@@ -20,7 +17,6 @@ import {
 } from "@/lib/sourceModes";
 import type {
   Alert,
-  AlertReviewStatus,
   BrightDataTrace,
   EvidenceItem,
 } from "@/lib/types";
@@ -33,10 +29,7 @@ export function EvidenceDrawer({
   selectedEvidenceId,
   loading,
   error,
-  reviewError,
-  pendingAlertId,
   onSelectEvidence,
-  onUpdateAlertStatus,
   onClose,
 }: {
   open: boolean;
@@ -46,17 +39,17 @@ export function EvidenceDrawer({
   selectedEvidenceId: string | null;
   loading: boolean;
   error: string | null;
-  reviewError: string | null;
-  pendingAlertId: string | null;
   onSelectEvidence: (id: string) => void;
-  onUpdateAlertStatus: (
-    alertId: string,
-    status: AlertReviewStatus,
-  ) => Promise<void>;
   onClose: () => void;
 }) {
+  const reviewableEvidence = evidence.filter(
+    (item) => item.support_status !== "no_evidence",
+  );
+  const hiddenNoEvidenceCount = evidence.length - reviewableEvidence.length;
   const selectedEvidence =
-    evidence.find((item) => item.id === selectedEvidenceId) ?? evidence[0] ?? null;
+    reviewableEvidence.find((item) => item.id === selectedEvidenceId) ??
+    reviewableEvidence[0] ??
+    null;
   const selectedAlert =
     alerts.find((alert) => alert.evidence_item_id === selectedEvidence?.id) ??
     alerts[0];
@@ -71,9 +64,9 @@ export function EvidenceDrawer({
   if (!open) return null;
 
   return (
-    <aside className="fixed inset-y-0 right-0 z-30 flex w-full max-w-5xl border-l border-zinc-200 bg-white shadow-soft md:w-[86vw]">
-      <div className="flex min-w-0 flex-1 flex-col overflow-y-auto">
-        <header className="sticky top-0 z-10 border-b border-zinc-200 bg-white/95 px-5 py-4 backdrop-blur">
+    <aside className="fixed inset-y-0 right-0 z-30 flex w-full border-l border-zinc-200 bg-white shadow-soft md:w-[92vw] 2xl:max-w-[1480px]">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <header className="shrink-0 border-b border-zinc-200 bg-white/95 px-5 py-4 backdrop-blur">
           <div className="flex items-start justify-between gap-4">
             <div>
               <div className="flex items-center gap-2">
@@ -91,6 +84,11 @@ export function EvidenceDrawer({
                 {traceModes.map((mode) => (
                   <SourceModeBadge key={mode} mode={mode} />
                 ))}
+                {hiddenNoEvidenceCount > 0 ? (
+                  <Badge tone="neutral">
+                    {hiddenNoEvidenceCount} no-evidence hidden
+                  </Badge>
+                ) : null}
               </div>
             </div>
             <button
@@ -104,8 +102,8 @@ export function EvidenceDrawer({
           </div>
         </header>
 
-        <div className="grid gap-4 p-5 lg:grid-cols-[0.85fr_1.15fr]">
-          <section className="space-y-3">
+        <div className="grid min-h-0 flex-1 gap-4 overflow-hidden p-5 lg:grid-cols-[340px_minmax(0,1fr)] xl:grid-cols-[360px_minmax(0,1fr)]">
+          <section className="min-h-0 overflow-y-auto pr-1">
             {loading ? (
               <EvidenceListSkeleton />
             ) : error ? (
@@ -114,14 +112,19 @@ export function EvidenceDrawer({
                 title="Evidence unavailable"
                 body={error}
               />
-            ) : evidence.length === 0 ? (
+            ) : reviewableEvidence.length === 0 ? (
               <DrawerState
                 tone="neutral"
-                title="No evidence returned"
-                body="Evidence will appear here after the review extracts source-backed claims."
+                title={evidence.length === 0 ? "No evidence returned" : "No reviewable evidence"}
+                body={
+                  evidence.length === 0
+                    ? "Evidence will appear here after the review extracts source-backed claims."
+                    : "Captured sources that produced no evidence are hidden from this list and kept in trace rows for audit."
+                }
               />
             ) : (
-              evidence.map((item) => (
+              <div className="space-y-3">
+              {reviewableEvidence.map((item) => (
               <button
                 key={item.id}
                 type="button"
@@ -153,11 +156,12 @@ export function EvidenceDrawer({
                   </span>
                 </div>
               </button>
-              ))
+              ))}
+              </div>
             )}
           </section>
 
-          <div className="space-y-4">
+          <div className="min-h-0 space-y-4 overflow-y-auto pr-1">
             {selectedEvidence ? (
               <section className="space-y-4 rounded-lg border border-zinc-200 bg-white p-4 shadow-soft">
                 <div className="flex flex-wrap items-start justify-between gap-3">
@@ -177,55 +181,6 @@ export function EvidenceDrawer({
                   </div>
                   {selectedAlert ? <ScoreTooltip alert={selectedAlert} /> : null}
                 </div>
-
-                {selectedAlert ? (
-                  <div className="rounded-md border border-zinc-200 bg-zinc-50 p-3">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.08em] text-zinc-500">
-                          Review status
-                        </p>
-                        <p className="mt-1 text-sm font-semibold text-ink-950">
-                          {labelize(selectedAlert.status)}
-                        </p>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <ReviewActionButton
-                          icon={<CheckCircle size={15} weight="bold" />}
-                          label="Approve"
-                          active={selectedAlert.status === "approved"}
-                          disabled={pendingAlertId === selectedAlert.id}
-                          onClick={() =>
-                            onUpdateAlertStatus(selectedAlert.id, "approved")
-                          }
-                        />
-                        <ReviewActionButton
-                          icon={<Prohibit size={15} weight="bold" />}
-                          label="Dismiss"
-                          active={selectedAlert.status === "dismissed"}
-                          disabled={pendingAlertId === selectedAlert.id}
-                          onClick={() =>
-                            onUpdateAlertStatus(selectedAlert.id, "dismissed")
-                          }
-                        />
-                        <ReviewActionButton
-                          icon={<WarningCircle size={15} weight="bold" />}
-                          label="Needs review"
-                          active={selectedAlert.status === "needs_review"}
-                          disabled={pendingAlertId === selectedAlert.id}
-                          onClick={() =>
-                            onUpdateAlertStatus(selectedAlert.id, "needs_review")
-                          }
-                        />
-                      </div>
-                    </div>
-                    {reviewError ? (
-                      <p className="mt-2 text-xs leading-5 text-rose-700">
-                        {reviewError}
-                      </p>
-                    ) : null}
-                  </div>
-                ) : null}
 
                 <dl className="mt-4 grid grid-cols-2 gap-3 text-sm md:grid-cols-4">
                   <Detail label="Source type" value={selectedEvidence.source_type} />
@@ -364,36 +319,6 @@ export function EvidenceDrawer({
         </div>
       </div>
     </aside>
-  );
-}
-
-function ReviewActionButton({
-  icon,
-  label,
-  active,
-  disabled,
-  onClick,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  active: boolean;
-  disabled: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className={`inline-flex items-center gap-2 rounded-md border px-3 py-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 active:scale-[0.98] ${
-        active
-          ? "border-ink-900 bg-ink-950 text-white"
-          : "border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300"
-      }`}
-    >
-      {icon}
-      {disabled ? "Saving" : label}
-    </button>
   );
 }
 

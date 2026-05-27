@@ -81,7 +81,7 @@ def test_latest_scan_is_available_for_vendor_even_without_alert_lookup(client):
     _poll_until_complete(client, scan_id)
 
     latest = client.get(f"/api/scans/latest?company_id={company_id}")
-    without_scan = client.get("/api/scans/latest?company_id=vendor-stripe")
+    without_scan = client.get("/api/scans/latest?company_id=vendor-snowflake")
 
     assert latest.status_code == 200
     assert latest.json()["id"] == scan_id

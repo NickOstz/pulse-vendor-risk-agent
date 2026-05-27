@@ -19,15 +19,17 @@ class ReviewRunner:
     def scan_mode(self, company: Company) -> str:
         settings = get_settings()
         client = BrightDataClient(settings)
-        if settings.default_review_mode != "live_with_fallback" or not client.serp_configured:
+        if settings.default_review_mode == "replay" or not client.serp_configured:
             return "replay"
-        if is_demo_company(company):
-            return "live_with_fallback"
+        if not client.unlocker_configured:
+            return "replay"
         if (
-            client.unlocker_configured
-            and settings.llm_extraction_enabled
-            and settings.deepseek_api_key
+            settings.default_review_mode == "live_with_fallback"
+            and settings.fallback_evidence_enabled
+            and is_demo_company(company)
         ):
+            return "live_with_fallback"
+        if settings.default_review_mode in {"live", "live_with_fallback"}:
             return "live"
         return "replay"
 

@@ -174,7 +174,8 @@ def test_completed_demo_scan_returns_markdown_and_html_briefs(client):
     markdown_content = markdown.json()["content"]
     assert "Vendor Risk Assessment Brief: Cloudflare" in markdown_content
     assert "## Evidence Table" in markdown_content
-    assert "| Trust / security | cached | verified | https://www.cloudflare.com/trust-hub/" in markdown_content
+    assert "| Signal | Severity | Mode | Support | Source | Recommended action |" in markdown_content
+    assert "| Trust / security | medium | cached | verified | https://www.cloudflare.com/trust-hub/" in markdown_content
     assert "## Risk Interpretation" in markdown_content
     assert "## Suggested Owner" in markdown_content
     assert "## Review Status" in markdown_content

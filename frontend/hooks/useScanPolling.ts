@@ -15,7 +15,11 @@ export function useScanPolling(scanId: string | null) {
   const [pollingError, setPollingError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!scanId) return;
+    if (!scanId) {
+      setScan(null);
+      setPollingError(null);
+      return;
+    }
 
     let cancelled = false;
     const currentScanId = scanId;

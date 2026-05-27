@@ -32,54 +32,6 @@ export const companiesFixture: Company[] = [
     next_agent_run_at: null,
   },
   {
-    id: "vendor_stripe",
-    name: "Stripe",
-    domain: "stripe.com",
-    relationship_type: "payments",
-    owner: "Finance",
-    criticality: "critical",
-    renewal_date: "2026-08-18",
-    allow_list: ["https://docs.stripe.com/security/stripe"],
-    block_list: [],
-    agent_enabled: true,
-    agent_status: "completed",
-    review_policy: "weekly",
-    last_agent_run_at: "2026-05-25T08:15:00Z",
-    next_agent_run_at: "2026-06-01T08:15:00Z",
-  },
-  {
-    id: "vendor_datadog",
-    name: "Datadog",
-    domain: "datadoghq.com",
-    relationship_type: "observability",
-    owner: "Data",
-    criticality: "important",
-    renewal_date: "2026-09-04",
-    allow_list: ["https://www.datadoghq.com/security/"],
-    block_list: [],
-    agent_enabled: true,
-    agent_status: "active",
-    review_policy: "weekly",
-    last_agent_run_at: "2026-05-22T17:40:00Z",
-    next_agent_run_at: "2026-05-29T17:40:00Z",
-  },
-  {
-    id: "vendor_auth0",
-    name: "Auth0",
-    domain: "auth0.com",
-    relationship_type: "identity",
-    owner: "Engineering",
-    criticality: "normal",
-    renewal_date: "2026-11-22",
-    allow_list: ["https://auth0.com/docs/security"],
-    block_list: [],
-    agent_enabled: false,
-    agent_status: "inactive",
-    review_policy: null,
-    last_agent_run_at: null,
-    next_agent_run_at: null,
-  },
-  {
     id: "vendor_snowflake",
     name: "Snowflake",
     domain: "snowflake.com",
@@ -102,7 +54,7 @@ export const scanProgression: ScanStatusResponse[] = [
     id: demoScanId,
     company_id: demoCompanyId,
     status: "running",
-    mode: "live_with_fallback",
+    mode: "live",
     current_stage: "collect",
     stages: [
       { name: "collect", status: "running" },
@@ -123,7 +75,7 @@ export const scanProgression: ScanStatusResponse[] = [
     id: demoScanId,
     company_id: demoCompanyId,
     status: "running",
-    mode: "live_with_fallback",
+    mode: "live",
     current_stage: "extract",
     stages: [
       { name: "collect", status: "completed" },
@@ -144,7 +96,7 @@ export const scanProgression: ScanStatusResponse[] = [
     id: demoScanId,
     company_id: demoCompanyId,
     status: "running",
-    mode: "live_with_fallback",
+    mode: "live",
     current_stage: "verify",
     stages: [
       { name: "collect", status: "completed" },
@@ -165,7 +117,7 @@ export const scanProgression: ScanStatusResponse[] = [
     id: demoScanId,
     company_id: demoCompanyId,
     status: "running",
-    mode: "live_with_fallback",
+    mode: "live",
     current_stage: "score",
     stages: [
       { name: "collect", status: "completed" },
@@ -185,8 +137,8 @@ export const scanProgression: ScanStatusResponse[] = [
   {
     id: demoScanId,
     company_id: demoCompanyId,
-    status: "completed_with_fallback",
-    mode: "live_with_fallback",
+    status: "completed",
+    mode: "live",
     current_stage: "brief",
     stages: [
       { name: "collect", status: "completed" },
@@ -227,47 +179,6 @@ export const evidenceFixture: EvidenceItem[] = [
     source_excerpt:
       "Compliance resources: Explore our posture around ISO 27001, ISO 27701, PCI DSS, SOC 2 Type II, and others.",
   },
-  {
-    id: "evidence_terms_001",
-    scan_id: demoScanId,
-    company_id: demoCompanyId,
-    signal_type: "pricing_terms",
-    claim:
-      "Cloudflare identifies Data Localization Suite as an Enterprise-only paid add-on.",
-    supporting_quote: "Enterprise-only paid add-on",
-    source_url: "https://developers.cloudflare.com/data-localization/",
-    source_type: "vendor_owned",
-    published_or_captured_at: "2026-05-26T03:47:00Z",
-    severity_hint: "high",
-    confidence: 0.97,
-    recommended_action:
-      "Confirm whether regulated-data residency requirements require this add-on in the renewal scope.",
-    support_status: "verified",
-    quote_match_score: 1,
-    source_excerpt:
-      "Data Localization Suite: Enterprise-only paid add-on.",
-  },
-  {
-    id: "evidence_media_001",
-    scan_id: demoScanId,
-    company_id: demoCompanyId,
-    signal_type: "adverse_media",
-    claim:
-      "Cloudflare reported a resolved May 2026 Log Explorer incident that could delay dashboard and API log visibility.",
-    supporting_quote:
-      "Affected customers may see delays with Cloudflare logs in their dashboard and api.",
-    source_url: "https://www.cloudflarestatus.com/",
-    source_type: "vendor_owned",
-    published_or_captured_at: "2026-05-24T11:20:00Z",
-    severity_hint: "medium",
-    confidence: 0.94,
-    recommended_action:
-      "Confirm whether monitoring or audit-log workflows relied on Log Explorer during the incident window.",
-    support_status: "verified",
-    quote_match_score: 1,
-    source_excerpt:
-      "Incident impact: Affected customers may see delays with Cloudflare logs in their dashboard and api.",
-  },
 ];
 
 export const tracesFixture: BrightDataTrace[] = [
@@ -297,32 +208,6 @@ export const tracesFixture: BrightDataTrace[] = [
     source_mode: "live",
     created_at: "2026-05-26T03:45:01Z",
   },
-  {
-    id: "trace_cache_terms_001",
-    scan_id: demoScanId,
-    product: "replay_loader",
-    operation: "load_cached_source",
-    source_url: "https://developers.cloudflare.com/data-localization/",
-    status: "fallback_used",
-    latency_ms: 22,
-    retry_count: 0,
-    error: null,
-    source_mode: "fallback",
-    created_at: "2026-05-26T03:46:39Z",
-  },
-  {
-    id: "trace_cache_status_001",
-    scan_id: demoScanId,
-    product: "markdown_scrape",
-    operation: "scrape_markdown",
-    source_url: "https://www.cloudflarestatus.com/",
-    status: "fallback_used",
-    latency_ms: 18,
-    retry_count: 0,
-    error: null,
-    source_mode: "fallback",
-    created_at: "2026-05-26T03:47:10Z",
-  },
 ];
 
 export const alertsFixture: Alert[] = [
@@ -351,54 +236,6 @@ export const alertsFixture: Alert[] = [
     },
     created_at: "2026-05-26T03:48:00Z",
   },
-  {
-    id: "alert_terms_001",
-    company_id: demoCompanyId,
-    scan_id: demoScanId,
-    evidence_item_id: "evidence_terms_001",
-    alert_type: "signal",
-    title: "Data localization add-on requires renewal scope review",
-    summary:
-      "Verified public documentation identifies Data Localization Suite as an Enterprise-only paid add-on.",
-    score: 75,
-    severity: "high",
-    status: "new",
-    owner: "Procurement",
-    recommended_action:
-      "Confirm data residency requirements and commercial scope before renewal approval.",
-    related_evidence_ids: ["evidence_terms_001"],
-    score_factors: {
-      base_severity: 0.9,
-      source_reliability: 0.9,
-      confidence: 0.97,
-      freshness: 0.99,
-      vendor_criticality: 1.2,
-    },
-    created_at: "2026-05-26T03:48:00Z",
-  },
-  {
-    id: "alert_related_001",
-    company_id: demoCompanyId,
-    scan_id: demoScanId,
-    evidence_item_id: null,
-    alert_type: "related_change",
-    title: "Renewal checkpoint: live compliance and data residency scope",
-    summary:
-      "A live Cloudflare compliance source and verified fallback documentation identify renewal-relevant assurance and data localization considerations.",
-    score: 72,
-    severity: "high",
-    status: "new",
-    owner: "Security",
-    recommended_action:
-      "Review live compliance posture and regulated-data localization scope with Procurement.",
-    related_evidence_ids: ["evidence_trust_001", "evidence_terms_001"],
-    score_factors: {
-      rule: "same_vendor_same_review_window_two_or_more_verified_compatible_signals",
-      live_verified_evidence: 1,
-      fallback_verified_evidence: 1,
-    },
-    created_at: "2026-05-26T03:49:00Z",
-  },
 ];
 
 export const briefFixture: VendorReviewBrief = {
@@ -406,5 +243,5 @@ export const briefFixture: VendorReviewBrief = {
   scan_id: demoScanId,
   format: "markdown",
   content:
-    "# Vendor Risk Assessment Brief: Cloudflare\n\n## Summary\nCloudflare is a critical edge security vendor with renewal on 2026-07-10. Pulse assembled 1 live and 2 fallback verified public-source signals for renewal review.\n\n## Key Verified Changes\n- Trust / security: Cloudflare publicly identifies SOC 2 Type II and ISO 27001 among its compliance resources.\n- Pricing / terms: Cloudflare identifies Data Localization Suite as an Enterprise-only paid add-on.\n- Operational / adverse media: Cloudflare reported a resolved May 2026 Log Explorer incident that could delay dashboard and API log visibility.\n\n## Evidence Table\n| Signal | Mode | Support | Source | Recommended action |\n| --- | --- | --- | --- | --- |\n| Trust / security | live | verified | https://www.cloudflare.com/trust-hub/ | Request the current in-scope compliance package for the renewal record. |\n| Pricing / terms | fallback | verified | https://developers.cloudflare.com/data-localization/ | Confirm whether regulated-data residency requirements require this add-on in the renewal scope. |\n| Operational / adverse media | fallback | verified | https://www.cloudflarestatus.com/ | Confirm whether monitoring or audit-log workflows relied on Log Explorer during the incident window. |\n\n## Risk Interpretation\nThese verified public statements are review triggers, not proof of a control failure or unresolved incident. Security and Procurement should confirm assurance documentation, commercial scope, and any operational impact before renewal.\n\n## Recommended Action\n- Request the current in-scope compliance package for the renewal record.\n- Confirm whether regulated-data residency requirements require this add-on in the renewal scope.\n- Confirm whether monitoring or audit-log workflows relied on Log Explorer during the incident window.\n\n## Suggested Owner\nSecurity, with Procurement support.\n\n## Review Status\nNeeds review before renewal. This brief includes only verified evidence: 1 live and 2 fallback verified public-source signals. Live, fallback, and cached labels identify how each source was obtained.",
+    "# Vendor Risk Assessment Brief: Cloudflare\n\n## Summary\nCloudflare is a critical edge security vendor with renewal on 2026-07-10. Pulse assembled 1 live verified public-source signal for renewal review.\n\n## Key Verified Changes\n- Trust / security: Cloudflare publicly identifies SOC 2 Type II and ISO 27001 among its compliance resources.\n\n## Evidence Table\n| Signal | Severity | Mode | Support | Source | Recommended action |\n| --- | --- | --- | --- | --- | --- |\n| Trust / security | medium | live | verified | https://www.cloudflare.com/trust-hub/ | Request the current in-scope compliance package for the renewal record. |\n\n## Risk Interpretation\nThis verified public statement is a review trigger, not proof of a control failure or unresolved incident. Security should confirm assurance documentation before renewal.\n\n## Recommended Action\n- Request the current in-scope compliance package for the renewal record.\n\n## Suggested Owner\nSecurity, with Procurement support.\n\n## Review Status\nNeeds review before renewal. This brief includes only verified evidence: 1 live verified public-source signal.",
 };

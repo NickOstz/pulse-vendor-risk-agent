@@ -106,6 +106,6 @@ def test_brief_renderer_includes_only_verified_evidence_and_source_mode() -> Non
 
     assert "Verified compliance resources are public." in markdown
     assert "Unsupported incident allegation." not in markdown
-    assert "| Trust / security | live | verified |" in markdown
+    assert "| Trust / security | medium | live | verified |" in markdown
     assert "Unsupported incident allegation." not in html
     assert "<table>" in html

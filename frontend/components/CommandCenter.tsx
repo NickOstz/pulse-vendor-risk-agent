@@ -3,12 +3,9 @@
 import { type FormEvent, useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
-  CheckCircle,
   Plus,
   Power,
-  Prohibit,
   ShieldWarning,
-  WarningCircle,
   X,
 } from "@phosphor-icons/react";
 import { AgentStatusPanel } from "@/components/AgentStatusPanel";
@@ -24,9 +21,11 @@ import { VendorCard } from "@/components/VendorCard";
 import { useScanPolling } from "@/hooks/useScanPolling";
 import {
   createCompany,
+  deleteCompany,
   getAgentStatus,
   getDemoHealth,
   getLatestScan,
+  getScan,
   getVendorReviewBrief,
   listAlerts,
   listBrightDataTraces,
@@ -37,14 +36,12 @@ import {
   setVendorRiskAgent,
   setWatchlistRiskAgent,
   updateCompanySourceRules,
-  updateAlertReviewStatus,
   usesFixtureData,
 } from "@/lib/api";
 import { formatDate, labelize } from "@/lib/formatters";
 import type {
   AgentStatusResponse,
   Alert,
-  AlertReviewStatus,
   BrightDataTrace,
   Company,
   Criticality,
@@ -104,14 +101,11 @@ export function CommandCenter() {
   const [briefLoading, setBriefLoading] = useState(false);
   const [briefError, setBriefError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [alertReviewError, setAlertReviewError] = useState<string | null>(null);
-  const [alertReviewPendingId, setAlertReviewPendingId] = useState<string | null>(
-    null,
-  );
   const [vendorFormOpen, setVendorFormOpen] = useState(false);
   const [vendorForm, setVendorForm] =
     useState<VendorFormState>(emptyVendorForm);
   const [vendorSubmitting, setVendorSubmitting] = useState(false);
+  const [vendorDeletingId, setVendorDeletingId] = useState<string | null>(null);
   const [vendorFormError, setVendorFormError] = useState<string | null>(null);
   const [vendorFormNotice, setVendorFormNotice] = useState<string | null>(null);
   const [watchlistBusy, setWatchlistBusy] = useState(false);
@@ -146,6 +140,10 @@ export function CommandCenter() {
   ).length;
   const allVendorsMonitored =
     companies.length > 0 && monitoredVendorCount === companies.length;
+  const activeRunIds = (agentStatus?.active_runs ?? [])
+    .map((run) => run.scan_id)
+    .sort()
+    .join("|");
   const controlsLocked =
     !usesFixtureData &&
     Boolean(health?.write_protection_enabled) &&
@@ -292,6 +290,51 @@ export function CommandCenter() {
     void refreshTerminalState();
   }, [isTerminal]);
 
+  useEffect(() => {
+    if (!activeRunIds) return;
+    let cancelled = false;
+    const scanIds = activeRunIds.split("|").filter(Boolean);
+
+    async function advanceVisibleRuns() {
+      if (scanIds.length === 0) return;
+
+      await Promise.allSettled(scanIds.map((scanId) => getScan(scanId)));
+      if (cancelled) return;
+
+      const [nextCompanies, nextAgentStatus] = await Promise.all([
+        listCompanies(),
+        getAgentStatus(),
+      ]);
+      if (cancelled) return;
+
+      setCompanies(nextCompanies);
+      setAgentStatus(nextAgentStatus);
+      setWatchlistAlerts(await listLatestWatchlistAlerts(nextCompanies));
+      setActiveScanId((currentScanId) => {
+        if (
+          currentScanId &&
+          nextAgentStatus.active_runs.some((run) => run.scan_id === currentScanId)
+        ) {
+          return currentScanId;
+        }
+        const selectedRun = nextAgentStatus.active_runs.find(
+          (run) => run.company_id === selectedCompanyId,
+        );
+        return selectedRun?.scan_id ?? nextAgentStatus.active_runs[0]?.scan_id ?? null;
+      });
+    }
+
+    void advanceVisibleRuns();
+    const intervalId = window.setInterval(() => {
+      void advanceVisibleRuns();
+    }, 2500);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [activeRunIds, selectedCompanyId]);
+
   async function handleToggle(enabled: boolean) {
     if (!selectedCompany) return;
     setBusy(true);
@@ -319,32 +362,6 @@ export function CommandCenter() {
       setActionError(toErrorMessage(error));
     } finally {
       setBusy(false);
-    }
-  }
-
-  async function handleAlertReviewStatus(
-    alertId: string,
-    status: AlertReviewStatus,
-  ) {
-    setAlertReviewPendingId(alertId);
-    setAlertReviewError(null);
-
-    try {
-      const updatedAlert = await updateAlertReviewStatus(alertId, status);
-      setAlerts((currentAlerts) =>
-        currentAlerts.map((alert) =>
-          alert.id === updatedAlert.id ? updatedAlert : alert,
-        ),
-      );
-      setWatchlistAlerts((currentAlerts) =>
-        currentAlerts.map((alert) =>
-          alert.id === updatedAlert.id ? updatedAlert : alert,
-        ),
-      );
-    } catch (error) {
-      setAlertReviewError(toErrorMessage(error));
-    } finally {
-      setAlertReviewPendingId(null);
     }
   }
 
@@ -392,6 +409,43 @@ export function CommandCenter() {
       setVendorFormError(toErrorMessage(error));
     } finally {
       setVendorSubmitting(false);
+    }
+  }
+
+  async function handleDeleteVendor(company: Company) {
+    const confirmed = window.confirm(
+      `Delete ${company.name} and its scans, evidence, alerts, traces, and briefs?`,
+    );
+    if (!confirmed) return;
+
+    setVendorDeletingId(company.id);
+    setActionError(null);
+
+    try {
+      await deleteCompany(company.id);
+      const nextCompanies = await listCompanies();
+      const nextSelectedCompany =
+        nextCompanies.find((candidate) => candidate.id !== company.id) ?? null;
+
+      setCompanies(nextCompanies);
+      setSelectedCompanyId((currentId) =>
+        currentId === company.id ? nextSelectedCompany?.id ?? null : currentId,
+      );
+      setAgentStatus(await getAgentStatus());
+      setWatchlistAlerts(await listLatestWatchlistAlerts(nextCompanies));
+      if (selectedCompany?.id === company.id) {
+        setAlerts([]);
+        setEvidence([]);
+        setTraces([]);
+        setBrief(null);
+        setAssessmentScan(null);
+        setSelectedEvidenceId(null);
+        setActiveScanId(null);
+      }
+    } catch (error) {
+      setActionError(toErrorMessage(error));
+    } finally {
+      setVendorDeletingId(null);
     }
   }
 
@@ -469,7 +523,7 @@ export function CommandCenter() {
 
   return (
     <main className="min-h-[100dvh] px-4 py-5 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-[1440px]">
+      <div className="mx-auto max-w-[1720px]">
         <header className="grid gap-4 border-b border-zinc-200 pb-5 lg:grid-cols-[1.1fr_0.9fr] lg:items-end">
           <div>
             <div className="flex flex-wrap items-center gap-2">
@@ -516,7 +570,7 @@ export function CommandCenter() {
           </div>
         </header>
 
-        <div className="mt-5 grid gap-5 xl:grid-cols-[320px_minmax(0,1fr)_420px]">
+        <div className="mt-5 grid gap-5 xl:grid-cols-[300px_minmax(0,1fr)_minmax(520px,620px)]">
           <aside className="space-y-3">
             <div className="flex items-center justify-between gap-3">
               <div>
@@ -707,6 +761,8 @@ export function CommandCenter() {
                 alerts={watchlistAlerts}
                 selected={company.id === selectedCompany.id}
                 onSelect={() => setSelectedCompanyId(company.id)}
+                onDelete={() => void handleDeleteVendor(company)}
+                deleteDisabled={controlsLocked || vendorDeletingId === company.id}
               />
             ))}
           </aside>
@@ -738,14 +794,6 @@ export function CommandCenter() {
                 body={actionError}
               />
             ) : null}
-            {alertReviewError ? (
-              <StatePanel
-                tone="danger"
-                title="Alert review action failed"
-                body={alertReviewError}
-              />
-            ) : null}
-
             <ReviewStatusStrip
               scan={displayScan}
               traces={traces}
@@ -812,7 +860,7 @@ export function CommandCenter() {
                     </p>
                     <div className="mt-3 border-t border-zinc-200 pt-3">
                       <p className="text-xs text-zinc-500">
-                        Owner: {alert.owner}. Status: {labelize(alert.status)}.
+                        Suggested owner: {alert.owner}.
                       </p>
                       <div className="mt-3 flex flex-wrap items-center gap-2">
                         <button
@@ -829,25 +877,6 @@ export function CommandCenter() {
                           Review evidence
                           <ArrowRight size={14} weight="bold" />
                         </button>
-                        {(["approved", "dismissed", "needs_review"] as const).map(
-                          (status) => (
-                            <button
-                              key={status}
-                              type="button"
-                              onClick={() =>
-                                handleAlertReviewStatus(alert.id, status)
-                              }
-                              disabled={alertReviewPendingId === alert.id}
-                              className="inline-flex items-center gap-2 rounded-md border border-zinc-200 bg-white px-3 py-2 text-xs font-semibold text-zinc-700 transition hover:border-zinc-300 disabled:cursor-not-allowed disabled:opacity-60 active:scale-[0.98]"
-                            >
-                              {alertReviewIcon(status)}
-                              {alertReviewPendingId === alert.id &&
-                              alert.status !== status
-                                ? "Updating"
-                                : labelize(status)}
-                            </button>
-                          ),
-                        )}
                       </div>
                     </div>
                   </div>
@@ -881,10 +910,7 @@ export function CommandCenter() {
         selectedEvidenceId={selectedEvidenceId}
         loading={detailLoading}
         error={detailError}
-        reviewError={alertReviewError}
-        pendingAlertId={alertReviewPendingId}
         onSelectEvidence={setSelectedEvidenceId}
-        onUpdateAlertStatus={handleAlertReviewStatus}
         onClose={() => setDrawerOpen(false)}
       />
     </main>
@@ -1067,12 +1093,3 @@ async function listLatestWatchlistAlerts(companies: Company[]) {
   return latestAlerts.flat();
 }
 
-function alertReviewIcon(status: AlertReviewStatus) {
-  if (status === "approved") {
-    return <CheckCircle size={14} weight="bold" />;
-  }
-  if (status === "dismissed") {
-    return <Prohibit size={14} weight="bold" />;
-  }
-  return <WarningCircle size={14} weight="bold" />;
-}

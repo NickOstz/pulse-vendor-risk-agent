@@ -16,7 +16,10 @@ def list_evidence(
 ) -> list[EvidenceItem]:
     if session.get(Company, company_id) is None:
         raise HTTPException(status_code=404, detail="company not found")
-    statement = select(EvidenceItem).where(EvidenceItem.company_id == company_id)
+    statement = select(EvidenceItem).where(
+        EvidenceItem.company_id == company_id,
+        EvidenceItem.support_status != "no_evidence",
+    )
     if scan_id:
         statement = statement.where(EvidenceItem.scan_id == scan_id)
     return list(session.exec(statement.order_by(EvidenceItem.created_at.desc())).all())

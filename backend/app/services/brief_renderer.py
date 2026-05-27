@@ -61,17 +61,18 @@ def render_vendor_review_brief(
         [
             "",
             "## Evidence Table",
-            "| Signal | Mode | Support | Source | Recommended action |",
-            "| --- | --- | --- | --- | --- |",
+            "| Signal | Severity | Mode | Support | Source | Recommended action |",
+            "| --- | --- | --- | --- | --- | --- |",
         ]
     )
     for item in verified_items:
         markdown_lines.append(
-            f"| {_markdown_cell(_signal_label(item))} | {_markdown_cell(_evidence_mode(item, modes_by_url))} "
+            f"| {_markdown_cell(_signal_label(item))} | {_markdown_cell(item.severity_hint)} "
+            f"| {_markdown_cell(_evidence_mode(item, modes_by_url))} "
             f"| verified | {_markdown_cell(item.source_url)} | {_markdown_cell(item.recommended_action)} |"
         )
     if not verified_items:
-        markdown_lines.append("| No verified evidence | n/a | n/a | n/a | Await verified source support. |")
+        markdown_lines.append("| No verified evidence | n/a | n/a | n/a | n/a | Await verified source support. |")
 
     markdown_lines.extend(
         [
@@ -102,6 +103,7 @@ def render_vendor_review_brief(
     html_rows = "".join(
         "<tr>"
         f"<td>{escape(_signal_label(item))}</td>"
+        f'<td><span class="severity severity-{escape(item.severity_hint)}">{escape(item.severity_hint)}</span></td>'
         f"<td>{escape(_evidence_mode(item, modes_by_url))}</td>"
         "<td>verified</td>"
         f'<td><a href="{escape(item.source_url)}">{escape(item.source_url)}</a></td>'
@@ -111,7 +113,7 @@ def render_vendor_review_brief(
     )
     if not html_rows:
         html_rows = (
-            "<tr><td>No verified evidence</td><td>n/a</td><td>n/a</td><td>n/a</td>"
+            "<tr><td>No verified evidence</td><td>n/a</td><td>n/a</td><td>n/a</td><td>n/a</td>"
             "<td>Await verified source support.</td></tr>"
         )
     html_changes = "".join(f"<li>{escape(item.claim)}</li>" for item in verified_items)
@@ -126,7 +128,7 @@ def render_vendor_review_brief(
         f"<article><h1>Vendor Risk Assessment Brief: {escape(company.name)}</h1>"
         f"<h2>Summary</h2><p>{escape(summary)}</p>"
         f"<h2>{escape(findings_heading)}</h2><ul>{html_changes}</ul>"
-        "<h2>Evidence Table</h2><table><thead><tr><th>Signal</th><th>Mode</th><th>Support</th>"
+        "<h2>Evidence Table</h2><table><thead><tr><th>Signal</th><th>Severity</th><th>Mode</th><th>Support</th>"
         "<th>Source</th><th>Recommended action</th></tr></thead>"
         f"<tbody>{html_rows}</tbody></table>"
         f"<h2>Risk Interpretation</h2><p>{escape(interpretation)}</p>"

@@ -174,6 +174,23 @@ export async function createCompany(
   return createdCompany;
 }
 
+export async function deleteCompany(companyId: string): Promise<void> {
+  const live = await requestJson<Record<string, never>>(
+    `/api/companies/${companyId}`,
+    {
+      method: "DELETE",
+    },
+  );
+
+  if (live) return;
+
+  companies = companies.filter((company) => company.id !== companyId);
+  alerts = alerts.filter((alert) => alert.company_id !== companyId);
+  if (activeScanId && companyId === demoCompanyId) {
+    activeScanId = null;
+  }
+}
+
 export async function updateCompanySourceRules(
   companyId: string,
   payload: SourceRulesUpdateInput,
@@ -460,7 +477,7 @@ export async function getVendorReviewBrief(
 }
 
 const htmlBriefFixtureContent =
-  "<article><h1>Vendor Risk Assessment Brief: Cloudflare</h1><h2>Summary</h2><p>Cloudflare is a critical edge security vendor with renewal on 2026-07-10. Pulse assembled 1 live and 2 fallback verified public-source signals for renewal review.</p><h2>Key Verified Changes</h2><ul><li>Cloudflare publicly identifies SOC 2 Type II and ISO 27001 among its compliance resources.</li><li>Cloudflare identifies Data Localization Suite as an Enterprise-only paid add-on.</li><li>Cloudflare reported a resolved May 2026 Log Explorer incident that could delay dashboard and API log visibility.</li></ul><h2>Evidence Table</h2><table><thead><tr><th>Signal</th><th>Mode</th><th>Support</th><th>Source</th><th>Recommended action</th></tr></thead><tbody><tr><td>Trust / security</td><td>live</td><td>verified</td><td>https://www.cloudflare.com/trust-hub/</td><td>Request the current in-scope compliance package for the renewal record.</td></tr><tr><td>Pricing / terms</td><td>fallback</td><td>verified</td><td>https://developers.cloudflare.com/data-localization/</td><td>Confirm whether regulated-data residency requirements require this add-on in the renewal scope.</td></tr><tr><td>Operational / adverse media</td><td>fallback</td><td>verified</td><td>https://www.cloudflarestatus.com/</td><td>Confirm whether monitoring or audit-log workflows relied on Log Explorer during the incident window.</td></tr></tbody></table><h2>Risk Interpretation</h2><p>These verified public statements are review triggers, not proof of a control failure or unresolved incident. Security and Procurement should confirm assurance documentation, commercial scope, and any operational impact before renewal.</p><h2>Recommended Action</h2><ul><li>Request the current in-scope compliance package for the renewal record.</li><li>Confirm whether regulated-data residency requirements require this add-on in the renewal scope.</li><li>Confirm whether monitoring or audit-log workflows relied on Log Explorer during the incident window.</li></ul><h2>Suggested Owner</h2><p>Security, with Procurement support.</p><h2>Review Status</h2><p>Needs review before renewal. This brief includes only verified evidence: 1 live and 2 fallback verified public-source signals.</p></article>";
+  '<article><h1>Vendor Risk Assessment Brief: Cloudflare</h1><h2>Summary</h2><p>Cloudflare is a critical edge security vendor with renewal on 2026-07-10. Pulse assembled 1 live verified public-source signal for renewal review.</p><h2>Key Verified Changes</h2><ul><li>Cloudflare publicly identifies SOC 2 Type II and ISO 27001 among its compliance resources.</li></ul><h2>Evidence Table</h2><table><thead><tr><th>Signal</th><th>Severity</th><th>Mode</th><th>Support</th><th>Source</th><th>Recommended action</th></tr></thead><tbody><tr><td>Trust / security</td><td><span class="severity severity-medium">medium</span></td><td>live</td><td>verified</td><td>https://www.cloudflare.com/trust-hub/</td><td>Request the current in-scope compliance package for the renewal record.</td></tr></tbody></table><h2>Risk Interpretation</h2><p>This verified public statement is a review trigger, not proof of a control failure or unresolved incident. Security should confirm assurance documentation before renewal.</p><h2>Recommended Action</h2><ul><li>Request the current in-scope compliance package for the renewal record.</li></ul><h2>Suggested Owner</h2><p>Security, with Procurement support.</p><h2>Review Status</h2><p>Needs review before renewal. This brief includes only verified evidence: 1 live verified public-source signal.</p></article>';
 
 function normalizeTickResponse(response: TickResponse): AgentStatusResponse {
   const activeRuns = response.active_runs ?? [];

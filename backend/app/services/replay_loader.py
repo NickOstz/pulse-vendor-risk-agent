@@ -19,6 +19,8 @@ from app.services.scoring import (
 )
 from app.services.serializers import dump_json, next_review_after_run
 
+RETIRED_SEEDED_COMPANY_IDS = {"vendor-auth0", "vendor-stripe", "vendor-datadog"}
+
 
 def _seed_path(name: str) -> Path:
     return get_settings().replay_dir / name
@@ -35,23 +37,38 @@ def load_replay_payload() -> dict:
 def seed_companies(session: Session) -> None:
     payload = json.loads(_seed_path("companies.json").read_text(encoding="utf-8"))
     for row in payload["companies"]:
-        company = Company(
-            id=row["id"],
-            name=row["name"],
-            domain=row["domain"],
-            relationship_type=row["relationship_type"],
-            owner=row["owner"],
-            criticality=row["criticality"],
-            renewal_date=date.fromisoformat(row["renewal_date"]),
-            allow_list_json=dump_json(row.get("allow_list", [])),
-            block_list_json=dump_json(row.get("block_list", [])),
-            agent_enabled=row.get("agent_enabled", False),
-            agent_status=row.get("agent_status", "inactive"),
-            review_policy=row.get("review_policy"),
-            last_agent_run_at=row.get("last_agent_run_at"),
-            next_agent_run_at=row.get("next_agent_run_at"),
-        )
+        company = session.get(Company, row["id"])
+        if company is None:
+            company = Company(
+                id=row["id"],
+                name=row["name"],
+                domain=row["domain"],
+                relationship_type=row["relationship_type"],
+                owner=row["owner"],
+                criticality=row["criticality"],
+                renewal_date=date.fromisoformat(row["renewal_date"]),
+                allow_list_json=dump_json(row.get("allow_list", [])),
+                block_list_json=dump_json(row.get("block_list", [])),
+                agent_enabled=row.get("agent_enabled", False),
+                agent_status=row.get("agent_status", "inactive"),
+                review_policy=row.get("review_policy"),
+                last_agent_run_at=row.get("last_agent_run_at"),
+                next_agent_run_at=row.get("next_agent_run_at"),
+            )
+        else:
+            company.name = row["name"]
+            company.domain = row["domain"]
+            company.relationship_type = row["relationship_type"]
+            company.owner = row["owner"]
+            company.criticality = row["criticality"]
+            company.renewal_date = date.fromisoformat(row["renewal_date"])
+            company.allow_list_json = dump_json(row.get("allow_list", []))
+            company.block_list_json = dump_json(row.get("block_list", []))
         session.add(company)
+    for retired_id in RETIRED_SEEDED_COMPANY_IDS:
+        retired_company = session.get(Company, retired_id)
+        if retired_company is not None:
+            session.delete(retired_company)
     session.commit()
 
 
@@ -65,7 +82,7 @@ def prepare_replay_scan(session: Session, company: Company, scan: Scan) -> None:
     scan.source_count = 0
     scan.evidence_count = 0
     scan.verified_count = 0
-    scan.content_hashes_json = dump_json(payload["content_hashes"])
+    scan.content_hashes_json = dump_json(payload["content_hashes"] if _uses_seed_payload(company, scan) else [])
     company.agent_status = "running"
     session.add(scan)
     session.add(company)
@@ -91,19 +108,20 @@ def advance_replay_scan(session: Session, company: Company, scan: Scan) -> None:
 def _complete_collect(session: Session, company: Company, scan: Scan) -> None:
     payload = load_replay_payload()
     now = utc_now()
-    live_with_fallback = scan.mode == "live_with_fallback"
-    uses_demo_payload = is_demo_company(company)
-    if not live_with_fallback and uses_demo_payload:
+    uses_replay_payload = scan.mode == "replay" and is_demo_company(company)
+    uses_fallback_payload = _uses_fallback_payload(company, scan)
+    uses_seed_payload = uses_replay_payload or uses_fallback_payload
+    if uses_replay_payload:
         scan.serp_queries_used = payload["metrics"]["serp_queries_used"]
-    if not live_with_fallback and uses_demo_payload:
+    if uses_replay_payload:
         scan.urls_scraped = 0
-    if uses_demo_payload:
-        scan.llm_calls_used = 0 if live_with_fallback else payload["metrics"]["llm_calls_used"]
-    if not live_with_fallback and uses_demo_payload:
+    if uses_seed_payload:
+        scan.llm_calls_used = 0 if uses_fallback_payload else payload["metrics"]["llm_calls_used"]
+    if uses_replay_payload:
         scan.source_count = 0
 
-    for trace_row in payload["traces"] if uses_demo_payload else []:
-        if live_with_fallback and trace_row["product"] == "serp_api":
+    for trace_row in payload["traces"] if uses_seed_payload else []:
+        if uses_fallback_payload and trace_row["product"] == "serp_api":
             continue
         source_url = trace_row.get("source_url")
         is_page_source = trace_row["product"] != "serp_api"
@@ -111,7 +129,7 @@ def _complete_collect(session: Session, company: Company, scan: Scan) -> None:
             continue
         if is_page_source:
             scan.source_count += 1
-            if not live_with_fallback:
+            if uses_replay_payload:
                 scan.urls_scraped += 1
         session.add(
             BrightDataTrace(
@@ -120,11 +138,11 @@ def _complete_collect(session: Session, company: Company, scan: Scan) -> None:
                 product=trace_row["product"],
                 operation=trace_row["operation"],
                 source_url=trace_row.get("source_url"),
-                status="fallback_used" if live_with_fallback else trace_row["status"],
+                status="fallback_used" if uses_fallback_payload else trace_row["status"],
                 latency_ms=trace_row.get("latency_ms"),
                 retry_count=trace_row.get("retry_count", 0),
                 error=trace_row.get("error"),
-                source_mode="fallback" if live_with_fallback else trace_row["source_mode"],
+                source_mode="fallback" if uses_fallback_payload else trace_row["source_mode"],
                 created_at=now,
             )
         )
@@ -144,13 +162,15 @@ def _complete_extract(session: Session, company: Company, scan: Scan) -> None:
     )
     verified_live_urls: set[str] = set()
     for live_evidence in live_evidence_items:
+        if live_evidence.support_status == "no_evidence":
+            continue
         session.add(live_evidence)
         session.flush()
         if live_evidence.support_status == "verified":
             verified_live_urls.add(live_evidence.source_url)
             _remove_replaced_fallback_trace(session, scan, live_evidence.source_url)
 
-    for evidence_row in payload["evidence_items"] if is_demo_company(company) else []:
+    for evidence_row in payload["evidence_items"] if _uses_seed_payload(company, scan) else []:
         if not source_rules_allow(company, evidence_row["source_url"]):
             continue
         if evidence_row["source_url"] in verified_live_urls:
@@ -189,7 +209,14 @@ def _complete_extract(session: Session, company: Company, scan: Scan) -> None:
         )
         session.add(evidence)
     session.flush()
-    scan.evidence_count = len(session.exec(select(EvidenceItem).where(EvidenceItem.scan_id == scan.id)).all())
+    scan.evidence_count = len(
+        session.exec(
+            select(EvidenceItem).where(
+                EvidenceItem.scan_id == scan.id,
+                EvidenceItem.support_status != "no_evidence",
+            )
+        ).all()
+    )
     scan.current_stage = "verify"
     session.add(scan)
     session.commit()
@@ -199,7 +226,12 @@ def _complete_verify(session: Session, scan: Scan) -> None:
     verified_count = session.exec(
         select(EvidenceItem).where(EvidenceItem.scan_id == scan.id, EvidenceItem.support_status == "verified")
     ).all()
-    evidence_count = session.exec(select(EvidenceItem).where(EvidenceItem.scan_id == scan.id)).all()
+    evidence_count = session.exec(
+        select(EvidenceItem).where(
+            EvidenceItem.scan_id == scan.id,
+            EvidenceItem.support_status != "no_evidence",
+        )
+    ).all()
     scan.evidence_count = len(evidence_count)
     scan.verified_count = len(verified_count)
     scan.current_stage = "score"
@@ -217,7 +249,7 @@ def _complete_score(session: Session, company: Company, scan: Scan) -> None:
         item for item in live_evidence_items if live_change_statuses.get(item.id) != "unchanged"
     ]
     scan.current_stage = "score"
-    for alert_row in payload["alerts"] if is_demo_company(company) else []:
+    for alert_row in payload["alerts"] if _uses_seed_payload(company, scan) else []:
         if actionable_live_evidence and alert_row["alert_type"] == "related_change":
             continue
         related_fixture_ids = alert_row.get("related_evidence_fixture_ids", [])
@@ -277,6 +309,7 @@ def _complete_score(session: Session, company: Company, scan: Scan) -> None:
 def _complete_brief(session: Session, company: Company, scan: Scan) -> None:
     now = utc_now()
     evidence_items = session.exec(select(EvidenceItem).where(EvidenceItem.scan_id == scan.id)).all()
+    reviewable_items = [item for item in evidence_items if item.support_status != "no_evidence"]
     verified_items = [item for item in evidence_items if item.support_status == "verified"]
     traces = session.exec(select(BrightDataTrace).where(BrightDataTrace.scan_id == scan.id)).all()
     live_review = scan.mode in {"live", "live_with_fallback"}
@@ -289,7 +322,7 @@ def _complete_brief(session: Session, company: Company, scan: Scan) -> None:
     markdown, html = render_vendor_review_brief(company, verified_items, traces, assessment, change_statuses)
     session.add(Brief(company_id=company.id, scan_id=scan.id, markdown=markdown, html=html, created_at=now))
 
-    scan.evidence_count = len(evidence_items)
+    scan.evidence_count = len(reviewable_items)
     scan.verified_count = len(verified_items)
     scan.current_stage = "brief"
     scan.status = (
@@ -365,3 +398,15 @@ def _remove_replaced_fallback_trace(session: Session, scan: Scan, source_url: st
     for trace in duplicate_fallback_traces:
         session.delete(trace)
     scan.source_count = max(0, scan.source_count - len(duplicate_fallback_traces))
+
+
+def _uses_seed_payload(company: Company, scan: Scan) -> bool:
+    return (scan.mode == "replay" and is_demo_company(company)) or _uses_fallback_payload(company, scan)
+
+
+def _uses_fallback_payload(company: Company, scan: Scan) -> bool:
+    return (
+        scan.mode == "live_with_fallback"
+        and is_demo_company(company)
+        and get_settings().fallback_evidence_enabled
+    )

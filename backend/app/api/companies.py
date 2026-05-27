@@ -1,8 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlmodel import Session, select
 
 from app.db import get_session
-from app.models import Company, utc_now
+from app.models import Alert, Brief, BrightDataTrace, Company, EvidenceItem, Scan, utc_now
 from app.schemas import AgentToggle, CompanyCreate, CompanyRead, SourceRulesUpdate
 from app.api.operator_access import require_operator_access
 from app.services.serializers import apply_agent_state, company_to_read, dump_json
@@ -77,3 +77,22 @@ def toggle_agent(
     session.commit()
     session.refresh(company)
     return company_to_read(company)
+
+
+@router.delete("/{company_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_company(
+    company_id: str,
+    session: Session = Depends(get_session),
+    _operator_access: None = Depends(require_operator_access),
+) -> Response:
+    company = session.get(Company, company_id)
+    if company is None:
+        raise HTTPException(status_code=404, detail="company not found")
+
+    for model in (Alert, Brief, BrightDataTrace, EvidenceItem, Scan):
+        rows = session.exec(select(model).where(model.company_id == company.id)).all()
+        for row in rows:
+            session.delete(row)
+    session.delete(company)
+    session.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

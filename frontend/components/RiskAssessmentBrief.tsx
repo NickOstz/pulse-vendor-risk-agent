@@ -84,7 +84,7 @@ export function RiskAssessmentBrief({
   }
 
   return (
-    <section className="overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-soft">
+    <section className="overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-soft xl:sticky xl:top-5 xl:max-h-[calc(100dvh-2.5rem)] xl:overflow-y-auto">
       <div className="border-b border-zinc-100 bg-zinc-50/80 p-4">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
@@ -127,7 +127,7 @@ export function RiskAssessmentBrief({
         </div>
 
         {brief ? (
-          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            <div className="mt-4 grid gap-2 sm:grid-cols-3">
             <BriefMetric label="Evidence basis" value="Verified only" />
             <BriefMetric label="Verified rows" value={String(evidenceRowCount)} />
             <BriefMetric label="Source mode" value={sourceSummary.label} />
@@ -141,7 +141,7 @@ export function RiskAssessmentBrief({
         ) : error ? (
           <StatePanel tone="danger" title="Brief unavailable" body={error} />
         ) : brief ? (
-          <div className="space-y-5">
+          <div className="space-y-4">
             <div className="flex flex-wrap items-center gap-2">
               <Badge tone="good">verified evidence only</Badge>
               {scan ? (
@@ -164,7 +164,7 @@ export function RiskAssessmentBrief({
             ) : null}
             <div className="divide-y divide-zinc-100">
               {sections.map((section) => (
-                <article key={section.title} className="py-5 first:pt-0 last:pb-0">
+                <article key={section.title} className="py-4 first:pt-0 last:pb-0">
                   <h3 className="text-xs font-semibold uppercase tracking-[0.08em] text-zinc-500">
                     {section.title}
                   </h3>
@@ -251,11 +251,12 @@ function BriefEvidenceRow({
   const mode = values.mode;
   const support = values.support;
   const source = values.source;
+  const severity = values.severity;
 
   return (
-    <div className="rounded-md border border-zinc-200 bg-white p-3">
+    <div className="rounded-md border border-zinc-200 bg-white p-3 shadow-[0_14px_28px_-24px_rgba(24,24,27,0.45)] transition hover:border-zinc-300">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
+        <div className="min-w-0">
           <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-zinc-500">
             Signal
           </p>
@@ -264,6 +265,7 @@ function BriefEvidenceRow({
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <SeverityBadge severity={severity} />
           {isSourceMode(mode) ? <SourceModeBadge mode={mode} /> : null}
           <Badge tone={support === "verified" ? "good" : "neutral"}>
             {support || "unknown"}
@@ -271,7 +273,7 @@ function BriefEvidenceRow({
         </div>
       </div>
 
-      <div className="mt-3 grid gap-3">
+      <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1.1fr)_minmax(220px,0.9fr)]">
         <BriefEvidenceField label="Source">
           {/^https?:\/\//.test(source) ? (
             <a
@@ -291,6 +293,27 @@ function BriefEvidenceRow({
         </BriefEvidenceField>
       </div>
     </div>
+  );
+}
+
+function SeverityBadge({ severity }: { severity: string }) {
+  const normalized = (severity || "n/a").toLowerCase();
+  const className =
+    normalized === "high"
+      ? "border-rose-200 bg-rose-50 text-rose-700"
+      : normalized === "low"
+        ? "border-amber-200 bg-amber-50 text-amber-700"
+        : normalized === "medium"
+          ? "border-yellow-200 bg-yellow-50 text-yellow-700"
+          : "border-zinc-200 bg-white text-zinc-600";
+
+  return (
+    <span
+      className={`inline-flex min-h-6 items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] ${className}`}
+      title="Severity"
+    >
+      {severity || "n/a"}
+    </span>
   );
 }
 
@@ -407,15 +430,38 @@ function buildShareableHtmlDocument(articleHtml: string, companyName: string) {
     tr:last-child td {
       border-bottom: 0;
     }
-    td:nth-child(2), td:nth-child(3) {
+    td:nth-child(3), td:nth-child(4) {
       white-space: nowrap;
       font-weight: 700;
       color: var(--signal);
     }
-    td:nth-child(4) {
+    td:nth-child(5) {
       overflow-wrap: anywhere;
       font-family: "Geist Mono", "JetBrains Mono", "Cascadia Code", Consolas, monospace;
       font-size: 11px;
+    }
+    .severity {
+      display: inline-flex;
+      border: 1px solid #fde68a;
+      border-radius: 999px;
+      background: #fffbeb;
+      padding: 3px 8px;
+      color: #92400e;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .severity-high {
+      border-color: #fecdd3;
+      background: #fff1f2;
+      color: #be123c;
+    }
+    .severity-low {
+      border-color: #fde68a;
+      background: #fffbeb;
+      color: #a16207;
     }
     a {
       color: var(--signal);

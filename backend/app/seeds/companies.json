@@ -21,42 +21,6 @@
       "next_agent_run_at": null
     },
     {
-      "id": "vendor-auth0",
-      "name": "Auth0",
-      "domain": "auth0.com",
-      "relationship_type": "identity",
-      "owner": "IT",
-      "criticality": "important",
-      "renewal_date": "2026-09-15",
-      "allow_list": [
-        "https://auth0.com/docs/security"
-      ],
-      "block_list": [],
-      "agent_enabled": false,
-      "agent_status": "inactive",
-      "review_policy": null,
-      "last_agent_run_at": null,
-      "next_agent_run_at": null
-    },
-    {
-      "id": "vendor-stripe",
-      "name": "Stripe",
-      "domain": "stripe.com",
-      "relationship_type": "payments",
-      "owner": "Finance",
-      "criticality": "important",
-      "renewal_date": "2026-11-01",
-      "allow_list": [
-        "https://docs.stripe.com/security/stripe"
-      ],
-      "block_list": [],
-      "agent_enabled": false,
-      "agent_status": "inactive",
-      "review_policy": null,
-      "last_agent_run_at": null,
-      "next_agent_run_at": null
-    },
-    {
       "id": "vendor-snowflake",
       "name": "Snowflake",
       "domain": "snowflake.com",
@@ -66,24 +30,6 @@
       "renewal_date": "2027-01-20",
       "allow_list": [
         "https://www.snowflake.com/en/why-snowflake/snowflake-security-hub/"
-      ],
-      "block_list": [],
-      "agent_enabled": false,
-      "agent_status": "inactive",
-      "review_policy": null,
-      "last_agent_run_at": null,
-      "next_agent_run_at": null
-    },
-    {
-      "id": "vendor-datadog",
-      "name": "Datadog",
-      "domain": "datadoghq.com",
-      "relationship_type": "analytics",
-      "owner": "Product",
-      "criticality": "normal",
-      "renewal_date": "2026-12-05",
-      "allow_list": [
-        "https://www.datadoghq.com/security/"
       ],
       "block_list": [],
       "agent_enabled": false,

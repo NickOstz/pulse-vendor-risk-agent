@@ -15,10 +15,152 @@ from app.services.serializers import dump_json, parse_json_list
 MAX_SERP_QUERIES_PER_REVIEW = 6
 MAX_URLS_PER_REVIEW = 12
 QUERY_TEMPLATES = {
-    "trust_security": "{name} {domain} trust security privacy compliance SOC 2",
-    "pricing_terms": "{name} {domain} pricing terms packaging renewal",
+    "trust_security": "site:{domain} {name} trust security privacy compliance SOC 2 ISO 27001",
+    "pricing_terms": "site:{domain} {name} pricing terms subscription legal renewal",
     "adverse_media": "{name} {domain} breach incident outage lawsuit regulatory enforcement",
 }
+POSITIVE_TARGET_TERMS = {
+    "trust_security": (
+        "trust",
+        "trust-center",
+        "security",
+        "security-center",
+        "privacy",
+        "compliance",
+        "certification",
+        "certifications",
+        "soc",
+        "iso",
+        "gdpr",
+        "hipaa",
+        "pci",
+        "legal",
+        "data-protection",
+        "data-processing",
+        "dpa",
+        "subprocessor",
+        "subprocessors",
+    ),
+    "pricing_terms": (
+        "pricing",
+        "terms",
+        "terms-of-service",
+        "subscription",
+        "billing",
+        "invoice",
+        "invoices",
+        "legal",
+        "plans",
+        "license",
+        "renewal",
+        "payment",
+        "refund",
+        "agreement",
+        "service-agreement",
+        "dpa",
+        "msa",
+    ),
+    "adverse_media": (
+        "breach",
+        "incident",
+        "outage",
+        "disruption",
+        "lawsuit",
+        "regulatory",
+        "enforcement",
+        "security",
+        "vulnerability",
+        "compromise",
+        "leak",
+        "leaked",
+        "exposure",
+        "cve",
+    ),
+}
+LOW_VALUE_PATH_TERMS = (
+    "signin",
+    "sign-in",
+    "login",
+    "log-in",
+    "signup",
+    "sign-up",
+    "register",
+    "account",
+    "dashboard",
+    "checkout",
+    "cart",
+    "help",
+    "faq",
+    "support",
+    "contact",
+    "careers",
+    "jobs",
+    "blog",
+    "blogs",
+    "guide",
+    "guides",
+    "kb",
+    "knowledge-base",
+    "resource",
+    "resources",
+    "customer",
+    "customers",
+    "case-study",
+    "case-studies",
+    "webinar",
+    "event",
+    "events",
+)
+ADVERSE_INCIDENT_PHRASES = (
+    "security breach",
+    "data breach",
+    "pwn request",
+    "unauthorized",
+    "exfiltrat",
+    "vulnerability",
+    "incident response",
+    "postmortem",
+    "root cause",
+)
+ADVERSE_GENERIC_PROFILE_TERMS = (
+    "security rating",
+    "vendor risk report",
+    "security-report",
+    "security report",
+    "data protection report",
+    "company profile",
+    "threat-center",
+    "threat center",
+    "attack surface",
+    "external attack surface",
+    "risk profile",
+)
+ADVERSE_LOW_AUTHORITY_HOST_TERMS = (
+    "reddit.com",
+    "news.ycombinator.com",
+    "hackernews",
+    "hn.algolia.com",
+)
+ADVERSE_PROMOTIONAL_SECURITY_HOST_TERMS = (
+    "guardz.com",
+    "ionix.io",
+    "upguard.com",
+    "securityscorecard.com",
+    "blackkite.com",
+    "bitsight.com",
+)
+KNOWN_NEWS_HOST_TERMS = (
+    "bleepingcomputer.com",
+    "cybersecuritydive.com",
+    "darkreading.com",
+    "reuters.com",
+    "therecord.media",
+    "thehackernews.com",
+    "theregister.com",
+)
+KNOWN_RESEARCH_HOST_TERMS = (
+    "stepsecurity.io",
+)
 
 
 @dataclass(frozen=True)
@@ -109,7 +251,7 @@ def _targets_from_serp(company: Company, signal_type: str, content: str) -> list
     if not isinstance(organic, list):
         return []
 
-    targets: list[InvestigationTarget] = []
+    ranked_targets: list[tuple[int, InvestigationTarget]] = []
     for result in organic:
         if not isinstance(result, dict):
             continue
@@ -120,10 +262,13 @@ def _targets_from_serp(company: Company, signal_type: str, content: str) -> list
         vendor_owned = source_type == "vendor_owned"
         if signal_type != "adverse_media" and not vendor_owned:
             continue
-        targets.append(InvestigationTarget(url, signal_type, source_type, "serp"))
-        if len(targets) >= 2:
-            break
-    return targets
+        score = _serp_target_score(signal_type, url, result)
+        if score <= 0:
+            continue
+        ranked_targets.append((score, InvestigationTarget(url, signal_type, source_type, "serp")))
+
+    ranked_targets.sort(key=lambda item: item[0], reverse=True)
+    return [target for _, target in ranked_targets[:3]]
 
 
 def _dedupe_targets(targets: list[InvestigationTarget]) -> list[InvestigationTarget]:
@@ -149,7 +294,7 @@ def source_type_for_url(company: Company, url: str) -> str:
         return "vendor_owned"
     if host.endswith(".gov") or ".gov." in host or "regulator" in host:
         return "regulator"
-    if any(token in host for token in ("news", "reuters", "bleepingcomputer", "theregister")):
+    if any(token in host for token in KNOWN_NEWS_HOST_TERMS) or "news" in host:
         return "news"
     return "general_web"
 
@@ -168,6 +313,59 @@ def _public_https_url(url: str) -> bool:
         )
     except ValueError:
         return False
+
+
+def _serp_target_score(signal_type: str, url: str, result: dict) -> int:
+    parsed = urlsplit(url)
+    host = (parsed.hostname or "").casefold()
+    path = parsed.path.casefold()
+    if path.endswith(".xml") or "sitemap" in path:
+        return 0
+    haystack = " ".join(
+        str(value)
+        for value in (
+            path,
+            parsed.query,
+            result.get("title"),
+            result.get("description"),
+            result.get("snippet"),
+        )
+        if value
+    ).casefold()
+    score = 0
+    for term in POSITIVE_TARGET_TERMS[signal_type]:
+        if term in haystack:
+            score += 3
+    if parsed.path in {"", "/"}:
+        score -= 2
+    for term in LOW_VALUE_PATH_TERMS:
+        if signal_type == "trust_security" and term in {
+            "blog",
+            "blogs",
+            "guide",
+            "guides",
+            "kb",
+            "knowledge-base",
+            "resource",
+            "resources",
+        }:
+            continue
+        if term in haystack:
+            score -= 4
+    if signal_type == "adverse_media":
+        if any(term in host for term in ADVERSE_LOW_AUTHORITY_HOST_TERMS):
+            score -= 20
+        if any(term in host for term in ADVERSE_PROMOTIONAL_SECURITY_HOST_TERMS):
+            score -= 30
+        if any(term in host for term in KNOWN_NEWS_HOST_TERMS + KNOWN_RESEARCH_HOST_TERMS):
+            score += 8
+        for phrase in ADVERSE_INCIDENT_PHRASES:
+            if phrase in haystack:
+                score += 5
+        for phrase in ADVERSE_GENERIC_PROFILE_TERMS:
+            if phrase in haystack:
+                score -= 10
+    return score
 
 
 def _blocked(company: Company, url: str) -> bool:

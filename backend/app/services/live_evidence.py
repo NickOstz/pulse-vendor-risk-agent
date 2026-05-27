@@ -1,18 +1,14 @@
 import json
-from pathlib import Path
 from urllib.parse import urlsplit
 
 from sqlmodel import Session, select
 
 from app.config import get_settings
-from app.models import BrightDataTrace, Company, EvidenceItem, Scan, utc_now
-from app.services.extraction import DeepSeekExtractionClient, ExtractedEvidence, evidence_from_extraction, extract_source
+from app.models import BrightDataTrace, Company, EvidenceItem, Scan
+from app.services.extraction import DeepSeekExtractionClient, extract_source
 
 
 DEMO_COMPANY_ID = "vendor-cloudflare-demo"
-CLOUDFLARE_COMPLIANCE_QUOTE = (
-    "Explore our posture around ISO 27001, ISO 27701, PCI DSS, SOC 2 Type II, and others"
-)
 CLOUDFLARE_TRUST_HUB_URL = "https://www.cloudflare.com/trust-hub/"
 
 
@@ -74,14 +70,17 @@ def extract_live_source_evidence_items(session: Session, company: Company, scan:
     settings = get_settings()
     extraction_client = (
         DeepSeekExtractionClient(
-                api_key=settings.deepseek_api_key,
-                endpoint=settings.deepseek_api_endpoint,
-                model=settings.deepseek_extraction_model,
-                timeout_seconds=settings.llm_extraction_timeout_seconds,
+            api_key=settings.deepseek_api_key,
+            endpoint=settings.deepseek_api_endpoint,
+            model=settings.deepseek_extraction_model,
+            timeout_seconds=settings.llm_extraction_timeout_seconds,
         )
         if settings.llm_extraction_enabled and settings.deepseek_api_key
         else None
     )
+    if extraction_client is None:
+        return []
+
     traces = session.exec(
         select(BrightDataTrace).where(
             BrightDataTrace.scan_id == scan.id,
@@ -99,53 +98,16 @@ def extract_live_source_evidence_items(session: Session, company: Company, scan:
         if not snapshot_path.exists():
             continue
         content = snapshot_path.read_text(encoding="utf-8")
-        if extraction_client is not None:
-            evidence_items.append(
-                extract_source(
-                    company=company,
-                    scan=scan,
-                    source_text=content,
-                    source_url=target.source_url,
-                    source_type=target.source_type,
-                    snapshot_path=snapshot_path,
-                    signal_type=target.signal_type,
-                    client=extraction_client,
-                )
+        evidence_items.append(
+            extract_source(
+                company=company,
+                scan=scan,
+                source_text=content,
+                source_url=target.source_url,
+                source_type=target.source_type,
+                snapshot_path=snapshot_path,
+                signal_type=target.signal_type,
+                client=extraction_client,
             )
-        elif (
-            is_demo_company(company)
-            and target.origin == "configured"
-            and target.signal_type == "trust_security"
-        ):
-            evidence_items.append(_demo_trust_evidence(company, scan, target.source_url, content, snapshot_path))
+        )
     return evidence_items
-
-
-def _demo_trust_evidence(
-    company: Company,
-    scan: Scan,
-    source_url: str,
-    content: str,
-    snapshot_path: Path,
-) -> EvidenceItem:
-    candidate = ExtractedEvidence.model_validate(
-        {
-            "vendor_id": company.id,
-            "signal_type": "trust_security",
-            "claim": "Cloudflare publicly identifies SOC 2 Type II and ISO 27001 among its compliance resources.",
-            "supporting_quote": CLOUDFLARE_COMPLIANCE_QUOTE,
-            "source_url": source_url,
-            "source_type": "vendor_owned",
-            "published_or_captured_at": utc_now(),
-            "severity_hint": "medium",
-            "confidence": 0.95,
-            "recommended_action": "Request the current in-scope compliance package for the renewal record.",
-        }
-    )
-    return evidence_from_extraction(
-        company=company,
-        scan=scan,
-        candidate=candidate,
-        source_text=content,
-        snapshot_path=snapshot_path,
-    )

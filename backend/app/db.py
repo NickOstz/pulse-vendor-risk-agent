@@ -1,9 +1,8 @@
 from collections.abc import Generator
 
-from sqlmodel import Session, SQLModel, create_engine, select
+from sqlmodel import Session, SQLModel, create_engine
 
 from app.config import get_settings
-from app.models import Company
 from app.services.replay_loader import seed_companies
 
 
@@ -25,9 +24,7 @@ def create_db_and_tables() -> None:
 
 def seed_database() -> None:
     with Session(engine) as session:
-        has_companies = session.exec(select(Company.id).limit(1)).first()
-        if has_companies is None:
-            seed_companies(session)
+        seed_companies(session)
 
 
 def init_db() -> None:
