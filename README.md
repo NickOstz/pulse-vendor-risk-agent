@@ -15,21 +15,10 @@ Primary track: **Security & Compliance / Third-Party Risk**.
 
 ## Current State
 
-This repository contains the product blueprint and a running MVP: a Next.js
-Command Center backed by FastAPI review cycles, Bright Data traces, one
-verified live Cloudflare Trust Hub evidence path, labeled fallback evidence,
-deterministic alert scoring, and a review brief.
-
-Read first:
-
-- [Proposal F Final.md](./Proposal%20F%20Final.md)
-- [PRD.md](./PRD.md)
-- [Technical Architecture.md](./Technical%20Architecture.md)
-- [MVP Backlog.md](./MVP%20Backlog.md)
-- [Demo Script.md](./Demo%20Script.md)
-- [Judge Runbook](./docs/JUDGE_RUNBOOK.md)
-- [Deployment Checklist](./docs/DEPLOYMENT.md)
-- [AGENTS.md](./AGENTS.md)
+This repository contains a running MVP: a Next.js Command Center backed by
+FastAPI autonomous review cycles, Bright Data SERP-led multi-source
+investigation, DeepSeek structured assessment over quote-verified findings,
+deterministic alert scoring, labeled fallback evidence, and a review brief.
 
 ## MVP Architecture
 
@@ -107,40 +96,6 @@ The quality gate requires at least four of five pages to yield verified
 evidence with a quote-match score of at least `0.8`; a failed run reports the
 two best-performing signal templates.
 
-For full local startup, health-check, environment, and submission verification
-steps, see the [Judge Runbook](./docs/JUDGE_RUNBOOK.md).
-
-## Upstream Integrations
-
-Three upstream reference resources are pinned as Git submodules:
-
-- `vendor/brightdata-hack-pack`: examples and Bright Data hackathon references.
-- `vendor/brightdata-skills`: Bright Data skill/reference material for agents.
-- `vendor/claude-bright-data-research-agent`: mentor-provided Python reference
-  for SERP, Web Unlocker, and visible activity events.
-
-They are references, not application runtime dependencies. The active product
-must keep collection and trace persistence inside the FastAPI backend. See
-[docs/UPSTREAM_INTEGRATIONS.md](./docs/UPSTREAM_INTEGRATIONS.md).
-
-Clone with integrations:
-
-```bash
-git clone --recurse-submodules https://github.com/NickOstz/pulse-vendor-risk-agent.git
-cd pulse-vendor-risk-agent
-git submodule update --init --recursive
-```
-
-## Team Workflow
-
-The three-person branch ownership and PR process is in
-[docs/TEAM_WORKFLOW.md](./docs/TEAM_WORKFLOW.md). The frozen MVP API boundary
-is in [docs/API_CONTRACT.md](./docs/API_CONTRACT.md). Copy-paste Codex prompts
-for the two teammate lanes are in
-[docs/TEAMMATE_CODEX_PROMPTS.md](./docs/TEAMMATE_CODEX_PROMPTS.md).
-
 ## License
 
-Pulse is licensed under the [MIT License](./LICENSE). The vendored submodules
-retain their upstream history and their upstream license notices where
-provided.
+Pulse is licensed under the [MIT License](./LICENSE).

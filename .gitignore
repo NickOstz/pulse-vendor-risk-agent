@@ -37,3 +37,13 @@ Thumbs.db
 .idea/
 .vscode/
 *.rar
+
+# Local planning and collaboration material excluded from the submission repo
+/*.md
+!/README.md
+/docs/
+/.github/
+/.gitmodules
+/vendor/
+/message.txt
+/frontend/.codex-devserver*.log
