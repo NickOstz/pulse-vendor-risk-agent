@@ -3,7 +3,7 @@
 import { type FormEvent, useRef, useState } from "react";
 import { LockKey, LockKeyOpen } from "@phosphor-icons/react";
 import { Badge } from "@/components/Badge";
-import { clearOperatorToken, setOperatorToken } from "@/lib/api";
+import { clearOperatorToken, setOperatorToken, verifyOperatorToken } from "@/lib/api";
 
 export function OperatorAccess({
   tokenSet,
@@ -13,20 +13,43 @@ export function OperatorAccess({
   onTokenStateChange: (tokenSet: boolean) => void;
 }) {
   const [token, setToken] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
   const detailsRef = useRef<HTMLDetailsElement>(null);
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!token.trim()) return;
-    setOperatorToken(token);
-    setToken("");
-    onTokenStateChange(true);
-    detailsRef.current?.removeAttribute("open");
+    const normalizedToken = token.trim();
+    if (!normalizedToken || checking) return;
+    setChecking(true);
+    setError(null);
+
+    try {
+      const verified = await verifyOperatorToken(normalizedToken);
+      if (!verified) {
+        clearOperatorToken();
+        onTokenStateChange(false);
+        setError("Token did not match the backend demo API token.");
+        return;
+      }
+
+      setOperatorToken(normalizedToken);
+      setToken("");
+      onTokenStateChange(true);
+      detailsRef.current?.removeAttribute("open");
+    } catch {
+      clearOperatorToken();
+      onTokenStateChange(false);
+      setError("Could not verify the token with the backend.");
+    } finally {
+      setChecking(false);
+    }
   }
 
   function handleLock() {
     clearOperatorToken();
     setToken("");
+    setError(null);
     onTokenStateChange(false);
     detailsRef.current?.removeAttribute("open");
   }
@@ -49,18 +72,26 @@ export function OperatorAccess({
               autoComplete="off"
               type="password"
               value={token}
-              onChange={(event) => setToken(event.target.value)}
+              onChange={(event) => {
+                setToken(event.target.value);
+                setError(null);
+              }}
               className="mt-1 h-10 w-full rounded-md border border-zinc-200 bg-white px-3 font-mono text-sm text-ink-950 outline-none transition focus:border-ink-900 focus:ring-2 focus:ring-ink-900/10"
             />
           </label>
+          {error ? (
+            <p className="rounded-md border border-rose-100 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700">
+              {error}
+            </p>
+          ) : null}
           <div className="flex items-center gap-2">
             <button
               type="submit"
-              disabled={!token.trim()}
+              disabled={!token.trim() || checking}
               className="inline-flex h-9 items-center gap-2 rounded-md bg-ink-950 px-3 text-xs font-semibold text-white transition hover:bg-ink-800 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
             >
               <LockKeyOpen size={14} weight="bold" />
-              Set token
+              {checking ? "Checking..." : "Set token"}
             </button>
             {tokenSet ? (
               <button

@@ -1,6 +1,20 @@
 OPERATOR_HEADERS = {"X-Pulse-Operator-Token": "test-operator-token"}
 
 
+def test_operator_token_can_be_verified_without_mutating_state(protected_client):
+    missing = protected_client.get("/api/operator-access")
+    wrong = protected_client.get(
+        "/api/operator-access", headers={"X-Pulse-Operator-Token": "wrong"}
+    )
+    authorized = protected_client.get("/api/operator-access", headers=OPERATOR_HEADERS)
+
+    assert missing.status_code == 401
+    assert wrong.status_code == 401
+    assert authorized.status_code == 200
+    assert authorized.json() == {"write_protection_enabled": True}
+    assert protected_client.get("/api/companies").json()[0]["agent_enabled"] is False
+
+
 def test_operator_token_protects_agent_actions_and_manual_scan(protected_client):
     enable_url = "/api/companies/vendor-cloudflare-demo/agent"
 

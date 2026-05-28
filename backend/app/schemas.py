@@ -209,3 +209,7 @@ class HealthRead(BaseModel):
     brightdata_key_present: bool
     llm_key_present: bool
     write_protection_enabled: bool
+
+
+class OperatorAccessRead(BaseModel):
+    write_protection_enabled: bool

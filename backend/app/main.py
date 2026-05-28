@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager, suppress
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import agents, alerts, briefs, companies, evidence, health, scans, traces
+from app.api import agents, alerts, briefs, companies, evidence, health, operator_access, scans, traces
 from app.config import get_settings
 from app.db import init_db
 from app.services.agent_scheduler import run_scheduler_loop
@@ -39,6 +39,7 @@ def create_app() -> FastAPI:
     app.include_router(health.router)
     app.include_router(companies.router)
     app.include_router(agents.router)
+    app.include_router(operator_access.router)
     app.include_router(scans.router)
     app.include_router(alerts.router)
     app.include_router(evidence.router)

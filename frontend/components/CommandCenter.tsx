@@ -46,6 +46,7 @@ import {
   setWatchlistRiskAgent,
   updateCompanySourceRules,
   usesFixtureData,
+  verifyStoredOperatorToken,
 } from "@/lib/api";
 import { formatDate, labelize } from "@/lib/formatters";
 import { saveVendorMcpServerUrl } from "@/lib/vendorMcp";
@@ -170,7 +171,27 @@ export function CommandCenter() {
     !operatorTokenSet;
 
   useEffect(() => {
-    setOperatorTokenSet(hasOperatorToken());
+    let cancelled = false;
+
+    async function hydrateOperatorAccess() {
+      if (!hasOperatorToken()) {
+        setOperatorTokenSet(false);
+        return;
+      }
+
+      try {
+        const verified = await verifyStoredOperatorToken();
+        if (!cancelled) setOperatorTokenSet(verified);
+      } catch {
+        if (!cancelled) setOperatorTokenSet(false);
+      }
+    }
+
+    void hydrateOperatorAccess();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {

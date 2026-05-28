@@ -113,6 +113,30 @@ export function clearOperatorToken(): void {
   window.sessionStorage.removeItem(operatorTokenStorageKey);
 }
 
+export async function verifyOperatorToken(token: string): Promise<boolean> {
+  if (!apiBaseUrl) return true;
+  const normalizedToken = token.trim();
+  if (!normalizedToken) return false;
+
+  const response = await fetch(`${apiBaseUrl}/api/operator-access`, {
+    headers: {
+      "content-type": "application/json",
+      "X-Pulse-Operator-Token": normalizedToken,
+    },
+  });
+
+  return response.ok;
+}
+
+export async function verifyStoredOperatorToken(): Promise<boolean> {
+  const operatorToken = getOperatorToken();
+  if (!operatorToken) return false;
+
+  const verified = await verifyOperatorToken(operatorToken);
+  if (!verified) clearOperatorToken();
+  return verified;
+}
+
 function getOperatorToken(): string | null {
   if (typeof window === "undefined") return null;
   return window.sessionStorage.getItem(operatorTokenStorageKey);
