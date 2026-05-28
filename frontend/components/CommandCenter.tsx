@@ -839,7 +839,7 @@ export function CommandCenter() {
               <VendorCard
                 key={company.id}
                 company={company}
-                alerts={watchlistAlerts}
+                alerts={companyAlerts}
                 hasNewFinding={hasNewFinding}
                 findingCount={companyAlerts.length}
                 selected={company.id === selectedCompany.id}
@@ -927,8 +927,8 @@ export function CommandCenter() {
                 ) : selectedAlerts.length === 0 ? (
                   <StatePanel
                     tone="neutral"
-                    title="No verified alerts yet"
-                    body="Verified alert cards appear here after a scan scores source-backed evidence."
+                    title="No new scored alert in this scan"
+                    body="Pulse verified evidence for the brief, but the latest findings matched known evidence. Use Source Explorer to inspect the verified rows."
                   />
                 ) : (
                   selectedAlerts.map((alert) => (
@@ -1184,7 +1184,13 @@ function getVendorAttentionRank(
 }
 
 function getVendorAlerts(alerts: Alert[], companyId: string) {
-  return alerts.filter((alert) => alert.company_id === companyId);
+  return alerts
+    .filter((alert) => alert.company_id === companyId)
+    .sort(
+      (firstAlert, secondAlert) =>
+        new Date(secondAlert.created_at).getTime() -
+        new Date(firstAlert.created_at).getTime(),
+    );
 }
 
 function getUnreadVendorAlerts(
@@ -1283,12 +1289,7 @@ async function listLatestWatchlistAlerts(companies: Company[]) {
   const latestAlerts = await Promise.all(
     companies.map(async (company) => {
       try {
-        const latestScan = await getLatestScan(company.id);
-        if (!latestScan) return [];
-        return listAlerts({
-          company_id: company.id,
-          scan_id: latestScan.id,
-        });
+        return listAlerts({ company_id: company.id });
       } catch {
         return [];
       }
