@@ -51,7 +51,7 @@ const channelCopy: Record<
   },
 };
 
-export function AlertChannelsPanel() {
+export function AlertChannelsPanel({ locked = false }: { locked?: boolean }) {
   const [channels, setChannels] =
     useState<AlertChannelState>(emptyAlertChannels);
   const [savedChannels, setSavedChannels] =
@@ -66,6 +66,7 @@ export function AlertChannelsPanel() {
   }, []);
 
   function handleChannelChange(channel: AlertChannel, value: string) {
+    if (locked) return;
     setChannels((currentChannels) => ({
       ...currentChannels,
       [channel]: value,
@@ -81,6 +82,19 @@ export function AlertChannelsPanel() {
   }
 
   function handleChannelSave(channel: AlertChannel) {
+    if (locked) return;
+    if (savedChannels[channel]) {
+      setSavedChannels((currentFeedback) => ({
+        ...currentFeedback,
+        [channel]: undefined,
+      }));
+      setChannelErrors((currentErrors) => ({
+        ...currentErrors,
+        [channel]: undefined,
+      }));
+      return;
+    }
+
     const value = channels[channel].trim();
     const validationError = validateAlertChannel(channel, value);
 
@@ -132,6 +146,7 @@ export function AlertChannelsPanel() {
             value={channels[channel]}
             feedback={savedChannels[channel]}
             error={channelErrors[channel]}
+            locked={locked}
             onChange={handleChannelChange}
             onSave={handleChannelSave}
           />
@@ -195,6 +210,7 @@ function AlertChannelControl({
   value,
   feedback,
   error,
+  locked,
   onChange,
   onSave,
 }: {
@@ -202,11 +218,14 @@ function AlertChannelControl({
   value: string;
   feedback?: string;
   error?: string;
+  locked: boolean;
   onChange: (channel: AlertChannel, value: string) => void;
   onSave: (channel: AlertChannel) => void;
 }) {
   const config = channelCopy[channel];
   const isSaved = Boolean(feedback);
+  const inputLocked = locked || isSaved;
+  const displayValue = isSaved ? maskAlertChannel(channel, value) : value;
 
   return (
     <div
@@ -226,22 +245,31 @@ function AlertChannelControl({
       </label>
       <div className="mt-2 flex gap-2">
         <input
-          type={config.type}
-          value={value}
+          type="text"
+          value={displayValue}
           placeholder={config.placeholder}
+          readOnly={inputLocked}
+          disabled={locked}
           onChange={(event) => onChange(channel, event.target.value)}
-          className="h-9 min-w-0 flex-1 rounded-md border border-zinc-200 bg-white px-3 text-xs text-ink-950 outline-none transition placeholder:text-zinc-400 focus:border-ink-900 focus:ring-2 focus:ring-ink-900/10"
+          className="h-9 min-w-0 flex-1 rounded-md border border-zinc-200 bg-white px-3 text-xs text-ink-950 outline-none transition placeholder:text-zinc-400 read-only:cursor-default disabled:cursor-not-allowed disabled:opacity-60 focus:border-ink-900 focus:ring-2 focus:ring-ink-900/10"
         />
         <button
           type="button"
+          disabled={locked}
           onClick={() => onSave(channel)}
           className={`inline-flex h-9 w-10 shrink-0 items-center justify-center rounded-md border transition active:scale-[0.98] ${
             isSaved
               ? "border-signal-200 bg-white text-signal-700"
               : "border-zinc-200 bg-white text-ink-900 hover:border-zinc-300"
-          }`}
+          } disabled:cursor-not-allowed disabled:opacity-50`}
           aria-label={`Save ${config.label} alert channel`}
-          title={`Save ${config.label}`}
+          title={
+            locked
+              ? "Operator token required"
+              : isSaved
+                ? `Change ${config.label}`
+                : `Save ${config.label}`
+          }
         >
           {isSaved ? (
             <CheckCircle size={17} weight="fill" />
@@ -260,6 +288,38 @@ function AlertChannelControl({
       ) : null}
     </div>
   );
+}
+
+function maskAlertChannel(channel: AlertChannel, value: string) {
+  if (!value) return "";
+
+  if (channel === "email") {
+    const [localPart, domain] = value.split("@");
+    if (!domain) return maskMiddle(value, 2, 3);
+    return `${maskMiddle(localPart, 2, 1)}@${domain}`;
+  }
+
+  if (channel === "whatsapp") {
+    const compact = value.replace(/\s+/g, "");
+    return maskMiddle(compact, 4, 3);
+  }
+
+  try {
+    const url = new URL(value);
+    const parts = url.pathname.split("/").filter(Boolean);
+    const webhookId = parts[2] ?? "";
+    return `${url.origin}/api/webhooks/${maskMiddle(webhookId, 4, 3)}/...`;
+  } catch {
+    return maskMiddle(value, 12, 3);
+  }
+}
+
+function maskMiddle(value: string, visibleStart: number, visibleEnd: number) {
+  if (value.length <= visibleStart + visibleEnd + 2) {
+    return `${value.slice(0, 1)}...${value.slice(-1)}`;
+  }
+
+  return `${value.slice(0, visibleStart)}...${value.slice(-visibleEnd)}`;
 }
 
 function validateAlertChannel(channel: AlertChannel, value: string) {

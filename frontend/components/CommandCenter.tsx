@@ -840,6 +840,7 @@ export function CommandCenter() {
               <AgentToggle
                 company={selectedCompany}
                 busy={busy || watchlistBusy || controlsLocked}
+                locked={controlsLocked}
                 onToggle={handleToggle}
               />
               <AgentStatusPanel

@@ -7,10 +7,12 @@ import type { Company } from "@/lib/types";
 export function AgentToggle({
   company,
   busy,
+  locked = false,
   onToggle,
 }: {
   company: Company;
   busy: boolean;
+  locked?: boolean;
   onToggle: (enabled: boolean) => void;
 }) {
   return (
@@ -49,7 +51,7 @@ export function AgentToggle({
           </span>
         </button>
       </div>
-      <AlertChannelsPanel />
+      <AlertChannelsPanel locked={locked} />
     </div>
   );
 }
