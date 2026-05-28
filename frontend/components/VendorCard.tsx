@@ -1,5 +1,4 @@
 import { CalendarBlank, Database, Pulse, Trash } from "@phosphor-icons/react";
-import { Badge } from "@/components/Badge";
 import { formatDate, labelize } from "@/lib/formatters";
 import type { Alert, Company } from "@/lib/types";
 
@@ -19,6 +18,7 @@ export function VendorCard({
   deleteDisabled?: boolean;
 }) {
   const topAlert = alerts.find((alert) => alert.company_id === company.id);
+  const alertState = getVendorAlertState(company, topAlert);
 
   return (
     <article
@@ -45,9 +45,12 @@ export function VendorCard({
             {company.domain}
           </p>
         </div>
-        <Badge tone={company.criticality === "critical" ? "warn" : "neutral"}>
-          {company.criticality}
-        </Badge>
+        <span
+          className={`inline-flex min-h-7 items-center rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] ${alertState.className}`}
+          title={alertState.title}
+        >
+          {alertState.label}
+        </span>
         </div>
 
         <div className="mt-4 grid grid-cols-2 gap-3 text-xs">
@@ -78,10 +81,10 @@ export function VendorCard({
         </span>
         {topAlert ? (
           <span className="truncate text-right text-xs font-medium text-ink-900">
-            {topAlert.score} score
+            {labelize(topAlert.severity)} alert
           </span>
         ) : (
-          <span className="text-xs text-zinc-400">No scored alert</span>
+          <span className="text-xs text-zinc-400">No active alert</span>
         )}
         </div>
       </button>
@@ -99,4 +102,44 @@ export function VendorCard({
       ) : null}
     </article>
   );
+}
+
+function getVendorAlertState(company: Company, alert: Alert | undefined) {
+  if (alert) {
+    if (alert.severity === "high") {
+      return {
+        label: "Alert",
+        title: `${company.name} has a high-severity verified alert.`,
+        className: "border-rose-300 bg-rose-100 text-rose-800",
+      };
+    }
+
+    if (alert.severity === "medium") {
+      return {
+        label: "Ping",
+        title: `${company.name} has a medium-severity verified alert.`,
+        className: "border-orange-300 bg-orange-100 text-orange-800",
+      };
+    }
+
+    return {
+      label: "Watch",
+      title: `${company.name} has a low-severity verified alert.`,
+      className: "border-yellow-300 bg-yellow-100 text-yellow-800",
+    };
+  }
+
+  if (company.agent_status === "running") {
+    return {
+      label: "Scanning",
+      title: `${company.name} is currently being reviewed.`,
+      className: "border-signal-100 bg-signal-50 text-signal-700",
+    };
+  }
+
+  return {
+    label: "Clear",
+    title: `${company.name} has no active scored alert.`,
+    className: "border-zinc-200 bg-white text-zinc-600",
+  };
 }

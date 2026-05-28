@@ -46,7 +46,6 @@ import type {
   Alert,
   BrightDataTrace,
   Company,
-  Criticality,
   EvidenceItem,
   HealthResponse,
   ScanStatusResponse,
@@ -58,7 +57,6 @@ type VendorFormState = {
   domain: string;
   relationship_type: string;
   owner: string;
-  criticality: Criticality;
   renewal_date: string;
   allow_list_text: string;
   block_list_text: string;
@@ -71,7 +69,6 @@ const emptyVendorForm: VendorFormState = {
   domain: "",
   relationship_type: "",
   owner: "",
-  criticality: "important",
   renewal_date: "",
   allow_list_text: "",
   block_list_text: "",
@@ -123,14 +120,15 @@ export function CommandCenter() {
   const sortedCompanies = useMemo(
     () =>
       [...companies].sort((a, b) => {
-        const criticalityRank = { critical: 0, important: 1, normal: 2 };
-        return (
-          criticalityRank[a.criticality] - criticalityRank[b.criticality] ||
-          new Date(a.renewal_date).getTime() -
-            new Date(b.renewal_date).getTime()
-        );
+        const aAlert = watchlistAlerts.find((alert) => alert.company_id === a.id);
+        const bAlert = watchlistAlerts.find((alert) => alert.company_id === b.id);
+        const alertRank = getVendorAttentionRank(b, bAlert) - getVendorAttentionRank(a, aAlert);
+
+        if (alertRank !== 0) return alertRank;
+
+        return a.name.localeCompare(b.name);
       }),
-    [companies],
+    [companies, watchlistAlerts],
   );
 
   const selectedCompany =
@@ -411,7 +409,7 @@ export function CommandCenter() {
         domain: vendorForm.domain,
         relationship_type: vendorForm.relationship_type,
         owner: vendorForm.owner,
-        criticality: vendorForm.criticality,
+        criticality: "normal",
         renewal_date: vendorForm.renewal_date,
         allow_list: parseSourceRules(vendorForm.allow_list_text),
         block_list: parseSourceRules(vendorForm.block_list_text),
@@ -606,9 +604,9 @@ export function CommandCenter() {
                   Selected vendor: {selectedCompany.name}
                 </p>
                 <p className="mt-1 text-sm leading-6 text-zinc-600">
-                  {labelize(selectedCompany.criticality)} {selectedCompany.relationship_type} vendor. Renewal{" "}
-                  {formatDate(selectedCompany.renewal_date)}. The frontend never
-                  calls Bright Data or exposes keys.
+                  Daily autonomous review for {selectedCompany.relationship_type}.
+                  Renewal {formatDate(selectedCompany.renewal_date)}. The frontend
+                  never calls Bright Data or exposes keys.
                 </p>
               </div>
             </div>
@@ -644,7 +642,7 @@ export function CommandCenter() {
                     Add vendor
                   </h3>
                   <p className="mt-1 text-xs text-zinc-500">
-                    Exact public domain, owner, criticality, renewal date.
+                    Exact public domain, owner, and renewal date.
                   </p>
                 </div>
                 <button
@@ -710,23 +708,6 @@ export function CommandCenter() {
                       setVendorForm((form) => ({ ...form, owner: value }))
                     }
                   />
-                  <label className="block text-xs font-medium text-zinc-600">
-                    Criticality
-                    <select
-                      value={vendorForm.criticality}
-                      onChange={(event) =>
-                        setVendorForm((form) => ({
-                          ...form,
-                          criticality: event.target.value as Criticality,
-                        }))
-                      }
-                      className="mt-1 h-10 w-full rounded-md border border-zinc-200 bg-white px-3 text-sm text-ink-950 outline-none transition focus:border-ink-900 focus:ring-2 focus:ring-ink-900/10"
-                    >
-                      <option value="critical">Critical</option>
-                      <option value="important">Important</option>
-                      <option value="normal">Normal</option>
-                    </select>
-                  </label>
                   <label className="block text-xs font-medium text-zinc-600">
                     Renewal date
                     <input
@@ -1108,15 +1089,21 @@ function parseSourceRules(value: string) {
 function pickInitialCompany(companies: Company[]) {
   return (
     companies.find((company) => company.name.toLowerCase().includes("cloudflare")) ??
-    [...companies].sort((a, b) => {
-      const criticalityRank = { critical: 0, important: 1, normal: 2 };
-      return (
-        criticalityRank[a.criticality] - criticalityRank[b.criticality] ||
-        new Date(a.renewal_date).getTime() - new Date(b.renewal_date).getTime()
-      );
-    })[0] ??
+    [...companies].sort((a, b) => a.name.localeCompare(b.name))[0] ??
     null
   );
+}
+
+function getVendorAttentionRank(company: Company, alert: Alert | undefined) {
+  if (alert) {
+    const severityRank = { high: 3000, medium: 2000, low: 1000 };
+    return severityRank[alert.severity] + alert.score;
+  }
+
+  if (company.agent_status === "running") return 500;
+  if (company.agent_enabled) return 100;
+
+  return 0;
 }
 
 function applyThemeMode(themeMode: ThemeMode) {
