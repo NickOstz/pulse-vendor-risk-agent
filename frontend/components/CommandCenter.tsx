@@ -48,6 +48,7 @@ import {
   usesFixtureData,
 } from "@/lib/api";
 import { formatDate, labelize } from "@/lib/formatters";
+import { saveVendorMcpServerUrl } from "@/lib/vendorMcp";
 import type {
   AgentStatusResponse,
   Alert,
@@ -65,6 +66,7 @@ type VendorFormState = {
   relationship_type: string;
   owner: string;
   renewal_date: string;
+  mcp_server_url: string;
   allow_list_text: string;
   block_list_text: string;
 };
@@ -81,6 +83,7 @@ const emptyVendorForm: VendorFormState = {
   relationship_type: "",
   owner: "",
   renewal_date: "",
+  mcp_server_url: "",
   allow_list_text: "",
   block_list_text: "",
 };
@@ -450,6 +453,7 @@ export function CommandCenter() {
       }
 
       setCompanies(nextCompanies);
+      saveVendorMcpServerUrl(createdCompany, vendorForm.mcp_server_url);
       setSelectedCompanyId(createdCompany.id);
       setVendorForm(emptyVendorForm);
       setVendorFormOpen(false);
@@ -746,6 +750,18 @@ export function CommandCenter() {
                       className="mt-1 h-10 w-full rounded-md border border-zinc-200 bg-white px-3 text-sm text-ink-950 outline-none transition focus:border-ink-900 focus:ring-2 focus:ring-ink-900/10"
                     />
                   </label>
+                  <VendorTextField
+                    id="vendor-mcp-server"
+                    label="Vendor MCP server (optional)"
+                    value={vendorForm.mcp_server_url}
+                    placeholder="https://mcp.vendor.com/mcp"
+                    onChange={(value) =>
+                      setVendorForm((form) => ({
+                        ...form,
+                        mcp_server_url: value,
+                      }))
+                    }
+                  />
                   <VendorTextArea
                     id="vendor-allow-list"
                     label="Allowed sources"
@@ -1118,8 +1134,20 @@ function validateVendorForm(form: VendorFormState) {
   if (Number.isNaN(new Date(`${form.renewal_date}T00:00:00`).getTime())) {
     return "Renewal date must be a valid date.";
   }
+  if (form.mcp_server_url.trim() && !isValidHttpUrl(form.mcp_server_url)) {
+    return "Vendor MCP server must be a valid http or https URL.";
+  }
 
   return null;
+}
+
+function isValidHttpUrl(value: string) {
+  try {
+    const url = new URL(value.trim());
+    return url.protocol === "https:" || url.protocol === "http:";
+  } catch {
+    return false;
+  }
 }
 
 function parseSourceRules(value: string) {

@@ -1,5 +1,6 @@
-import { CalendarBlank, Database, Pulse, Trash } from "@phosphor-icons/react";
+import { CalendarBlank, Database, LinkSimple, Pulse, Trash } from "@phosphor-icons/react";
 import { formatDate, labelize } from "@/lib/formatters";
+import { getVendorMcpServerUrl } from "@/lib/vendorMcp";
 import type { Alert, Company } from "@/lib/types";
 
 export function VendorCard({
@@ -24,6 +25,7 @@ export function VendorCard({
   const topAlert = alerts.find((alert) => alert.company_id === company.id);
   const alertState = getVendorAlertState(company, hasNewFinding, findingCount);
   const scorePriority = topAlert ? getScorePriorityLabel(topAlert.score) : null;
+  const mcpServerUrl = getVendorMcpServerUrl(company);
 
   return (
     <article
@@ -69,9 +71,34 @@ export function VendorCard({
             {topAlert ? `${topAlert.score} (${scorePriority})` : "no new"}
           </p>
         </div>
-        <div className="col-span-2 flex items-center gap-2 border-t border-zinc-100 pt-3">
-          <CalendarBlank size={15} className="text-zinc-500" />
-          <span className="text-zinc-600">Renewal {formatDate(company.renewal_date)}</span>
+        <div className="col-span-2 border-t border-zinc-100 pt-3">
+          <div className="flex items-center gap-2">
+            <CalendarBlank size={15} className="text-zinc-500" />
+            <span className="text-zinc-600">Renewal {formatDate(company.renewal_date)}</span>
+          </div>
+          <div className="mt-3 flex items-start gap-2">
+            <span
+              className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${
+                mcpServerUrl ? "bg-signal-600" : "bg-rose-600"
+              }`}
+              aria-hidden="true"
+            />
+            <div className="min-w-0">
+              <p className="font-medium text-ink-900">
+                {mcpServerUrl ? "MCP server connected" : "No MCP server configured"}
+              </p>
+              {mcpServerUrl ? (
+                <span className="mt-1 flex min-w-0 items-center gap-1 text-zinc-500">
+                  <LinkSimple size={13} className="shrink-0" />
+                  <span className="truncate font-mono">{mcpServerUrl}</span>
+                </span>
+              ) : (
+                <span className="mt-1 block text-zinc-500">
+                  Add one when creating a vendor.
+                </span>
+              )}
+            </div>
+          </div>
         </div>
         </div>
 
