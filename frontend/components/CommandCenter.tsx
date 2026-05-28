@@ -44,7 +44,6 @@ import {
   runAgentTick,
   setVendorRiskAgent,
   setWatchlistRiskAgent,
-  updateCompanyReviewPolicy,
   updateCompanySourceRules,
   usesFixtureData,
 } from "@/lib/api";
@@ -56,7 +55,6 @@ import type {
   Company,
   EvidenceItem,
   HealthResponse,
-  ReviewPolicy,
   ScanStatusResponse,
   VendorReviewBrief,
 } from "@/lib/types";
@@ -123,7 +121,6 @@ export function CommandCenter() {
   const [vendorFormError, setVendorFormError] = useState<string | null>(null);
   const [vendorFormNotice, setVendorFormNotice] = useState<string | null>(null);
   const [watchlistBusy, setWatchlistBusy] = useState(false);
-  const [policyBusy, setPolicyBusy] = useState(false);
   const [operatorTokenSet, setOperatorTokenSet] = useState(false);
   const [themeMode, setThemeMode] = useState<ThemeMode>("light");
   const [themeReady, setThemeReady] = useState(false);
@@ -514,26 +511,6 @@ export function CommandCenter() {
     );
   }
 
-  async function handleReviewPolicyChange(policy: ReviewPolicy) {
-    if (!selectedCompany || selectedCompany.review_policy === policy) return;
-    setPolicyBusy(true);
-    setActionError(null);
-
-    try {
-      const updatedCompany = await updateCompanyReviewPolicy(selectedCompany.id, policy);
-      setCompanies((currentCompanies) =>
-        currentCompanies.map((company) =>
-          company.id === updatedCompany.id ? updatedCompany : company,
-        ),
-      );
-      setAgentStatus(await getAgentStatus());
-    } catch (error) {
-      setActionError(toErrorMessage(error));
-    } finally {
-      setPolicyBusy(false);
-    }
-  }
-
   async function handleEnableWatchlist() {
     setWatchlistBusy(true);
     setActionError(null);
@@ -870,9 +847,6 @@ export function CommandCenter() {
                 agentStatus={agentStatus}
                 scan={scan}
                 traces={traces}
-                policyBusy={policyBusy}
-                policyLocked={controlsLocked || !selectedCompany.agent_enabled}
-                onPolicyChange={handleReviewPolicyChange}
               />
             </div>
             <SourceRulesPanel
