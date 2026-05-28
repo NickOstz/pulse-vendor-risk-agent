@@ -346,6 +346,11 @@ function BriefEvidenceTable({
 }) {
   const headings = parseTableRow(lines[0]);
   const rows = parseTableRows(lines);
+  const autonomousWorkByRoute = getLatestAutonomousWorkByRoute(
+    headings,
+    rows,
+    autonomousWork,
+  );
 
   return (
     <div className="mt-3 space-y-3">
@@ -354,30 +359,55 @@ function BriefEvidenceTable({
           key={row.join("|") || rowIndex}
           headings={headings}
           row={row}
-          autonomousWork={autonomousWork}
+          autonomousWorkByRoute={autonomousWorkByRoute}
         />
       ))}
     </div>
   );
 }
 
+function getLatestAutonomousWorkByRoute(
+  headings: string[],
+  rows: string[][],
+  autonomousWork: AutonomousMcpWork[],
+) {
+  const workBySource = new Map<string, AutonomousMcpWork[]>();
+  autonomousWork.forEach((work) => {
+    workBySource.set(work.sourceUrl, [
+      ...(workBySource.get(work.sourceUrl) ?? []),
+      work,
+    ]);
+  });
+
+  const latestWorkByRoute = new Map<string, AutonomousMcpWork>();
+  rows.forEach((row) => {
+    const values = getTableValues(headings, row);
+    const source = values.source;
+    workBySource.get(source)?.forEach((work) => {
+      latestWorkByRoute.set(getAutonomousWorkRouteKey(work), work);
+    });
+  });
+
+  return latestWorkByRoute;
+}
+
 function BriefEvidenceRow({
   headings,
   row,
-  autonomousWork,
+  autonomousWorkByRoute,
 }: {
   headings: string[];
   row: string[];
-  autonomousWork: AutonomousMcpWork[];
+  autonomousWorkByRoute: Map<string, AutonomousMcpWork>;
 }) {
-  const values = Object.fromEntries(
-    headings.map((heading, index) => [heading.toLowerCase(), row[index] ?? ""]),
-  );
+  const values = getTableValues(headings, row);
   const mode = values.mode;
   const support = values.support;
   const source = values.source;
   const severity = values.severity;
-  const rowWork = autonomousWork.filter((work) => work.sourceUrl === source);
+  const rowWork = Array.from(autonomousWorkByRoute.values()).filter(
+    (work) => work.sourceUrl === source,
+  );
   const actionLabel = rowWork.length > 0 ? "Pulse action" : "Recommended action";
 
   return (
@@ -437,11 +467,21 @@ function BriefEvidenceRow({
 function dedupeAutonomousWork(workItems: AutonomousMcpWork[]) {
   const seen = new Set<string>();
   return workItems.filter((work) => {
-    const key = `${work.vendor}:${work.targetVendor}:${work.sourceUrl}`;
+    const key = work.evidenceId;
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
   });
+}
+
+function getAutonomousWorkRouteKey(work: AutonomousMcpWork) {
+  return `${work.vendor}:${work.targetVendor}`;
+}
+
+function getTableValues(headings: string[], row: string[]) {
+  return Object.fromEntries(
+    headings.map((heading, index) => [heading.toLowerCase(), row[index] ?? ""]),
+  );
 }
 
 function BriefEvidenceField({
