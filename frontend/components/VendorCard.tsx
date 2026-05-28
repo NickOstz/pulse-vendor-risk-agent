@@ -1,4 +1,14 @@
-import { CalendarBlank, Database, LinkSimple, Pulse, Trash } from "@phosphor-icons/react";
+"use client";
+
+import { useState } from "react";
+import {
+  CalendarBlank,
+  CaretDown,
+  Database,
+  LinkSimple,
+  Pulse,
+  Trash,
+} from "@phosphor-icons/react";
 import { formatDate, labelize } from "@/lib/formatters";
 import { getVendorMcpServerUrl } from "@/lib/vendorMcp";
 import type { Alert, Company } from "@/lib/types";
@@ -22,6 +32,7 @@ export function VendorCard({
   onDelete?: () => void;
   deleteDisabled?: boolean;
 }) {
+  const [mcpExpanded, setMcpExpanded] = useState(false);
   const topAlert = alerts.find((alert) => alert.company_id === company.id);
   const alertState = getVendorAlertState(company, hasNewFinding, findingCount);
   const scorePriority = topAlert ? getScorePriorityLabel(topAlert.score) : null;
@@ -78,28 +89,50 @@ export function VendorCard({
           </div>
           <div className="mt-3 flex items-start gap-2">
             <span
-              className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${
-                mcpServerUrl ? "bg-signal-600" : "bg-rose-600"
+              onClick={(event) => {
+                event.stopPropagation();
+                if (mcpServerUrl) setMcpExpanded((current) => !current);
+              }}
+              className={`flex min-w-0 flex-1 items-start gap-2 rounded-md transition ${
+                mcpServerUrl ? "hover:text-ink-950" : "cursor-default"
               }`}
-              aria-hidden="true"
-            />
-            <div className="min-w-0">
-              <p className="font-medium text-ink-900">
-                {mcpServerUrl ? "MCP server connected" : "No MCP server configured"}
-              </p>
-              {mcpServerUrl ? (
-                <span className="mt-1 flex min-w-0 items-center gap-1 text-zinc-500">
-                  <LinkSimple size={13} className="shrink-0" />
-                  <span className="truncate font-mono">{mcpServerUrl}</span>
+              aria-expanded={mcpServerUrl ? mcpExpanded : undefined}
+            >
+              <span
+                className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${
+                  mcpServerUrl ? "bg-signal-600" : "bg-rose-600"
+                }`}
+                aria-hidden="true"
+              />
+              <span className="min-w-0 flex-1">
+                <span className="flex min-w-0 items-center gap-1 font-medium text-ink-900">
+                  <span className="truncate">
+                    {mcpServerUrl ? "MCP server connected" : "No MCP server configured"}
+                  </span>
+                  {mcpServerUrl ? (
+                    <CaretDown
+                      size={13}
+                      className={`shrink-0 text-zinc-500 transition ${
+                        mcpExpanded ? "rotate-180" : ""
+                      }`}
+                    />
+                  ) : null}
                 </span>
-              ) : (
-                <span className="mt-1 block text-zinc-500">
-                  Add one when creating a vendor.
-                </span>
-              )}
-            </div>
+                {!mcpServerUrl ? (
+                  <span className="mt-1 block text-zinc-500">
+                    Add one when creating a vendor.
+                  </span>
+                ) : null}
+              </span>
+            </span>
           </div>
-        </div>
+          {mcpServerUrl && mcpExpanded ? (
+            <div className="mt-2 flex min-w-0 items-center gap-1 rounded-md border border-zinc-100 bg-zinc-50 px-2 py-1.5 text-zinc-500">
+              <LinkSimple size={13} className="shrink-0" />
+              <span className="truncate font-mono">{mcpServerUrl}</span>
+            </div>
+          ) : null}
+          </div>
         </div>
 
         <div className="mt-3 flex items-center justify-between gap-3 border-t border-zinc-100 pt-3">
