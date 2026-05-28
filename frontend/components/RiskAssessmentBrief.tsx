@@ -247,19 +247,17 @@ function AutonomousMcpWorkPanel({ work }: { work: AutonomousMcpWork }) {
                   Pulse AI Agent Work
                 </p>
                 <h3 className="mt-1 text-sm font-semibold leading-5 text-ink-950">
-                  Autonomous outage migration completed
+                  {work.title}
                 </h3>
               </div>
             </div>
             <p className="mt-3 text-sm leading-6 text-zinc-700">
-              High-severity outage evidence triggered autonomous work. Pulse
-              alerted the owner, used the vendor MCP servers, moved the affected
-              service to a healthy provider, and confirmed the issue is resolved.
+              {work.description}
             </p>
           </div>
           <div className="inline-flex items-center gap-2 rounded-full border border-signal-200 bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-signal-700">
             <CheckCircle size={14} weight="fill" />
-            Issue resolved
+            {work.statusLabel}
           </div>
         </div>
       </div>
@@ -267,16 +265,26 @@ function AutonomousMcpWorkPanel({ work }: { work: AutonomousMcpWork }) {
       <div className="p-3 sm:p-4">
         <div className="rounded-md border border-zinc-200 bg-zinc-50 p-3 sm:p-4">
           <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-zinc-500">
-            Service migration path
+            {work.pathLabel}
           </p>
           <div className="mt-3 flex flex-wrap items-center gap-2 text-sm font-semibold text-ink-950">
-            <span>{work.vendor}</span>
-            <ArrowClockwise size={16} className="text-signal-700" />
-            <span>{work.targetVendor}</span>
+            {work.pathNodes.map((node, index) => (
+              <span key={node} className="inline-flex items-center gap-2">
+                {index > 0 ? (
+                  <ArrowClockwise size={16} className="text-signal-700" />
+                ) : null}
+                <span>{node}</span>
+              </span>
+            ))}
           </div>
           <dl className="mt-4 grid gap-3 text-xs md:grid-cols-2">
-            <McpEndpoint label={`${work.vendor} MCP`} value={work.sourceMcp} />
-            <McpEndpoint label={`${work.targetVendor} MCP`} value={work.targetMcp} />
+            {work.mcpEndpoints.map((endpoint) => (
+              <McpEndpoint
+                key={`${endpoint.label}:${endpoint.value}`}
+                label={endpoint.label}
+                value={endpoint.value}
+              />
+            ))}
           </dl>
 
           <p className="mt-5 text-[11px] font-semibold uppercase tracking-[0.08em] text-zinc-500">
@@ -475,7 +483,7 @@ function dedupeAutonomousWork(workItems: AutonomousMcpWork[]) {
 }
 
 function getAutonomousWorkRouteKey(work: AutonomousMcpWork) {
-  return `${work.vendor}:${work.targetVendor}`;
+  return work.workKey;
 }
 
 function getTableValues(headings: string[], row: string[]) {
