@@ -3,7 +3,10 @@
 import { useState } from "react";
 import { DownloadSimple, FileText } from "@phosphor-icons/react";
 import { Badge, SourceModeBadge } from "@/components/Badge";
-import { SeveritySignal } from "@/components/SeveritySignal";
+import {
+  normalizeSeveritySignal,
+  SeveritySignal,
+} from "@/components/SeveritySignal";
 import { labelize } from "@/lib/formatters";
 import {
   getSourceModes,
@@ -255,7 +258,11 @@ function BriefEvidenceRow({
   const severity = values.severity;
 
   return (
-    <div className="rounded-md border border-zinc-200 bg-white p-3 shadow-[0_14px_28px_-24px_rgba(24,24,27,0.45)] transition hover:border-zinc-300">
+    <div
+      className={`severity-surface severity-surface-${normalizeSeveritySignal(
+        severity,
+      )} rounded-md border p-3 shadow-[0_14px_28px_-24px_rgba(24,24,27,0.45)] transition hover:brightness-[0.99]`}
+    >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-zinc-500">

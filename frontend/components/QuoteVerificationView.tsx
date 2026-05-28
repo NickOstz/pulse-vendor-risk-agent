@@ -59,7 +59,7 @@ export function QuoteVerificationView({
             {parts ? (
               <>
                 {parts.before}
-                <mark className="rounded bg-caution-100 px-1 py-0.5 text-ink-950">
+                <mark className="quote-highlight">
                   {parts.match}
                 </mark>
                 {parts.after}

@@ -8,7 +8,10 @@ import {
 import { Badge, SourceModeBadge, SupportBadge } from "@/components/Badge";
 import { QuoteVerificationView } from "@/components/QuoteVerificationView";
 import { ScoreTooltip } from "@/components/ScoreTooltip";
-import { SeveritySignal } from "@/components/SeveritySignal";
+import {
+  normalizeSeveritySignal,
+  SeveritySignal,
+} from "@/components/SeveritySignal";
 import { formatDateTime, formatPercent, labelize } from "@/lib/formatters";
 import {
   countSourceMode,
@@ -130,10 +133,12 @@ export function EvidenceDrawer({
                 key={item.id}
                 type="button"
                 onClick={() => onSelectEvidence(item.id)}
-                className={`w-full rounded-lg border bg-white p-4 text-left transition active:scale-[0.99] ${
+                className={`severity-surface severity-surface-${normalizeSeveritySignal(
+                  item.severity_hint,
+                )} w-full rounded-lg border p-4 text-left transition hover:brightness-[0.99] active:scale-[0.99] ${
                   item.id === selectedEvidence?.id
-                    ? "border-ink-900"
-                    : "border-zinc-200 hover:border-zinc-300"
+                    ? "severity-surface-selected"
+                    : "hover:border-zinc-300"
                 }`}
               >
                 <div className="flex items-start justify-between gap-3">
