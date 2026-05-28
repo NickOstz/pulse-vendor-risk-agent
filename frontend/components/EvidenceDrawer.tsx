@@ -68,7 +68,7 @@ export function EvidenceDrawer({
   if (!open) return null;
 
   return (
-    <aside className="fixed inset-y-0 right-0 z-30 flex w-full border-l border-zinc-200 bg-white shadow-soft md:w-[92vw] 2xl:max-w-[1480px]">
+    <aside className="fixed inset-y-0 right-0 z-30 flex w-full border-l border-zinc-200 bg-white shadow-soft lg:w-[92vw] 2xl:max-w-[1480px]">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <header className="shrink-0 border-b border-zinc-200 bg-white/95 px-5 py-4 backdrop-blur">
           <div className="flex items-start justify-between gap-4">
@@ -106,8 +106,8 @@ export function EvidenceDrawer({
           </div>
         </header>
 
-        <div className="grid min-h-0 flex-1 gap-4 overflow-hidden p-5 lg:grid-cols-[340px_minmax(0,1fr)] xl:grid-cols-[360px_minmax(0,1fr)]">
-          <section className="min-h-0 overflow-y-auto pr-1">
+        <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto p-4 sm:p-5 lg:overflow-hidden lg:grid-cols-[minmax(280px,340px)_minmax(0,1fr)] xl:grid-cols-[360px_minmax(0,1fr)]">
+          <section className="min-h-0 max-h-80 overflow-y-auto pr-1 lg:max-h-none">
             {loading ? (
               <EvidenceListSkeleton />
             ) : error ? (
@@ -170,7 +170,7 @@ export function EvidenceDrawer({
             )}
           </section>
 
-          <div className="min-h-0 space-y-4 overflow-y-auto pr-1">
+          <div className="min-h-0 space-y-4 lg:overflow-y-auto lg:pr-1">
             {selectedEvidence ? (
               <section className="space-y-4 rounded-lg border border-zinc-200 bg-white p-4 shadow-soft">
                 <div className="flex flex-wrap items-start justify-between gap-3">
@@ -191,7 +191,7 @@ export function EvidenceDrawer({
                   {selectedAlert ? <ScoreTooltip alert={selectedAlert} /> : null}
                 </div>
 
-                <dl className="mt-4 grid grid-cols-2 gap-3 text-sm md:grid-cols-4">
+                <dl className="mt-4 grid grid-cols-1 gap-3 text-sm sm:grid-cols-2 xl:grid-cols-4">
                   <Detail label="Source type" value={selectedEvidence.source_type} />
                   <Detail
                     label="Confidence"
@@ -202,7 +202,7 @@ export function EvidenceDrawer({
                     label="Published"
                     value={formatDateTime(selectedEvidence.published_or_captured_at)}
                   />
-                  <div className="col-span-2 rounded-md bg-zinc-50 p-3 md:col-span-4">
+                  <div className="rounded-md bg-zinc-50 p-3 sm:col-span-2 xl:col-span-4">
                     <dt className="text-xs text-zinc-500">Source mode</dt>
                     <dd className="mt-2 flex flex-wrap gap-2">
                       {selectedEvidenceModes.length > 0 ? (

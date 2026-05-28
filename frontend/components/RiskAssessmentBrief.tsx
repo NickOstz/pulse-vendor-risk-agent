@@ -109,7 +109,7 @@ export function RiskAssessmentBrief({
   }
 
   return (
-    <section className="overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-soft xl:sticky xl:top-5 xl:max-h-[calc(100dvh-2.5rem)] xl:overflow-y-auto">
+    <section className="overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-soft 2xl:sticky 2xl:top-5 2xl:max-h-[calc(100dvh-2.5rem)] 2xl:overflow-y-auto">
       <div className="border-b border-zinc-100 bg-zinc-50/80 p-4">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
@@ -466,7 +466,7 @@ function BriefEvidenceRow({
           </div>
         </div>
 
-        <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1.1fr)_minmax(220px,0.9fr)]">
+        <div className="mt-3 grid gap-3 2xl:grid-cols-[minmax(0,1.1fr)_minmax(220px,0.9fr)]">
           <BriefEvidenceField label="Source">
             {/^https?:\/\//.test(source) ? (
               <a

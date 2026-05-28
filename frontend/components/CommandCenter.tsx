@@ -596,7 +596,7 @@ export function CommandCenter() {
   }
 
   return (
-    <main className="min-h-[100dvh] px-4 py-5 sm:px-6 lg:px-8">
+    <main className="min-h-[100dvh] px-4 py-5 sm:px-6 2xl:px-8">
       <div className="mx-auto max-w-[1720px]">
         <header className="grid gap-4 border-b border-zinc-200 pb-5 lg:grid-cols-[1.1fr_0.9fr] lg:items-end">
           <div>
@@ -662,8 +662,8 @@ export function CommandCenter() {
           </div>
         </header>
 
-        <div className="mt-5 grid gap-5 xl:grid-cols-[300px_minmax(0,1fr)_minmax(520px,620px)]">
-          <aside className="space-y-3">
+        <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(260px,300px)_minmax(0,1fr)] 2xl:grid-cols-[300px_minmax(0,1fr)_minmax(500px,620px)]">
+          <aside className="min-w-0 space-y-3 xl:row-span-2 2xl:row-span-1">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <h2 className="text-sm font-semibold text-ink-950">
@@ -873,7 +873,7 @@ export function CommandCenter() {
           </aside>
 
           <section className="min-w-0 space-y-5">
-            <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
+            <div className="grid gap-4 min-[1440px]:grid-cols-[1fr_1fr]">
               <AgentToggle
                 company={selectedCompany}
                 busy={busy || watchlistBusy || controlsLocked}
@@ -927,7 +927,7 @@ export function CommandCenter() {
                 </button>
               </div>
 
-              <div className="mt-4 grid gap-3 lg:grid-cols-[1fr_1fr]">
+              <div className="mt-4 grid gap-3 min-[1440px]:grid-cols-[1fr_1fr]">
                 {detailLoading ? (
                   <AlertSkeleton />
                 ) : detailError ? (
@@ -992,20 +992,22 @@ export function CommandCenter() {
             </section>
           </section>
 
-          <RiskAssessmentBrief
-            brief={brief}
-            scan={displayScan}
-            traces={traces}
-            loading={briefLoading}
-            error={briefError}
-            companyName={selectedCompany.name}
-            evidence={evidence}
-            onRequestHtml={() =>
-              brief
-                ? getVendorReviewBrief(brief.company_id, brief.scan_id, "html")
-                : Promise.reject(new Error("A completed brief is required for HTML export."))
-            }
-          />
+          <div className="min-w-0 xl:col-start-2 2xl:col-start-auto">
+            <RiskAssessmentBrief
+              brief={brief}
+              scan={displayScan}
+              traces={traces}
+              loading={briefLoading}
+              error={briefError}
+              companyName={selectedCompany.name}
+              evidence={evidence}
+              onRequestHtml={() =>
+                brief
+                  ? getVendorReviewBrief(brief.company_id, brief.scan_id, "html")
+                  : Promise.reject(new Error("A completed brief is required for HTML export."))
+              }
+            />
+          </div>
         </div>
       </div>
 

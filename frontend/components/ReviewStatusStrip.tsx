@@ -54,7 +54,7 @@ export function ReviewStatusStrip({
         </div>
       </div>
 
-      <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-5">
+      <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5">
         {(scan?.stages ??
           stageLabels.map((label) => ({
             name: label.toLowerCase(),
@@ -90,7 +90,7 @@ export function ReviewStatusStrip({
           <p className="mt-4 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs leading-5 text-zinc-600">
             {sourceSummary.detail}
           </p>
-          <div className="mt-3 grid gap-2 rounded-md border border-zinc-200 bg-white p-3 text-xs sm:grid-cols-[1.25fr_0.75fr_1fr]">
+          <div className="mt-3 grid gap-2 rounded-md border border-zinc-200 bg-white p-3 text-xs lg:grid-cols-[1.25fr_0.75fr_1fr]">
             <ReviewProof
               label="Extraction"
               value={
@@ -119,7 +119,7 @@ export function ReviewStatusStrip({
               detail="Only verified signals can score."
             />
           </div>
-          <div className="mt-4 grid grid-cols-2 gap-3 border-t border-zinc-100 pt-4 text-xs sm:grid-cols-5">
+          <div className="mt-4 grid grid-cols-2 gap-3 border-t border-zinc-100 pt-4 text-xs sm:grid-cols-3 lg:grid-cols-5">
             <Metric label="Search calls" value={scan.metrics.serp_queries_used} max={6} />
             <Metric label="Pages fetched" value={scan.metrics.urls_scraped} max={12} />
             <Metric label="AI/ML API calls" value={scan.metrics.llm_calls_used} max={20} />
