@@ -207,21 +207,21 @@ def configured_extraction_client(settings: Settings) -> StructuredExtractionClie
         return None
 
     clients: list[StructuredExtractionClient] = []
-    if settings.aimlapi_api_key:
-        clients.append(
-            AIMLAPIExtractionClient(
-                api_key=settings.aimlapi_api_key,
-                endpoint=settings.aimlapi_api_endpoint,
-                model=settings.aimlapi_extraction_model,
-                timeout_seconds=settings.llm_extraction_timeout_seconds,
-            )
-        )
     if settings.deepseek_api_key:
         clients.append(
             DeepSeekExtractionClient(
                 api_key=settings.deepseek_api_key,
                 endpoint=settings.deepseek_api_endpoint,
                 model=settings.deepseek_extraction_model,
+                timeout_seconds=settings.llm_extraction_timeout_seconds,
+            )
+        )
+    if settings.aimlapi_api_key:
+        clients.append(
+            AIMLAPIExtractionClient(
+                api_key=settings.aimlapi_api_key,
+                endpoint=settings.aimlapi_api_endpoint,
+                model=settings.aimlapi_extraction_model,
                 timeout_seconds=settings.llm_extraction_timeout_seconds,
             )
         )

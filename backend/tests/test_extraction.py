@@ -7,13 +7,15 @@ import pytest
 from app.models import Company, Scan
 from app.services.extraction import (
     AIMLAPIExtractionClient,
+    configured_extraction_client,
+    DeepSeekExtractionClient,
     ExtractionClientError,
     FallbackExtractionClient,
     KiroExtractionClient,
     MAX_LLM_CALLS_PER_REVIEW,
-    DeepSeekExtractionClient,
     extract_source,
 )
+from app.config import Settings
 from app.services.scoring import build_live_compliance_alert, calculate_signal_score
 
 
@@ -393,6 +395,24 @@ def test_provider_chain_falls_back_after_request_failure() -> None:
     client = FallbackExtractionClient([FailingClient(), PassingClient()])
 
     assert client.complete_json("Return json.") == '{"support_status":"no_evidence"}'
+
+
+def test_configured_provider_chain_prefers_deepseek_then_aimlapi_then_kiro() -> None:
+    client = configured_extraction_client(
+        Settings(
+            llm_extraction_enabled=True,
+            deepseek_api_key="local-deepseek-key",
+            aimlapi_api_key="local-aimlapi-key",
+            kiro_api_key="local-kiro-key",
+        )
+    )
+
+    assert isinstance(client, FallbackExtractionClient)
+    assert [type(provider) for provider in client.clients] == [
+        DeepSeekExtractionClient,
+        AIMLAPIExtractionClient,
+        KiroExtractionClient,
+    ]
 
 
 def test_kiro_client_runs_headless_cli_and_extracts_json(monkeypatch) -> None:
