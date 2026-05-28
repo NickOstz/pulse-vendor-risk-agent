@@ -58,16 +58,17 @@
       "next_agent_run_at": null
     },
     {
-      "id": "vendor-lemon-squeezy",
-      "name": "Lemon Squeezy",
-      "domain": "lemonsqueezy.com",
+      "id": "vendor-paddle",
+      "name": "Paddle",
+      "domain": "paddle.com",
       "relationship_type": "merchant of record",
       "owner": "Finance",
       "criticality": "important",
-      "renewal_date": "2026-12-31",
+      "renewal_date": "2026-12-14",
       "allow_list": [
-        "https://www.lemonsqueezy.com/terms",
-        "https://www.lemonsqueezy.com/privacy"
+        "https://security.paddle.com/",
+        "https://www.paddle.com/legal/terms",
+        "https://www.paddle.com/legal/privacy"
       ],
       "block_list": [],
       "agent_enabled": false,

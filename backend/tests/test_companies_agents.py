@@ -14,8 +14,8 @@ def test_seeded_companies_and_create_company(client):
     assert len(companies) == 5
     assert [company["name"] for company in companies] == [
         "Cloudflare",
+        "Paddle",
         "AWS",
-        "Lemon Squeezy",
         "Vercel",
         "Snowflake",
     ]

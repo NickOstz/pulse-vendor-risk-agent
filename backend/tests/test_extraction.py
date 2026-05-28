@@ -171,7 +171,7 @@ def test_adverse_media_title_only_quote_is_stored_as_no_evidence() -> None:
     source_text = (
         "# Resolved Security Vulnerability\n\n"
         "We became aware of an individual who claimed he had discovered a vulnerability "
-        "that allowed access to some Lemon Squeezy user data."
+        "that allowed access to some Paddle user data."
     )
 
     evidence = extract_source(
