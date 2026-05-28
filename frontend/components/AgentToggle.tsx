@@ -1,6 +1,7 @@
 "use client";
 
 import { Power, ShieldCheck } from "@phosphor-icons/react";
+import { AlertChannelsPanel } from "@/components/AlertChannelsPanel";
 import type { Company } from "@/lib/types";
 
 export function AgentToggle({
@@ -48,6 +49,7 @@ export function AgentToggle({
           </span>
         </button>
       </div>
+      <AlertChannelsPanel />
     </div>
   );
 }
