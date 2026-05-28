@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   CheckCircle,
   DiscordLogo,
@@ -13,6 +13,8 @@ type AlertChannel = "email" | "whatsapp" | "discord";
 
 type AlertChannelState = Record<AlertChannel, string>;
 type AlertChannelFeedback = Partial<Record<AlertChannel, string>>;
+
+const alertChannelsStorageKey = "pulse.alertChannels";
 
 const emptyAlertChannels: AlertChannelState = {
   email: "",
@@ -57,6 +59,12 @@ export function AlertChannelsPanel() {
   const [channelErrors, setChannelErrors] =
     useState<AlertChannelFeedback>({});
 
+  useEffect(() => {
+    const storedChannels = readStoredAlertChannels();
+    setChannels(storedChannels);
+    setSavedChannels(readyFeedbackForChannels(storedChannels));
+  }, []);
+
   function handleChannelChange(channel: AlertChannel, value: string) {
     setChannels((currentChannels) => ({
       ...currentChannels,
@@ -100,6 +108,10 @@ export function AlertChannelsPanel() {
       ...currentFeedback,
       [channel]: "Ready",
     }));
+    writeStoredAlertChannels({
+      ...readStoredAlertChannels(),
+      [channel]: value,
+    });
   }
 
   return (
@@ -127,6 +139,55 @@ export function AlertChannelsPanel() {
       </div>
     </div>
   );
+}
+
+function readStoredAlertChannels(): AlertChannelState {
+  if (typeof window === "undefined") return emptyAlertChannels;
+
+  try {
+    const storedValue = window.localStorage.getItem(alertChannelsStorageKey);
+    if (!storedValue) return emptyAlertChannels;
+
+    const parsedValue: unknown = JSON.parse(storedValue);
+    if (!parsedValue || typeof parsedValue !== "object") {
+      return emptyAlertChannels;
+    }
+
+    return {
+      email: stringValue(parsedValue, "email"),
+      whatsapp: stringValue(parsedValue, "whatsapp"),
+      discord: stringValue(parsedValue, "discord"),
+    };
+  } catch {
+    return emptyAlertChannels;
+  }
+}
+
+function writeStoredAlertChannels(channels: AlertChannelState) {
+  if (typeof window === "undefined") return;
+
+  try {
+    window.localStorage.setItem(
+      alertChannelsStorageKey,
+      JSON.stringify(channels),
+    );
+  } catch {
+    // Ignore storage failures; the visible save feedback still confirms the UI state.
+  }
+}
+
+function readyFeedbackForChannels(channels: AlertChannelState): AlertChannelFeedback {
+  return Object.fromEntries(
+    (Object.keys(channels) as AlertChannel[])
+      .filter((channel) => channels[channel])
+      .map((channel) => [channel, "Ready"]),
+  );
+}
+
+function stringValue(value: object, key: AlertChannel) {
+  return key in value && typeof value[key as keyof typeof value] === "string"
+    ? value[key as keyof typeof value]
+    : "";
 }
 
 function AlertChannelControl({
