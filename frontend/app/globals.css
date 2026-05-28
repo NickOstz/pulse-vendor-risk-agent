@@ -20,18 +20,18 @@
   --danger-ink: oklch(0.45 0.15 20);
   --button-primary-bg: oklch(0.18 0.01 95);
   --button-primary-fg: oklch(0.99 0.004 96);
-  --severity-low-bg: oklch(0.91 0.16 92);
-  --severity-low-surface: color-mix(in oklch, var(--severity-low-bg) 34%, var(--surface));
-  --severity-low-border: oklch(0.79 0.15 88);
-  --severity-low-ink: oklch(0.32 0.09 62);
-  --severity-medium-bg: oklch(0.88 0.13 58);
-  --severity-medium-surface: color-mix(in oklch, var(--severity-medium-bg) 32%, var(--surface));
-  --severity-medium-border: oklch(0.73 0.13 50);
-  --severity-medium-ink: oklch(0.31 0.11 38);
-  --severity-high-bg: oklch(0.91 0.075 18);
-  --severity-high-surface: color-mix(in oklch, var(--severity-high-bg) 34%, var(--surface));
-  --severity-high-border: oklch(0.78 0.1 18);
-  --severity-high-ink: oklch(0.35 0.14 20);
+  --severity-low-bg: oklch(0.9 0.17 92);
+  --severity-low-surface: oklch(0.965 0.06 94);
+  --severity-low-border: oklch(0.78 0.16 88);
+  --severity-low-ink: oklch(0.29 0.09 64);
+  --severity-medium-bg: oklch(0.87 0.15 55);
+  --severity-medium-surface: oklch(0.95 0.065 58);
+  --severity-medium-border: oklch(0.71 0.15 48);
+  --severity-medium-ink: oklch(0.28 0.11 36);
+  --severity-high-bg: oklch(0.84 0.15 22);
+  --severity-high-surface: oklch(0.94 0.075 22);
+  --severity-high-border: oklch(0.7 0.18 20);
+  --severity-high-ink: oklch(0.27 0.15 20);
   --severity-unknown-bg: oklch(0.94 0.006 96);
   --severity-unknown-surface: color-mix(in oklch, var(--severity-unknown-bg) 34%, var(--surface));
   --severity-unknown-border: oklch(0.82 0.008 96);
@@ -58,9 +58,18 @@ html[data-theme="dark"] {
   --danger-ink: oklch(0.82 0.11 18);
   --button-primary-bg: oklch(0.93 0.008 96);
   --button-primary-fg: oklch(0.16 0.012 95);
-  --severity-low-surface: color-mix(in oklch, var(--severity-low-bg) 46%, var(--surface));
-  --severity-medium-surface: color-mix(in oklch, var(--severity-medium-bg) 40%, var(--surface));
-  --severity-high-surface: color-mix(in oklch, var(--severity-high-bg) 44%, var(--surface));
+  --severity-low-bg: oklch(0.86 0.16 91);
+  --severity-low-surface: oklch(0.34 0.07 86);
+  --severity-low-border: oklch(0.67 0.15 88);
+  --severity-low-ink: oklch(0.19 0.06 70);
+  --severity-medium-bg: oklch(0.82 0.14 54);
+  --severity-medium-surface: oklch(0.32 0.07 54);
+  --severity-medium-border: oklch(0.64 0.14 50);
+  --severity-medium-ink: oklch(0.17 0.07 38);
+  --severity-high-bg: oklch(0.8 0.17 22);
+  --severity-high-surface: oklch(0.33 0.09 22);
+  --severity-high-border: oklch(0.66 0.18 20);
+  --severity-high-ink: oklch(0.16 0.08 20);
   --severity-unknown-bg: oklch(0.3 0.012 96);
   --severity-unknown-surface: color-mix(in oklch, var(--severity-unknown-bg) 55%, var(--surface));
   --severity-unknown-border: oklch(0.48 0.014 96);
@@ -150,28 +159,28 @@ a {
 .severity-surface {
   border-color: var(--severity-unknown-border);
   background:
-    linear-gradient(180deg, color-mix(in oklch, var(--surface) 64%, transparent), transparent),
+    linear-gradient(180deg, color-mix(in oklch, var(--severity-unknown-surface) 84%, white), var(--severity-unknown-surface)),
     var(--severity-unknown-surface) !important;
 }
 
 .severity-surface-low {
-  border-color: color-mix(in oklch, var(--severity-low-border) 62%, var(--border)) !important;
+  border-color: var(--severity-low-border) !important;
   background:
-    linear-gradient(180deg, color-mix(in oklch, var(--surface) 58%, transparent), transparent),
+    linear-gradient(180deg, color-mix(in oklch, var(--severity-low-surface) 84%, white), var(--severity-low-surface)),
     var(--severity-low-surface) !important;
 }
 
 .severity-surface-medium {
-  border-color: color-mix(in oklch, var(--severity-medium-border) 58%, var(--border)) !important;
+  border-color: var(--severity-medium-border) !important;
   background:
-    linear-gradient(180deg, color-mix(in oklch, var(--surface) 58%, transparent), transparent),
+    linear-gradient(180deg, color-mix(in oklch, var(--severity-medium-surface) 84%, white), var(--severity-medium-surface)),
     var(--severity-medium-surface) !important;
 }
 
 .severity-surface-high {
-  border-color: color-mix(in oklch, var(--severity-high-border) 64%, var(--border)) !important;
+  border-color: var(--severity-high-border) !important;
   background:
-    linear-gradient(180deg, color-mix(in oklch, var(--surface) 56%, transparent), transparent),
+    linear-gradient(180deg, color-mix(in oklch, var(--severity-high-surface) 82%, white), var(--severity-high-surface)),
     var(--severity-high-surface) !important;
 }
 
