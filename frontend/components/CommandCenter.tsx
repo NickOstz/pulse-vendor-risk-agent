@@ -1,6 +1,13 @@
 "use client";
 
-import { type FormEvent, useEffect, useMemo, useState } from "react";
+import {
+  type Dispatch,
+  type FormEvent,
+  type SetStateAction,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import {
   ArrowRight,
   Moon,
@@ -63,6 +70,9 @@ type VendorFormState = {
 };
 
 type ThemeMode = "light" | "dark";
+type SeenVendorAlertIds = Record<string, string[]>;
+
+const seenVendorAlertIdsStorageKey = "pulse.seenVendorAlertIds";
 
 const emptyVendorForm: VendorFormState = {
   name: "",
@@ -113,6 +123,8 @@ export function CommandCenter() {
   const [operatorTokenSet, setOperatorTokenSet] = useState(false);
   const [themeMode, setThemeMode] = useState<ThemeMode>("light");
   const [themeReady, setThemeReady] = useState(false);
+  const [seenVendorAlertIds, setSeenVendorAlertIds] =
+    useState<SeenVendorAlertIds>({});
 
   const { scan, pollingError, isTerminal } = useScanPolling(activeScanId);
   const displayScan = scan ?? assessmentScan;
@@ -120,15 +132,15 @@ export function CommandCenter() {
   const sortedCompanies = useMemo(
     () =>
       [...companies].sort((a, b) => {
-        const aAlert = watchlistAlerts.find((alert) => alert.company_id === a.id);
-        const bAlert = watchlistAlerts.find((alert) => alert.company_id === b.id);
-        const alertRank = getVendorAttentionRank(b, bAlert) - getVendorAttentionRank(a, aAlert);
+        const alertRank =
+          getVendorAttentionRank(b, watchlistAlerts, seenVendorAlertIds) -
+          getVendorAttentionRank(a, watchlistAlerts, seenVendorAlertIds);
 
         if (alertRank !== 0) return alertRank;
 
         return a.name.localeCompare(b.name);
       }),
-    [companies, watchlistAlerts],
+    [companies, watchlistAlerts, seenVendorAlertIds],
   );
 
   const selectedCompany =
@@ -156,6 +168,17 @@ export function CommandCenter() {
   useEffect(() => {
     setOperatorTokenSet(hasOperatorToken());
   }, []);
+
+  useEffect(() => {
+    setSeenVendorAlertIds(readSeenVendorAlertIds());
+  }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem(
+      seenVendorAlertIdsStorageKey,
+      JSON.stringify(seenVendorAlertIds),
+    );
+  }, [seenVendorAlertIds]);
 
   useEffect(() => {
     const storedTheme = window.localStorage.getItem("pulse.theme");
@@ -780,17 +803,35 @@ export function CommandCenter() {
                 </form>
               ) : null}
             </section>
-            {sortedCompanies.map((company) => (
+            {sortedCompanies.map((company) => {
+              const companyAlerts = getVendorAlerts(watchlistAlerts, company.id);
+              const hasNewFinding = hasUnreadVendorAlert(
+                company,
+                watchlistAlerts,
+                seenVendorAlertIds,
+              );
+
+              return (
               <VendorCard
                 key={company.id}
                 company={company}
                 alerts={watchlistAlerts}
+                hasNewFinding={hasNewFinding}
+                findingCount={companyAlerts.length}
                 selected={company.id === selectedCompany.id}
-                onSelect={() => setSelectedCompanyId(company.id)}
+                onSelect={() => {
+                  markVendorAlertsSeen(
+                    company,
+                    watchlistAlerts,
+                    setSeenVendorAlertIds,
+                  );
+                  setSelectedCompanyId(company.id);
+                }}
                 onDelete={() => void handleDeleteVendor(company)}
                 deleteDisabled={controlsLocked || vendorDeletingId === company.id}
               />
-            ))}
+              );
+            })}
           </aside>
 
           <section className="min-w-0 space-y-5">
@@ -1094,16 +1135,91 @@ function pickInitialCompany(companies: Company[]) {
   );
 }
 
-function getVendorAttentionRank(company: Company, alert: Alert | undefined) {
-  if (alert) {
-    const severityRank = { high: 3000, medium: 2000, low: 1000 };
-    return severityRank[alert.severity] + alert.score;
+function getVendorAttentionRank(
+  company: Company,
+  alerts: Alert[],
+  seenVendorAlertIds: SeenVendorAlertIds,
+) {
+  const unreadAlertCount = getUnreadVendorAlerts(
+    company,
+    alerts,
+    seenVendorAlertIds,
+  ).length;
+
+  if (unreadAlertCount > 0) {
+    return 2000 + unreadAlertCount;
   }
 
   if (company.agent_status === "running") return 500;
   if (company.agent_enabled) return 100;
 
   return 0;
+}
+
+function getVendorAlerts(alerts: Alert[], companyId: string) {
+  return alerts.filter((alert) => alert.company_id === companyId);
+}
+
+function getUnreadVendorAlerts(
+  company: Company,
+  alerts: Alert[],
+  seenVendorAlertIds: SeenVendorAlertIds,
+) {
+  const seenAlertIds = new Set(seenVendorAlertIds[company.id] ?? []);
+
+  return getVendorAlerts(alerts, company.id).filter(
+    (alert) => !seenAlertIds.has(alert.id),
+  );
+}
+
+function hasUnreadVendorAlert(
+  company: Company,
+  alerts: Alert[],
+  seenVendorAlertIds: SeenVendorAlertIds,
+) {
+  return getUnreadVendorAlerts(company, alerts, seenVendorAlertIds).length > 0;
+}
+
+function markVendorAlertsSeen(
+  company: Company,
+  alerts: Alert[],
+  setSeenVendorAlertIds: Dispatch<SetStateAction<SeenVendorAlertIds>>,
+) {
+  const alertIds = getVendorAlerts(alerts, company.id).map((alert) => alert.id);
+  if (alertIds.length === 0) return;
+
+  setSeenVendorAlertIds((currentSeenAlertIds) => {
+    const mergedIds = new Set([
+      ...(currentSeenAlertIds[company.id] ?? []),
+      ...alertIds,
+    ]);
+
+    return {
+      ...currentSeenAlertIds,
+      [company.id]: Array.from(mergedIds).slice(-50),
+    };
+  });
+}
+
+function readSeenVendorAlertIds(): SeenVendorAlertIds {
+  try {
+    const storedValue = window.localStorage.getItem(seenVendorAlertIdsStorageKey);
+    if (!storedValue) return {};
+
+    const parsedValue: unknown = JSON.parse(storedValue);
+    if (!parsedValue || typeof parsedValue !== "object") return {};
+
+    return Object.fromEntries(
+      Object.entries(parsedValue)
+        .filter((entry): entry is [string, unknown[]] => Array.isArray(entry[1]))
+        .map(([companyId, alertIds]) => [
+          companyId,
+          alertIds.filter((alertId): alertId is string => typeof alertId === "string"),
+        ]),
+    );
+  } catch {
+    return {};
+  }
 }
 
 function applyThemeMode(themeMode: ThemeMode) {

@@ -5,6 +5,8 @@ import type { Alert, Company } from "@/lib/types";
 export function VendorCard({
   company,
   alerts,
+  hasNewFinding,
+  findingCount,
   selected,
   onSelect,
   onDelete,
@@ -12,13 +14,15 @@ export function VendorCard({
 }: {
   company: Company;
   alerts: Alert[];
+  hasNewFinding: boolean;
+  findingCount: number;
   selected: boolean;
   onSelect: () => void;
   onDelete?: () => void;
   deleteDisabled?: boolean;
 }) {
   const topAlert = alerts.find((alert) => alert.company_id === company.id);
-  const alertState = getVendorAlertState(company, topAlert);
+  const alertState = getVendorAlertState(company, hasNewFinding, findingCount);
 
   return (
     <article
@@ -81,10 +85,10 @@ export function VendorCard({
         </span>
         {topAlert ? (
           <span className="truncate text-right text-xs font-medium text-ink-900">
-            {labelize(topAlert.severity)} alert
+            {hasNewFinding ? "New finding" : "Reviewed"}
           </span>
         ) : (
-          <span className="text-xs text-zinc-400">No active alert</span>
+          <span className="text-xs text-zinc-400">No alert</span>
         )}
         </div>
       </button>
@@ -104,28 +108,16 @@ export function VendorCard({
   );
 }
 
-function getVendorAlertState(company: Company, alert: Alert | undefined) {
-  if (alert) {
-    if (alert.severity === "high") {
-      return {
-        label: "Alert",
-        title: `${company.name} has a high-severity verified alert.`,
-        className: "border-rose-300 bg-rose-100 text-rose-800",
-      };
-    }
-
-    if (alert.severity === "medium") {
-      return {
-        label: "Ping",
-        title: `${company.name} has a medium-severity verified alert.`,
-        className: "border-orange-300 bg-orange-100 text-orange-800",
-      };
-    }
-
+function getVendorAlertState(
+  company: Company,
+  hasNewFinding: boolean,
+  findingCount: number,
+) {
+  if (hasNewFinding) {
     return {
-      label: "Watch",
-      title: `${company.name} has a low-severity verified alert.`,
-      className: "border-yellow-300 bg-yellow-100 text-yellow-800",
+      label: findingCount > 1 ? `${findingCount} new` : "New alert",
+      title: `Pulse found new verified evidence for ${company.name}.`,
+      className: "border-rose-300 bg-rose-100 text-rose-800",
     };
   }
 
@@ -138,8 +130,8 @@ function getVendorAlertState(company: Company, alert: Alert | undefined) {
   }
 
   return {
-    label: "Clear",
-    title: `${company.name} has no active scored alert.`,
+    label: "No alert",
+    title: `${company.name} has no unread finding.`,
     className: "border-zinc-200 bg-white text-zinc-600",
   };
 }
