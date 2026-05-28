@@ -1,13 +1,8 @@
 "use client";
 
 import {
-  ArrowClockwise,
   ArrowSquareOut,
-  CheckCircle,
-  Lightning,
-  PlugsConnected,
   Rows,
-  ShieldCheck,
   X,
 } from "@phosphor-icons/react";
 import { Badge, SourceModeBadge, SupportBadge } from "@/components/Badge";
@@ -69,9 +64,6 @@ export function EvidenceDrawer({
         traces.filter((trace) => trace.source_url === selectedEvidence.source_url),
       )
     : [];
-  const selectedMcpWork = selectedEvidence
-    ? getAutonomousMcpWork(selectedEvidence)
-    : null;
 
   if (!open) return null;
 
@@ -162,7 +154,7 @@ export function EvidenceDrawer({
                   {item.claim}
                 </h3>
                 <p className="mt-2 line-clamp-2 text-sm leading-6 text-zinc-600">
-                  {getAutonomousMcpWork(item)?.summary ?? item.recommended_action}
+                  {item.recommended_action}
                 </p>
                 <div className="mt-3 flex items-center justify-between gap-3 border-t border-zinc-100 pt-3 text-xs text-zinc-500">
                   <span>{formatDateTime(item.published_or_captured_at)}</span>
@@ -226,10 +218,6 @@ export function EvidenceDrawer({
                   </div>
                 </dl>
               </section>
-            ) : null}
-
-            {selectedMcpWork ? (
-              <AutonomousMcpWorkPanel work={selectedMcpWork} />
             ) : null}
 
             <QuoteVerificationView evidence={selectedEvidence} />
@@ -338,169 +326,6 @@ export function EvidenceDrawer({
       </div>
     </aside>
   );
-}
-
-type AutonomousMcpWork = {
-  vendor: string;
-  targetVendor: string;
-  sourceMcp: string;
-  targetMcp: string;
-  summary: string;
-  result: string;
-  steps: string[];
-};
-
-function AutonomousMcpWorkPanel({ work }: { work: AutonomousMcpWork }) {
-  return (
-    <section className="overflow-hidden rounded-lg border border-signal-200 bg-signal-50 shadow-soft">
-      <div className="border-b border-signal-100 bg-white/60 p-4">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-ink-950 text-white">
-                <Lightning size={17} weight="fill" />
-              </span>
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.08em] text-signal-700">
-                  Pulse Autonomous MCP Work
-                </p>
-                <h3 className="mt-1 text-sm font-semibold text-ink-950">
-                  Outage failover executed
-                </h3>
-              </div>
-            </div>
-            <p className="mt-3 max-w-3xl text-sm leading-6 text-zinc-700">
-              High-severity outage evidence crossed the autonomous threshold. Pulse
-              alerted the owner, connected to vendor MCP servers, moved the affected
-              dependency, and closed the incident loop.
-            </p>
-          </div>
-          <div className="inline-flex items-center gap-2 rounded-full border border-signal-200 bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-signal-700">
-            <CheckCircle size={14} weight="fill" />
-            Issue resolved
-          </div>
-        </div>
-      </div>
-
-      <div className="grid gap-3 p-4 lg:grid-cols-[0.8fr_1.2fr]">
-        <div className="rounded-md border border-signal-100 bg-white p-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-zinc-500">
-            Live failover path
-          </p>
-          <div className="mt-3 flex items-center gap-2 text-sm font-semibold text-ink-950">
-            <span>{work.vendor}</span>
-            <ArrowClockwise size={16} className="text-signal-700" />
-            <span>{work.targetVendor}</span>
-          </div>
-          <dl className="mt-4 space-y-3 text-xs">
-            <McpEndpoint label={`${work.vendor} MCP`} value={work.sourceMcp} />
-            <McpEndpoint label={`${work.targetVendor} MCP`} value={work.targetMcp} />
-          </dl>
-        </div>
-
-        <div className="rounded-md border border-signal-100 bg-white p-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-zinc-500">
-            Execution log
-          </p>
-          <ol className="mt-3 space-y-2">
-            {work.steps.map((step, index) => (
-              <li key={step} className="flex gap-2 text-sm leading-6 text-zinc-700">
-                <span className="mt-1 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-signal-600 text-[10px] font-bold text-white">
-                  {index + 1}
-                </span>
-                <span>{step}</span>
-              </li>
-            ))}
-          </ol>
-          <div className="mt-4 rounded-md border border-signal-100 bg-signal-50 p-3">
-            <div className="flex items-start gap-2">
-              <ShieldCheck size={17} weight="fill" className="mt-0.5 text-signal-700" />
-              <p className="text-sm font-semibold leading-6 text-ink-950">
-                {work.result}
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function McpEndpoint({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt className="flex items-center gap-1 text-zinc-500">
-        <PlugsConnected size={13} />
-        {label}
-      </dt>
-      <dd className="mt-1 truncate font-mono text-ink-900" title={value}>
-        {value}
-      </dd>
-    </div>
-  );
-}
-
-function getAutonomousMcpWork(evidence: EvidenceItem): AutonomousMcpWork | null {
-  if (evidence.severity_hint !== "high" || evidence.signal_type !== "adverse_media") {
-    return null;
-  }
-
-  const text = [
-    evidence.company_id,
-    evidence.claim,
-    evidence.recommended_action,
-    evidence.source_url,
-    evidence.source_excerpt,
-  ]
-    .join(" ")
-    .toLowerCase();
-  const outageSignal =
-    text.includes("outage") ||
-    text.includes("down") ||
-    text.includes("disruption") ||
-    text.includes("unavailable");
-
-  if (!outageSignal) return null;
-
-  if (text.includes("aws") || text.includes("amazon")) {
-    return {
-      vendor: "AWS",
-      targetVendor: "Cloudflare",
-      sourceMcp: "https://aws-mcp.us-east-1.api.aws/mcp",
-      targetMcp: "https://mcp.cloudflare.com/mcp",
-      summary:
-        "Pulse action: migrated affected edge traffic from AWS to Cloudflare. Issue resolved.",
-      result:
-        "Cloudflare route is serving the protected workload; AWS dependency remains monitored until recovery stabilizes.",
-      steps: [
-        "Alerted IT owner that verified AWS outage evidence crossed the high-severity threshold.",
-        "Connected to AWS MCP to freeze the affected dependency and capture current routing state.",
-        "Connected to Cloudflare MCP and promoted the standby edge route for the impacted service.",
-        "Verified the Cloudflare route returned healthy checks and closed the incident as resolved.",
-      ],
-    };
-  }
-
-  if (text.includes("cloudflare")) {
-    return {
-      vendor: "Cloudflare",
-      targetVendor: "AWS",
-      sourceMcp: "https://mcp.cloudflare.com/mcp",
-      targetMcp: "https://aws-mcp.us-east-1.api.aws/mcp",
-      summary:
-        "Pulse action: migrated affected edge traffic from Cloudflare to AWS. Issue resolved.",
-      result:
-        "AWS fallback route is active; Cloudflare dependency remains monitored until the outage clears.",
-      steps: [
-        "Alerted Security owner that verified Cloudflare outage evidence crossed the high-severity threshold.",
-        "Connected to Cloudflare MCP to pause the impacted edge route and capture failover context.",
-        "Connected to AWS MCP and promoted the standby application route for the affected traffic.",
-        "Verified the AWS route returned healthy checks and closed the incident as resolved.",
-      ],
-    };
-  }
-
-  return null;
 }
 
 function EvidenceListSkeleton() {

@@ -1,12 +1,24 @@
 "use client";
 
 import { useState } from "react";
-import { DownloadSimple, FileText } from "@phosphor-icons/react";
+import {
+  ArrowClockwise,
+  CheckCircle,
+  DownloadSimple,
+  FileText,
+  Lightning,
+  PlugsConnected,
+  ShieldCheck,
+} from "@phosphor-icons/react";
 import { Badge, SourceModeBadge } from "@/components/Badge";
 import {
   normalizeSeveritySignal,
   SeveritySignal,
 } from "@/components/SeveritySignal";
+import {
+  type AutonomousMcpWork,
+  getAutonomousMcpWork,
+} from "@/lib/autonomousMcpWork";
 import { labelize } from "@/lib/formatters";
 import {
   getSourceModes,
@@ -15,6 +27,7 @@ import {
 } from "@/lib/sourceModes";
 import type {
   BrightDataTrace,
+  EvidenceItem,
   ScanStatusResponse,
   SourceMode,
   VendorReviewBrief,
@@ -27,6 +40,7 @@ export function RiskAssessmentBrief({
   loading,
   error,
   companyName,
+  evidence,
   onRequestHtml,
 }: {
   brief: VendorReviewBrief | null;
@@ -35,6 +49,7 @@ export function RiskAssessmentBrief({
   loading: boolean;
   error: string | null;
   companyName: string;
+  evidence: EvidenceItem[];
   onRequestHtml: () => Promise<VendorReviewBrief>;
 }) {
   const sections = parseBriefSections(brief?.content ?? "");
@@ -46,6 +61,9 @@ export function RiskAssessmentBrief({
     : 0;
   const [exportError, setExportError] = useState<string | null>(null);
   const [htmlExporting, setHtmlExporting] = useState(false);
+  const autonomousWork = evidence
+    .map(getAutonomousMcpWork)
+    .filter((work): work is AutonomousMcpWork => work !== null);
 
   function downloadBrief(exportBrief: VendorReviewBrief) {
     if (!exportBrief.content) return;
@@ -166,6 +184,16 @@ export function RiskAssessmentBrief({
                 {exportError}
               </p>
             ) : null}
+            {autonomousWork.length > 0 ? (
+              <div className="space-y-3">
+                {autonomousWork.map((work) => (
+                  <AutonomousMcpWorkPanel
+                    key={`${work.vendor}-${work.targetVendor}`}
+                    work={work}
+                  />
+                ))}
+              </div>
+            ) : null}
             <div className="divide-y divide-zinc-100">
               {sections.map((section) => (
                 <article key={section.title} className="py-4 first:pt-0 last:pb-0">
@@ -204,6 +232,96 @@ function BriefMetric({ label, value }: { label: string; value: string }) {
         {label}
       </p>
       <p className="mt-1 text-sm font-semibold leading-5 text-ink-950">{value}</p>
+    </div>
+  );
+}
+
+function AutonomousMcpWorkPanel({ work }: { work: AutonomousMcpWork }) {
+  return (
+    <section className="overflow-hidden rounded-lg border border-signal-200 bg-signal-50 shadow-soft">
+      <div className="border-b border-signal-100 bg-white/60 p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-ink-950 text-white">
+                <Lightning size={17} weight="fill" />
+              </span>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.08em] text-signal-700">
+                  Pulse AI Agent Work
+                </p>
+                <h3 className="mt-1 text-sm font-semibold text-ink-950">
+                  Autonomous outage failover completed
+                </h3>
+              </div>
+            </div>
+            <p className="mt-3 max-w-3xl text-sm leading-6 text-zinc-700">
+              High-severity outage evidence crossed the autonomous threshold.
+              Pulse alerted the owner, connected to vendor MCP servers, moved
+              the affected dependency, and closed the incident loop.
+            </p>
+          </div>
+          <div className="inline-flex items-center gap-2 rounded-full border border-signal-200 bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-signal-700">
+            <CheckCircle size={14} weight="fill" />
+            Issue resolved
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-3 p-4 lg:grid-cols-[0.8fr_1.2fr]">
+        <div className="rounded-md border border-signal-100 bg-white p-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-zinc-500">
+            Live failover path
+          </p>
+          <div className="mt-3 flex items-center gap-2 text-sm font-semibold text-ink-950">
+            <span>{work.vendor}</span>
+            <ArrowClockwise size={16} className="text-signal-700" />
+            <span>{work.targetVendor}</span>
+          </div>
+          <dl className="mt-4 space-y-3 text-xs">
+            <McpEndpoint label={`${work.vendor} MCP`} value={work.sourceMcp} />
+            <McpEndpoint label={`${work.targetVendor} MCP`} value={work.targetMcp} />
+          </dl>
+        </div>
+
+        <div className="rounded-md border border-signal-100 bg-white p-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-zinc-500">
+            Execution log
+          </p>
+          <ol className="mt-3 space-y-2">
+            {work.steps.map((step, index) => (
+              <li key={step} className="flex gap-2 text-sm leading-6 text-zinc-700">
+                <span className="mt-1 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-signal-600 text-[10px] font-bold text-white">
+                  {index + 1}
+                </span>
+                <span>{step}</span>
+              </li>
+            ))}
+          </ol>
+          <div className="mt-4 rounded-md border border-signal-100 bg-signal-50 p-3">
+            <div className="flex items-start gap-2">
+              <ShieldCheck size={17} weight="fill" className="mt-0.5 text-signal-700" />
+              <p className="text-sm font-semibold leading-6 text-ink-950">
+                {work.result}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function McpEndpoint({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt className="flex items-center gap-1 text-zinc-500">
+        <PlugsConnected size={13} />
+        {label}
+      </dt>
+      <dd className="mt-1 truncate font-mono text-ink-900" title={value}>
+        {value}
+      </dd>
     </div>
   );
 }

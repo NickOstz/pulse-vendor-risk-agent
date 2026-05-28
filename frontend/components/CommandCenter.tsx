@@ -999,6 +999,7 @@ export function CommandCenter() {
             loading={briefLoading}
             error={briefError}
             companyName={selectedCompany.name}
+            evidence={evidence}
             onRequestHtml={() =>
               brief
                 ? getVendorReviewBrief(brief.company_id, brief.scan_id, "html")
