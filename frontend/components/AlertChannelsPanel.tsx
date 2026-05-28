@@ -8,7 +8,6 @@ import {
   PaperPlaneTilt,
   WhatsappLogo,
 } from "@phosphor-icons/react";
-import { Badge } from "@/components/Badge";
 
 type AlertChannel = "email" | "whatsapp" | "discord";
 
@@ -105,16 +104,13 @@ export function AlertChannelsPanel() {
 
   return (
     <div className="mt-6 border-t border-zinc-100 pt-4">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <h3 className="text-xs font-semibold uppercase tracking-[0.08em] text-zinc-500">
-            Alert Channels
-          </h3>
-          <p className="mt-1 text-sm font-medium text-ink-950">
-            Route verified alerts
-          </p>
-        </div>
-        <Badge tone="neutral">mock</Badge>
+      <div>
+        <h3 className="text-xs font-semibold uppercase tracking-[0.08em] text-zinc-500">
+          Alert Channels
+        </h3>
+        <p className="mt-1 text-sm font-medium text-ink-950">
+          Route verified alerts
+        </p>
       </div>
       <div className="mt-3 grid gap-2">
         {(Object.keys(channelCopy) as AlertChannel[]).map((channel) => (
