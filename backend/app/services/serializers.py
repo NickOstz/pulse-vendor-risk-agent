@@ -6,6 +6,12 @@ from app.schemas import AlertRead, CompanyRead, ScanMetrics, ScanRead, StageRead
 
 
 STAGES = ["collect", "extract", "verify", "score", "brief"]
+DEFAULT_REVIEW_POLICY = "daily"
+REVIEW_POLICY_INTERVALS = {
+    "daily": timedelta(days=1),
+    "weekly": timedelta(weeks=1),
+    "monthly": timedelta(days=30),
+}
 
 
 def parse_json_list(value: str | None) -> list[str]:
@@ -123,8 +129,16 @@ def as_utc(value: datetime | None) -> datetime | None:
     return value.astimezone(UTC)
 
 
-def policy_for_company(_company: Company) -> tuple[str, datetime]:
-    return "daily", now_utc()
+def normalize_review_policy(policy: str | None) -> str:
+    return policy if policy in REVIEW_POLICY_INTERVALS else DEFAULT_REVIEW_POLICY
+
+
+def next_review_at(policy: str | None, from_time: datetime) -> datetime:
+    return from_time + REVIEW_POLICY_INTERVALS[normalize_review_policy(policy)]
+
+
+def policy_for_company(company: Company) -> tuple[str, datetime]:
+    return normalize_review_policy(company.review_policy), now_utc()
 
 
 def apply_agent_state(company: Company, enabled: bool) -> None:
@@ -142,24 +156,25 @@ def apply_agent_state(company: Company, enabled: bool) -> None:
 def next_review_after_run(company: Company, completed_at: datetime) -> datetime | None:
     if not company.agent_enabled:
         return None
-    company.review_policy = "daily"
-    return completed_at + timedelta(days=1)
+    company.review_policy = normalize_review_policy(company.review_policy)
+    return next_review_at(company.review_policy, completed_at)
 
 
-def migrate_enabled_company_to_daily_policy(company: Company) -> bool:
+def migrate_enabled_company_review_policy(company: Company) -> bool:
     if not company.agent_enabled:
         return False
-    next_daily_run = (
-        as_utc(company.last_agent_run_at) + timedelta(days=1)
+    normalized_policy = normalize_review_policy(company.review_policy)
+    next_policy_run = (
+        next_review_at(normalized_policy, as_utc(company.last_agent_run_at))
         if company.last_agent_run_at
         else now_utc()
     )
     existing_next_run = as_utc(company.next_agent_run_at)
-    changed = company.review_policy != "daily" or existing_next_run is None or existing_next_run > next_daily_run
+    changed = company.review_policy != normalized_policy or existing_next_run is None
     if not changed:
         return False
-    company.review_policy = "daily"
-    if existing_next_run is None or existing_next_run > next_daily_run:
-        company.next_agent_run_at = next_daily_run
+    company.review_policy = normalized_policy
+    if existing_next_run is None:
+        company.next_agent_run_at = next_policy_run
     company.updated_at = now_utc()
     return True

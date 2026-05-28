@@ -17,6 +17,7 @@ import type {
   CompanyCreateInput,
   EvidenceItem,
   HealthResponse,
+  ReviewPolicy,
   ScanStatusResponse,
   SourceRulesUpdateInput,
   VendorReviewBrief,
@@ -211,6 +212,38 @@ export async function updateCompanySourceRules(
 
   companies = companies.map((company) =>
     company.id === companyId ? { ...company, ...normalizedPayload } : company,
+  );
+  const updatedCompany = companies.find((company) => company.id === companyId);
+  if (!updatedCompany) {
+    throw new Error(`Unknown company: ${companyId}`);
+  }
+  return updatedCompany;
+}
+
+export async function updateCompanyReviewPolicy(
+  companyId: string,
+  reviewPolicy: ReviewPolicy,
+): Promise<Company> {
+  const live = await requestJson<Company>(
+    `/api/companies/${companyId}/review-policy`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ review_policy: reviewPolicy }),
+    },
+  );
+
+  if (live) return live;
+
+  companies = companies.map((company) =>
+    company.id === companyId
+      ? {
+          ...company,
+          review_policy: reviewPolicy,
+          next_agent_run_at: company.agent_enabled
+            ? "2026-05-26T03:44:00Z"
+            : company.next_agent_run_at,
+        }
+      : company,
   );
   const updatedCompany = companies.find((company) => company.id === companyId);
   if (!updatedCompany) {
@@ -569,7 +602,7 @@ function withFixtureAgentState(company: Company, enabled: boolean): Company {
     ...company,
     agent_enabled: true,
     agent_status: "active",
-    review_policy: "daily",
+    review_policy: company.review_policy ?? "daily",
     next_agent_run_at: "2026-05-26T03:44:00Z",
   };
 }

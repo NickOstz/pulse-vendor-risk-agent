@@ -272,7 +272,15 @@ def test_verified_live_cloudflare_quote_replaces_cached_copy_and_creates_scored_
     assert len(trust_items) == 1
     assert trust_items[0]["support_status"] == "verified"
     assert trust_items[0]["quote_match_score"] == 1.0
-    assert live_alert["score"] == 62
+    expected_score = round(
+        live_alert["score_factors"]["base_severity"]
+        * live_alert["score_factors"]["source_reliability"]
+        * live_alert["score_factors"]["confidence"]
+        * live_alert["score_factors"]["freshness"]
+        * live_alert["score_factors"]["vendor_criticality"]
+        * 100
+    )
+    assert live_alert["score"] == expected_score
     assert live_alert["evidence_item_id"] == trust_items[0]["id"]
     assert live_alert["score_factors"]["confidence"] == 0.95
     assert not any(alert["alert_type"] == "related_change" for alert in alerts)

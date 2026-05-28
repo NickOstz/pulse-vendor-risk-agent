@@ -3,9 +3,9 @@ from sqlmodel import Session, select
 
 from app.db import get_session
 from app.models import Alert, Brief, BrightDataTrace, Company, EvidenceItem, Scan, utc_now
-from app.schemas import AgentToggle, CompanyCreate, CompanyRead, SourceRulesUpdate
+from app.schemas import AgentToggle, CompanyCreate, CompanyRead, ReviewPolicyUpdate, SourceRulesUpdate
 from app.api.operator_access import require_operator_access
-from app.services.serializers import apply_agent_state, company_to_read, dump_json
+from app.services.serializers import apply_agent_state, as_utc, company_to_read, dump_json, next_review_at
 
 router = APIRouter(prefix="/api/companies", tags=["companies"])
 
@@ -73,6 +73,28 @@ def toggle_agent(
     apply_agent_state(company, payload.agent_enabled)
     if payload.agent_enabled:
         company.next_agent_run_at = utc_now()
+    session.add(company)
+    session.commit()
+    session.refresh(company)
+    return company_to_read(company)
+
+
+@router.patch("/{company_id}/review-policy", response_model=CompanyRead)
+def update_review_policy(
+    company_id: str,
+    payload: ReviewPolicyUpdate,
+    session: Session = Depends(get_session),
+    _operator_access: None = Depends(require_operator_access),
+) -> CompanyRead:
+    company = session.get(Company, company_id)
+    if company is None:
+        raise HTTPException(status_code=404, detail="company not found")
+
+    company.review_policy = payload.review_policy
+    company.updated_at = utc_now()
+    if company.agent_enabled:
+        last_run_at = as_utc(company.last_agent_run_at)
+        company.next_agent_run_at = next_review_at(company.review_policy, last_run_at) if last_run_at else utc_now()
     session.add(company)
     session.commit()
     session.refresh(company)

@@ -12,6 +12,7 @@ StageStatus = Literal["pending", "running", "completed", "failed"]
 SupportStatus = Literal["verified", "needs_review", "no_evidence", "failed_source"]
 SourceMode = Literal["live", "cached", "fallback"]
 Criticality = Literal["critical", "important", "normal"]
+ReviewPolicy = Literal["daily", "weekly", "monthly"]
 SignalType = Literal["trust_security", "adverse_media", "pricing_terms"]
 AlertStatus = Literal["new", "approved", "dismissed", "needs_review"]
 
@@ -69,6 +70,10 @@ class CompanyRead(BaseModel):
 
 class AgentToggle(BaseModel):
     agent_enabled: bool
+
+
+class ReviewPolicyUpdate(BaseModel):
+    review_policy: ReviewPolicy
 
 
 class StageRead(BaseModel):

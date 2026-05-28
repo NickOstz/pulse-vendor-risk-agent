@@ -22,6 +22,7 @@ export type SupportStatus =
   | "failed_source";
 export type SourceMode = "live" | "cached" | "fallback";
 export type Criticality = "critical" | "important" | "normal";
+export type ReviewPolicy = "daily" | "weekly" | "monthly";
 export type SignalType = "trust_security" | "adverse_media" | "pricing_terms";
 export type AlertReviewStatus = "approved" | "dismissed" | "needs_review";
 
@@ -37,7 +38,7 @@ export interface Company {
   block_list: string[];
   agent_enabled: boolean;
   agent_status: AgentStatus;
-  review_policy: string | null;
+  review_policy: ReviewPolicy | null;
   last_agent_run_at: string | null;
   next_agent_run_at: string | null;
 }

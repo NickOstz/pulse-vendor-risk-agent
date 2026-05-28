@@ -214,7 +214,37 @@ def test_enable_watchlist_assigns_policy_to_each_vendor(client):
     assert all(company["review_policy"] is None for company in disabled.json())
 
 
-def test_seed_migrates_already_enabled_weekly_vendor_to_daily_due_schedule(client):
+def test_update_review_policy_reschedules_enabled_vendor(client):
+    enabled = client.patch("/api/companies/vendor-snowflake/agent", json={"agent_enabled": True})
+    assert enabled.status_code == 200
+
+    response = client.patch(
+        "/api/companies/vendor-snowflake/review-policy",
+        json={"review_policy": "weekly"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["review_policy"] == "weekly"
+    assert datetime.fromisoformat(body["next_agent_run_at"]) <= datetime.now(timezone.utc)
+
+
+def test_completed_review_uses_selected_review_policy(client):
+    import app.db as db
+    from app.services.serializers import next_review_after_run
+
+    with Session(db.engine) as session:
+        company = session.get(Company, "vendor-aws")
+        assert company is not None
+        completed_at = utc_now()
+        company.agent_enabled = True
+        company.review_policy = "weekly"
+
+        assert next_review_after_run(company, completed_at) == completed_at + timedelta(weeks=1)
+        assert company.review_policy == "weekly"
+
+
+def test_seed_preserves_valid_enabled_review_policy(client):
     import app.db as db
 
     with Session(db.engine) as session:
@@ -224,12 +254,12 @@ def test_seed_migrates_already_enabled_weekly_vendor_to_daily_due_schedule(clien
         company.agent_enabled = True
         company.review_policy = "weekly"
         company.last_agent_run_at = last_run
-        company.next_agent_run_at = utc_now() + timedelta(days=5)
+        company.next_agent_run_at = last_run + timedelta(days=7)
         session.add(company)
         session.commit()
         seed_companies(session)
         session.refresh(company)
 
-        assert company.review_policy == "daily"
+        assert company.review_policy == "weekly"
         assert company.next_agent_run_at is not None
-        assert company.next_agent_run_at.replace(tzinfo=timezone.utc) <= last_run + timedelta(days=1)
+        assert company.next_agent_run_at.replace(tzinfo=timezone.utc) == last_run + timedelta(days=7)

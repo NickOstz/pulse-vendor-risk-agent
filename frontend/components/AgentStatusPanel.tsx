@@ -6,6 +6,7 @@ import type {
   AgentStatusResponse,
   BrightDataTrace,
   Company,
+  ReviewPolicy,
   ScanStatusResponse,
 } from "@/lib/types";
 
@@ -14,11 +15,17 @@ export function AgentStatusPanel({
   agentStatus,
   scan,
   traces,
+  policyBusy,
+  policyLocked,
+  onPolicyChange,
 }: {
   company: Company;
   agentStatus: AgentStatusResponse | null;
   scan: ScanStatusResponse | null;
   traces: BrightDataTrace[];
+  policyBusy: boolean;
+  policyLocked: boolean;
+  onPolicyChange: (policy: ReviewPolicy) => void;
 }) {
   const sourceSummary = summarizeSourceModes(traces, scan?.mode);
   const currentActivity = scan
@@ -60,6 +67,32 @@ export function AgentStatusPanel({
               : "No active policy"
           }
         />
+        <div className="grid grid-cols-3 gap-2 border-t border-zinc-100 pt-3">
+          {(["daily", "weekly", "monthly"] as const).map((policy) => {
+            const active = (company.review_policy ?? "daily") === policy;
+            return (
+              <button
+                key={policy}
+                type="button"
+                onClick={() => onPolicyChange(policy)}
+                disabled={policyBusy || policyLocked}
+                className={`h-9 rounded-md border px-2 text-xs font-semibold uppercase tracking-[0.08em] transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45 ${
+                  active
+                    ? "border-ink-900 bg-ink-950 text-white"
+                    : "border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300"
+                }`}
+                title={
+                  policyLocked
+                    ? "Enable the agent and unlock controls to change cadence"
+                    : `Review ${policy}`
+                }
+                aria-pressed={active}
+              >
+                {policy}
+              </button>
+            );
+          })}
+        </div>
         <StatusRow
           icon={<Clock size={17} />}
           label="Next review"
