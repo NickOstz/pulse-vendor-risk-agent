@@ -70,9 +70,10 @@ type VendorFormState = {
 };
 
 type ThemeMode = "light" | "dark";
-type SeenVendorAlertIds = Record<string, string[]>;
+type SeenVendorAlertKeys = Record<string, string[]>;
 
-const seenVendorAlertIdsStorageKey = "pulse.seenVendorAlertIds";
+const seenVendorAlertKeysStorageKey = "pulse.seenVendorAlertKeys";
+const legacySeenVendorAlertIdsStorageKey = "pulse.seenVendorAlertIds";
 
 const emptyVendorForm: VendorFormState = {
   name: "",
@@ -123,8 +124,8 @@ export function CommandCenter() {
   const [operatorTokenSet, setOperatorTokenSet] = useState(false);
   const [themeMode, setThemeMode] = useState<ThemeMode>("light");
   const [themeReady, setThemeReady] = useState(false);
-  const [seenVendorAlertIds, setSeenVendorAlertIds] =
-    useState<SeenVendorAlertIds>({});
+  const [seenVendorAlertKeys, setSeenVendorAlertKeys] =
+    useState<SeenVendorAlertKeys>({});
 
   const { scan, pollingError, isTerminal } = useScanPolling(activeScanId);
   const displayScan = scan ?? assessmentScan;
@@ -133,14 +134,14 @@ export function CommandCenter() {
     () =>
       [...companies].sort((a, b) => {
         const alertRank =
-          getVendorAttentionRank(b, watchlistAlerts, seenVendorAlertIds) -
-          getVendorAttentionRank(a, watchlistAlerts, seenVendorAlertIds);
+          getVendorAttentionRank(b, watchlistAlerts, seenVendorAlertKeys) -
+          getVendorAttentionRank(a, watchlistAlerts, seenVendorAlertKeys);
 
         if (alertRank !== 0) return alertRank;
 
         return a.name.localeCompare(b.name);
       }),
-    [companies, watchlistAlerts, seenVendorAlertIds],
+    [companies, watchlistAlerts, seenVendorAlertKeys],
   );
 
   const selectedCompany =
@@ -170,15 +171,15 @@ export function CommandCenter() {
   }, []);
 
   useEffect(() => {
-    setSeenVendorAlertIds(readSeenVendorAlertIds());
+    setSeenVendorAlertKeys(readSeenVendorAlertKeys());
   }, []);
 
   useEffect(() => {
     window.localStorage.setItem(
-      seenVendorAlertIdsStorageKey,
-      JSON.stringify(seenVendorAlertIds),
+      seenVendorAlertKeysStorageKey,
+      JSON.stringify(seenVendorAlertKeys),
     );
-  }, [seenVendorAlertIds]);
+  }, [seenVendorAlertKeys]);
 
   useEffect(() => {
     const storedTheme = window.localStorage.getItem("pulse.theme");
@@ -808,7 +809,7 @@ export function CommandCenter() {
               const hasNewFinding = hasUnreadVendorAlert(
                 company,
                 watchlistAlerts,
-                seenVendorAlertIds,
+                seenVendorAlertKeys,
               );
 
               return (
@@ -823,7 +824,7 @@ export function CommandCenter() {
                   markVendorAlertsSeen(
                     company,
                     watchlistAlerts,
-                    setSeenVendorAlertIds,
+                    setSeenVendorAlertKeys,
                   );
                   setSelectedCompanyId(company.id);
                 }}
@@ -1138,12 +1139,12 @@ function pickInitialCompany(companies: Company[]) {
 function getVendorAttentionRank(
   company: Company,
   alerts: Alert[],
-  seenVendorAlertIds: SeenVendorAlertIds,
+  seenVendorAlertKeys: SeenVendorAlertKeys,
 ) {
   const unreadAlertCount = getUnreadVendorAlerts(
     company,
     alerts,
-    seenVendorAlertIds,
+    seenVendorAlertKeys,
   ).length;
 
   if (unreadAlertCount > 0) {
@@ -1163,47 +1164,72 @@ function getVendorAlerts(alerts: Alert[], companyId: string) {
 function getUnreadVendorAlerts(
   company: Company,
   alerts: Alert[],
-  seenVendorAlertIds: SeenVendorAlertIds,
+  seenVendorAlertKeys: SeenVendorAlertKeys,
 ) {
-  const seenAlertIds = new Set(seenVendorAlertIds[company.id] ?? []);
+  const seenAlertKeys = new Set(seenVendorAlertKeys[company.id] ?? []);
 
   return getVendorAlerts(alerts, company.id).filter(
-    (alert) => !seenAlertIds.has(alert.id),
+    (alert) =>
+      !seenAlertKeys.has(alert.id) &&
+      !seenAlertKeys.has(getVendorAlertFingerprint(alert)),
   );
 }
 
 function hasUnreadVendorAlert(
   company: Company,
   alerts: Alert[],
-  seenVendorAlertIds: SeenVendorAlertIds,
+  seenVendorAlertKeys: SeenVendorAlertKeys,
 ) {
-  return getUnreadVendorAlerts(company, alerts, seenVendorAlertIds).length > 0;
+  return getUnreadVendorAlerts(company, alerts, seenVendorAlertKeys).length > 0;
 }
 
 function markVendorAlertsSeen(
   company: Company,
   alerts: Alert[],
-  setSeenVendorAlertIds: Dispatch<SetStateAction<SeenVendorAlertIds>>,
+  setSeenVendorAlertKeys: Dispatch<SetStateAction<SeenVendorAlertKeys>>,
 ) {
-  const alertIds = getVendorAlerts(alerts, company.id).map((alert) => alert.id);
-  if (alertIds.length === 0) return;
+  const alertKeys = getVendorAlerts(alerts, company.id).flatMap((alert) => [
+    alert.id,
+    getVendorAlertFingerprint(alert),
+  ]);
+  if (alertKeys.length === 0) return;
 
-  setSeenVendorAlertIds((currentSeenAlertIds) => {
-    const mergedIds = new Set([
-      ...(currentSeenAlertIds[company.id] ?? []),
-      ...alertIds,
+  setSeenVendorAlertKeys((currentSeenAlertKeys) => {
+    const mergedKeys = new Set([
+      ...(currentSeenAlertKeys[company.id] ?? []),
+      ...alertKeys,
     ]);
 
     return {
-      ...currentSeenAlertIds,
-      [company.id]: Array.from(mergedIds).slice(-50),
+      ...currentSeenAlertKeys,
+      [company.id]: Array.from(mergedKeys).slice(-100),
     };
   });
 }
 
-function readSeenVendorAlertIds(): SeenVendorAlertIds {
+function getVendorAlertFingerprint(alert: Alert) {
+  return [
+    "finding",
+    alert.alert_type,
+    normalizeFingerprintText(alert.title),
+    normalizeFingerprintText(alert.summary),
+    normalizeFingerprintText(alert.recommended_action),
+  ].join(":");
+}
+
+function normalizeFingerprintText(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .replace(/[^\p{L}\p{N}\s:/.-]/gu, "")
+    .trim();
+}
+
+function readSeenVendorAlertKeys(): SeenVendorAlertKeys {
   try {
-    const storedValue = window.localStorage.getItem(seenVendorAlertIdsStorageKey);
+    const storedValue =
+      window.localStorage.getItem(seenVendorAlertKeysStorageKey) ??
+      window.localStorage.getItem(legacySeenVendorAlertIdsStorageKey);
     if (!storedValue) return {};
 
     const parsedValue: unknown = JSON.parse(storedValue);
