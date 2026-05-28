@@ -8,11 +8,11 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.config import get_settings
 from app.models import Company, Scan
 from app.services.extraction import (
-    DeepSeekExtractionClient,
     ExtractedEvidence,
     SignalType,
     SourceType,
     StructuredExtractionClient,
+    configured_extraction_client,
     extract_source,
 )
 
@@ -124,14 +124,10 @@ def _configured_client(mode: str) -> StructuredExtractionClient | None:
     if mode == "recorded_baseline":
         return None
     settings = get_settings()
-    if not settings.deepseek_api_key:
-        raise ValueError("DeepSeek evaluation requires DEEPSEEK_API_KEY in the local backend environment.")
-    return DeepSeekExtractionClient(
-        api_key=settings.deepseek_api_key,
-        endpoint=settings.deepseek_api_endpoint,
-        model=settings.deepseek_extraction_model,
-        timeout_seconds=settings.llm_extraction_timeout_seconds,
-    )
+    client = configured_extraction_client(settings)
+    if client is None:
+        raise ValueError("Configured LLM evaluation requires AIMLAPI_API_KEY, DEEPSEEK_API_KEY, or KIRO_API_KEY.")
+    return client
 
 
 def _best_two_templates(template_results: dict[str, dict[str, float | int]]) -> list[str]:

@@ -95,9 +95,9 @@ export function ReviewStatusStrip({
               label="Extraction"
               value={
                 usedModelAssessment
-                  ? "DeepSeek assessment"
+                  ? "AI/ML API assessment"
                   : usedModelExtraction
-                    ? "DeepSeek extraction"
+                    ? "AI/ML API extraction"
                   : "Bounded extraction"
               }
               detail={
@@ -111,7 +111,7 @@ export function ReviewStatusStrip({
             <ReviewProof
               label="Model calls"
               value={String(scan.metrics.llm_calls_used)}
-              detail={usedModelExtraction ? "DeepSeek investigation" : "Not used"}
+              detail={usedModelExtraction ? "DeepSeek V4 Flash via AI/ML API" : "Not used"}
             />
             <ReviewProof
               label="Verification"
@@ -122,7 +122,7 @@ export function ReviewStatusStrip({
           <div className="mt-4 grid grid-cols-2 gap-3 border-t border-zinc-100 pt-4 text-xs sm:grid-cols-5">
             <Metric label="Search calls" value={scan.metrics.serp_queries_used} max={6} />
             <Metric label="Pages fetched" value={scan.metrics.urls_scraped} max={12} />
-            <Metric label="DeepSeek calls" value={scan.metrics.llm_calls_used} max={20} />
+            <Metric label="AI/ML API calls" value={scan.metrics.llm_calls_used} max={20} />
             <Metric label="Evidence" value={scan.metrics.evidence_count} />
             <Metric label="Verified" value={scan.metrics.verified_count} />
           </div>

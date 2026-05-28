@@ -6,6 +6,10 @@ import pytest
 
 from app.models import Company, Scan
 from app.services.extraction import (
+    AIMLAPIExtractionClient,
+    ExtractionClientError,
+    FallbackExtractionClient,
+    KiroExtractionClient,
     MAX_LLM_CALLS_PER_REVIEW,
     DeepSeekExtractionClient,
     extract_source,
@@ -345,4 +349,76 @@ def test_deepseek_client_requests_json_output(monkeypatch) -> None:
     assert captured["headers"]["Authorization"] == "Bearer local-test-key"
     assert captured["payload"]["model"] == "deepseek-v4-flash"
     assert captured["payload"]["response_format"] == {"type": "json_object"}
+    assert captured["payload"]["thinking"] == {"type": "disabled"}
+    assert captured["timeout"] == 12
+
+
+def test_aimlapi_client_uses_openai_compatible_endpoint_without_deepseek_thinking(monkeypatch) -> None:
+    captured: dict = {}
+
+    def fake_post(url, *, headers, json, timeout):
+        captured.update({"url": url, "headers": headers, "payload": json, "timeout": timeout})
+        return httpx.Response(
+            200,
+            request=httpx.Request("POST", url),
+            json={"choices": [{"message": {"content": '{"support_status":"no_evidence"}'}}]},
+        )
+
+    monkeypatch.setattr("app.services.extraction.httpx.post", fake_post)
+    client = AIMLAPIExtractionClient(
+        api_key="local-aimlapi-key",
+        endpoint="https://api.aimlapi.com/v1/chat/completions",
+        model="deepseek-v4-flash",
+        timeout_seconds=12,
+    )
+
+    result = client.complete_json("Return json.")
+
+    assert result == '{"support_status":"no_evidence"}'
+    assert captured["url"] == "https://api.aimlapi.com/v1/chat/completions"
+    assert captured["headers"]["Authorization"] == "Bearer local-aimlapi-key"
+    assert captured["payload"]["model"] == "deepseek-v4-flash"
+    assert "thinking" not in captured["payload"]
+
+
+def test_provider_chain_falls_back_after_request_failure() -> None:
+    class FailingClient:
+        def complete_json(self, prompt: str) -> str:
+            raise ExtractionClientError("primary failed")
+
+    class PassingClient:
+        def complete_json(self, prompt: str) -> str:
+            return '{"support_status":"no_evidence"}'
+
+    client = FallbackExtractionClient([FailingClient(), PassingClient()])
+
+    assert client.complete_json("Return json.") == '{"support_status":"no_evidence"}'
+
+
+def test_kiro_client_runs_headless_cli_and_extracts_json(monkeypatch) -> None:
+    captured: dict = {}
+
+    def fake_run(args, *, capture_output, check, env, text, timeout):
+        captured.update(
+            {
+                "args": args,
+                "capture_output": capture_output,
+                "check": check,
+                "env": env,
+                "text": text,
+                "timeout": timeout,
+            }
+        )
+        return type(
+            "Completed",
+            (),
+            {"returncode": 0, "stdout": '```json\n{"support_status":"no_evidence"}\n```'},
+        )()
+
+    monkeypatch.setattr("app.services.extraction.subprocess.run", fake_run)
+    client = KiroExtractionClient(api_key="local-kiro-key", cli_path="kiro-cli", timeout_seconds=12)
+
+    assert client.complete_json("Return json.") == '{"support_status":"no_evidence"}'
+    assert captured["args"][:3] == ["kiro-cli", "chat", "--no-interactive"]
+    assert captured["env"]["KIRO_API_KEY"] == "local-kiro-key"
     assert captured["timeout"] == 12

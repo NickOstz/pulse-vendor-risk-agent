@@ -7,8 +7,8 @@ from app.config import get_settings
 from app.models import Company, EvidenceItem, Scan
 from app.services.extraction import (
     MAX_LLM_CALLS_PER_REVIEW,
-    DeepSeekExtractionClient,
     ExtractionClientError,
+    configured_extraction_client,
 )
 
 
@@ -36,14 +36,9 @@ def draft_verified_assessment(
     settings = get_settings()
     model_client = client
     if model_client is None:
-        if not settings.llm_extraction_enabled or not settings.deepseek_api_key:
+        model_client = configured_extraction_client(settings)
+        if model_client is None:
             return None
-        model_client = DeepSeekExtractionClient(
-            api_key=settings.deepseek_api_key,
-            endpoint=settings.deepseek_api_endpoint,
-            model=settings.deepseek_extraction_model,
-            timeout_seconds=settings.llm_extraction_timeout_seconds,
-        )
     scan.llm_calls_used += 1
     try:
         raw = model_client.complete_json(_assessment_prompt(company, verified_items))

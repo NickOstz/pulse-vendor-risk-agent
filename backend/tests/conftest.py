@@ -14,7 +14,9 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
     monkeypatch.setenv("BRIGHTDATA_SERP_ZONE", "")
     monkeypatch.setenv("BRIGHTDATA_UNLOCKER_ZONE", "")
     monkeypatch.setenv("BRIGHTDATA_DEMO_SOURCE_URL", "")
+    monkeypatch.setenv("AIMLAPI_API_KEY", "")
     monkeypatch.setenv("DEEPSEEK_API_KEY", "")
+    monkeypatch.setenv("KIRO_API_KEY", "")
     monkeypatch.setenv("LLM_EXTRACTION_ENABLED", "false")
     monkeypatch.setenv("DEMO_API_TOKEN", "")
 
@@ -43,7 +45,9 @@ def protected_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestCli
     monkeypatch.setenv("BRIGHTDATA_SERP_ZONE", "")
     monkeypatch.setenv("BRIGHTDATA_UNLOCKER_ZONE", "")
     monkeypatch.setenv("BRIGHTDATA_DEMO_SOURCE_URL", "")
+    monkeypatch.setenv("AIMLAPI_API_KEY", "")
     monkeypatch.setenv("DEEPSEEK_API_KEY", "")
+    monkeypatch.setenv("KIRO_API_KEY", "")
     monkeypatch.setenv("LLM_EXTRACTION_ENABLED", "false")
     monkeypatch.setenv("DEMO_API_TOKEN", "test-operator-token")
 

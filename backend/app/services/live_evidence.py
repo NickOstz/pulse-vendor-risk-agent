@@ -5,7 +5,7 @@ from sqlmodel import Session, select
 
 from app.config import get_settings
 from app.models import BrightDataTrace, Company, EvidenceItem, Scan
-from app.services.extraction import DeepSeekExtractionClient, extract_source
+from app.services.extraction import configured_extraction_client, extract_source
 
 
 DEMO_COMPANY_ID = "vendor-cloudflare-demo"
@@ -68,16 +68,7 @@ def extract_live_source_evidence_items(session: Session, company: Company, scan:
     from app.services.live_collection import snapshot_path_for_target, target_from_capture_trace
 
     settings = get_settings()
-    extraction_client = (
-        DeepSeekExtractionClient(
-            api_key=settings.deepseek_api_key,
-            endpoint=settings.deepseek_api_endpoint,
-            model=settings.deepseek_extraction_model,
-            timeout_seconds=settings.llm_extraction_timeout_seconds,
-        )
-        if settings.llm_extraction_enabled and settings.deepseek_api_key
-        else None
-    )
+    extraction_client = configured_extraction_client(settings)
     if extraction_client is None:
         return []
 

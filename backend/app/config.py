@@ -18,9 +18,14 @@ class Settings(BaseSettings):
     brightdata_live_fetch_timeout_seconds: float = 8.0
     brightdata_serp_timeout_seconds: float = 20.0
     fallback_evidence_enabled: bool = False
+    aimlapi_api_key: str | None = None
+    aimlapi_api_endpoint: str = "https://api.aimlapi.com/v1/chat/completions"
+    aimlapi_extraction_model: str = "deepseek-v4-flash"
     deepseek_api_key: str | None = None
     deepseek_api_endpoint: str = "https://api.deepseek.com/chat/completions"
     deepseek_extraction_model: str = "deepseek-v4-flash"
+    kiro_api_key: str | None = None
+    kiro_cli_path: str = "kiro-cli"
     llm_extraction_enabled: bool = True
     llm_extraction_timeout_seconds: float = 12.0
     default_review_mode: str = "live_with_fallback"

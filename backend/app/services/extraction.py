@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 from datetime import datetime
+import os
 from pathlib import Path
 import re
+import subprocess
 from typing import Literal, Protocol
 
 import httpx
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
 
+from app.config import Settings
 from app.models import Company, EvidenceItem, Scan, utc_now
 from app.services.verification import verify_quote
 
@@ -73,46 +76,168 @@ class ExtractionClientError(RuntimeError):
     pass
 
 
-class DeepSeekExtractionClient:
-    """Small JSON-mode client for the opt-in live extraction proof path."""
+class ChatCompletionExtractionClient:
+    """Small JSON-mode client for OpenAI-compatible chat-completions providers."""
 
-    def __init__(self, api_key: str, endpoint: str, model: str, timeout_seconds: float) -> None:
+    def __init__(
+        self,
+        *,
+        api_key: str,
+        endpoint: str,
+        model: str,
+        timeout_seconds: float,
+        provider_name: str,
+        include_thinking_disabled: bool = False,
+    ) -> None:
         self.api_key = api_key
         self.endpoint = endpoint
         self.model = model
         self.timeout_seconds = timeout_seconds
+        self.provider_name = provider_name
+        self.include_thinking_disabled = include_thinking_disabled
 
     def complete_json(self, prompt: str) -> str:
+        payload = {
+            "model": self.model,
+            "messages": [
+                {
+                    "role": "system",
+                    "content": (
+                        "You extract public vendor-risk evidence. Return only one JSON object that "
+                        "matches the requested schema. Never infer a quote that is absent from the source."
+                    ),
+                },
+                {"role": "user", "content": prompt},
+            ],
+            "response_format": {"type": "json_object"},
+            "temperature": 0,
+            "max_tokens": 700,
+        }
+        if self.include_thinking_disabled:
+            payload["thinking"] = {"type": "disabled"}
+
         try:
             response = httpx.post(
                 self.endpoint,
                 headers={"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"},
-                json={
-                    "model": self.model,
-                    "messages": [
-                        {
-                            "role": "system",
-                            "content": (
-                                "You extract public vendor-risk evidence. Return only one JSON object that "
-                                "matches the requested schema. Never infer a quote that is absent from the source."
-                            ),
-                        },
-                        {"role": "user", "content": prompt},
-                    ],
-                    "response_format": {"type": "json_object"},
-                    "thinking": {"type": "disabled"},
-                    "temperature": 0,
-                    "max_tokens": 700,
-                },
+                json=payload,
                 timeout=self.timeout_seconds,
             )
             response.raise_for_status()
             content = response.json()["choices"][0]["message"]["content"]
         except (httpx.HTTPError, KeyError, IndexError, TypeError, ValueError) as exc:
-            raise ExtractionClientError("Structured extraction request failed.") from exc
+            raise ExtractionClientError(f"{self.provider_name} structured extraction request failed.") from exc
         if not isinstance(content, str) or not content.strip():
-            raise ExtractionClientError("Structured extraction returned empty content.")
+            raise ExtractionClientError(f"{self.provider_name} structured extraction returned empty content.")
         return content
+
+
+class AIMLAPIExtractionClient(ChatCompletionExtractionClient):
+    def __init__(self, api_key: str, endpoint: str, model: str, timeout_seconds: float) -> None:
+        super().__init__(
+            api_key=api_key,
+            endpoint=endpoint,
+            model=model,
+            timeout_seconds=timeout_seconds,
+            provider_name="AI/ML API",
+        )
+
+
+class DeepSeekExtractionClient(ChatCompletionExtractionClient):
+    def __init__(self, api_key: str, endpoint: str, model: str, timeout_seconds: float) -> None:
+        super().__init__(
+            api_key=api_key,
+            endpoint=endpoint,
+            model=model,
+            timeout_seconds=timeout_seconds,
+            provider_name="DeepSeek",
+            include_thinking_disabled=True,
+        )
+
+
+class KiroExtractionClient:
+    """Last-resort Kiro CLI client for headless structured extraction."""
+
+    def __init__(self, api_key: str, cli_path: str, timeout_seconds: float) -> None:
+        self.api_key = api_key
+        self.cli_path = cli_path
+        self.timeout_seconds = timeout_seconds
+
+    def complete_json(self, prompt: str) -> str:
+        kiro_prompt = (
+            "You extract public vendor-risk evidence. Return only one JSON object that matches the requested "
+            "schema. Never infer a quote that is absent from the source.\n\n"
+            f"{prompt}"
+        )
+        env = os.environ.copy()
+        env["KIRO_API_KEY"] = self.api_key
+        try:
+            completed = subprocess.run(
+                [self.cli_path, "chat", "--no-interactive", kiro_prompt],
+                capture_output=True,
+                check=False,
+                env=env,
+                text=True,
+                timeout=self.timeout_seconds,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            raise ExtractionClientError("Kiro structured extraction request failed.") from exc
+        if completed.returncode != 0:
+            raise ExtractionClientError("Kiro structured extraction request failed.")
+        return _extract_json_object(completed.stdout)
+
+
+class FallbackExtractionClient:
+    def __init__(self, clients: list[StructuredExtractionClient]) -> None:
+        self.clients = clients
+
+    def complete_json(self, prompt: str) -> str:
+        errors: list[str] = []
+        for client in self.clients:
+            try:
+                return client.complete_json(prompt)
+            except ExtractionClientError as exc:
+                errors.append(str(exc))
+        detail = "; ".join(errors) if errors else "No LLM providers are configured."
+        raise ExtractionClientError(f"All configured LLM providers failed. {detail}")
+
+
+def configured_extraction_client(settings: Settings) -> StructuredExtractionClient | None:
+    if not settings.llm_extraction_enabled:
+        return None
+
+    clients: list[StructuredExtractionClient] = []
+    if settings.aimlapi_api_key:
+        clients.append(
+            AIMLAPIExtractionClient(
+                api_key=settings.aimlapi_api_key,
+                endpoint=settings.aimlapi_api_endpoint,
+                model=settings.aimlapi_extraction_model,
+                timeout_seconds=settings.llm_extraction_timeout_seconds,
+            )
+        )
+    if settings.deepseek_api_key:
+        clients.append(
+            DeepSeekExtractionClient(
+                api_key=settings.deepseek_api_key,
+                endpoint=settings.deepseek_api_endpoint,
+                model=settings.deepseek_extraction_model,
+                timeout_seconds=settings.llm_extraction_timeout_seconds,
+            )
+        )
+    if settings.kiro_api_key:
+        clients.append(
+            KiroExtractionClient(
+                api_key=settings.kiro_api_key,
+                cli_path=settings.kiro_cli_path,
+                timeout_seconds=settings.llm_extraction_timeout_seconds,
+            )
+        )
+    if not clients:
+        return None
+    if len(clients) == 1:
+        return clients[0]
+    return FallbackExtractionClient(clients)
 
 
 def extract_source(
@@ -366,3 +491,19 @@ def _extraction_prompt(
         f"Vendor: {company.name} ({company.id})\nPublic source URL: {source_url}\n"
         f"Captured source text:\n{source_text[:MAX_SOURCE_CHARACTERS]}"
     )
+
+
+def _extract_json_object(content: str) -> str:
+    stripped = content.strip()
+    if stripped.startswith("{") and stripped.endswith("}"):
+        return stripped
+
+    fenced = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", stripped, flags=re.DOTALL | re.IGNORECASE)
+    if fenced:
+        return fenced.group(1).strip()
+
+    start = stripped.find("{")
+    end = stripped.rfind("}")
+    if start >= 0 and end > start:
+        return stripped[start : end + 1].strip()
+    raise ExtractionClientError("Kiro structured extraction returned no JSON object.")
