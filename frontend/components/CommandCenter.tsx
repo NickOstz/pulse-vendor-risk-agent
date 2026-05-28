@@ -3,9 +3,11 @@
 import { type FormEvent, useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
+  Moon,
   Plus,
   Power,
   ShieldWarning,
+  Sun,
   X,
 } from "@phosphor-icons/react";
 import { AgentStatusPanel } from "@/components/AgentStatusPanel";
@@ -62,6 +64,8 @@ type VendorFormState = {
   block_list_text: string;
 };
 
+type ThemeMode = "light" | "dark";
+
 const emptyVendorForm: VendorFormState = {
   name: "",
   domain: "",
@@ -110,6 +114,8 @@ export function CommandCenter() {
   const [vendorFormNotice, setVendorFormNotice] = useState<string | null>(null);
   const [watchlistBusy, setWatchlistBusy] = useState(false);
   const [operatorTokenSet, setOperatorTokenSet] = useState(false);
+  const [themeMode, setThemeMode] = useState<ThemeMode>("light");
+  const [themeReady, setThemeReady] = useState(false);
 
   const { scan, pollingError, isTerminal } = useScanPolling(activeScanId);
   const displayScan = scan ?? assessmentScan;
@@ -152,6 +158,27 @@ export function CommandCenter() {
   useEffect(() => {
     setOperatorTokenSet(hasOperatorToken());
   }, []);
+
+  useEffect(() => {
+    const storedTheme = window.localStorage.getItem("pulse.theme");
+    const nextTheme: ThemeMode =
+      storedTheme === "dark" || storedTheme === "light"
+        ? storedTheme
+        : window.matchMedia("(prefers-color-scheme: dark)").matches
+          ? "dark"
+          : "light";
+
+    applyThemeMode(nextTheme);
+    setThemeMode(nextTheme);
+    setThemeReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (!themeReady) return;
+
+    applyThemeMode(themeMode);
+    window.localStorage.setItem("pulse.theme", themeMode);
+  }, [themeMode, themeReady]);
 
   useEffect(() => {
     async function loadInitialData() {
@@ -542,6 +569,24 @@ export function CommandCenter() {
                   onTokenStateChange={setOperatorTokenSet}
                 />
               ) : null}
+              <button
+                type="button"
+                onClick={() =>
+                  setThemeMode((currentTheme) =>
+                    currentTheme === "dark" ? "light" : "dark",
+                  )
+                }
+                className="inline-flex min-h-7 items-center gap-1.5 rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-zinc-600 transition hover:border-zinc-300 active:scale-[0.97]"
+                aria-label={`Switch to ${themeMode === "dark" ? "light" : "dark"} mode`}
+                title={`Switch to ${themeMode === "dark" ? "light" : "dark"} mode`}
+              >
+                {themeMode === "dark" ? (
+                  <Sun size={13} weight="bold" />
+                ) : (
+                  <Moon size={13} weight="bold" />
+                )}
+                <span>{themeMode === "dark" ? "Light" : "Dark"}</span>
+              </button>
             </div>
             <h1 className="mt-4 max-w-3xl text-3xl font-semibold tracking-tight text-ink-950 sm:text-4xl">
               Autonomous vendor risk command center
@@ -1072,6 +1117,11 @@ function pickInitialCompany(companies: Company[]) {
     })[0] ??
     null
   );
+}
+
+function applyThemeMode(themeMode: ThemeMode) {
+  document.documentElement.dataset.theme = themeMode;
+  document.documentElement.style.colorScheme = themeMode;
 }
 
 async function listLatestWatchlistAlerts(companies: Company[]) {

@@ -4,8 +4,57 @@
 
 :root {
   color-scheme: light;
-  --background: #f7f7f4;
-  --foreground: #222222;
+  --background: oklch(0.975 0.008 96);
+  --foreground: oklch(0.19 0.01 95);
+  --surface: oklch(0.995 0.004 96);
+  --surface-muted: oklch(0.965 0.007 96);
+  --surface-strong: oklch(0.93 0.01 96);
+  --border: oklch(0.885 0.008 96);
+  --border-strong: oklch(0.75 0.012 96);
+  --muted: oklch(0.47 0.014 96);
+  --signal-bg: oklch(0.95 0.027 166);
+  --signal-ink: oklch(0.34 0.058 166);
+  --caution-bg: oklch(0.975 0.04 82);
+  --caution-ink: oklch(0.45 0.09 67);
+  --danger-bg: oklch(0.965 0.035 18);
+  --danger-ink: oklch(0.45 0.15 20);
+  --button-primary-bg: oklch(0.18 0.01 95);
+  --button-primary-fg: oklch(0.99 0.004 96);
+  --severity-low-bg: oklch(0.91 0.16 92);
+  --severity-low-border: oklch(0.79 0.15 88);
+  --severity-low-ink: oklch(0.32 0.09 62);
+  --severity-medium-bg: oklch(0.88 0.13 58);
+  --severity-medium-border: oklch(0.73 0.13 50);
+  --severity-medium-ink: oklch(0.31 0.11 38);
+  --severity-high-bg: oklch(0.91 0.075 18);
+  --severity-high-border: oklch(0.78 0.1 18);
+  --severity-high-ink: oklch(0.35 0.14 20);
+  --severity-unknown-bg: oklch(0.94 0.006 96);
+  --severity-unknown-border: oklch(0.82 0.008 96);
+  --severity-unknown-ink: oklch(0.36 0.012 96);
+}
+
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --background: oklch(0.17 0.012 95);
+  --foreground: oklch(0.93 0.008 96);
+  --surface: oklch(0.215 0.013 95);
+  --surface-muted: oklch(0.255 0.012 95);
+  --surface-strong: oklch(0.31 0.012 95);
+  --border: oklch(0.35 0.014 95);
+  --border-strong: oklch(0.48 0.018 95);
+  --muted: oklch(0.72 0.012 96);
+  --signal-bg: oklch(0.25 0.042 166);
+  --signal-ink: oklch(0.82 0.078 166);
+  --caution-bg: oklch(0.28 0.045 70);
+  --caution-ink: oklch(0.86 0.12 82);
+  --danger-bg: oklch(0.27 0.055 18);
+  --danger-ink: oklch(0.82 0.11 18);
+  --button-primary-bg: oklch(0.93 0.008 96);
+  --button-primary-fg: oklch(0.16 0.012 95);
+  --severity-unknown-bg: oklch(0.3 0.012 96);
+  --severity-unknown-border: oklch(0.48 0.014 96);
+  --severity-unknown-ink: oklch(0.88 0.008 96);
 }
 
 * {
@@ -14,16 +63,17 @@
 
 html {
   scroll-behavior: smooth;
+  overflow-x: clip;
 }
 
 body {
   min-height: 100dvh;
   margin: 0;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.76), rgba(247, 247, 244, 0.92)),
-    radial-gradient(circle at top left, rgba(45, 128, 107, 0.14), transparent 30rem),
+    linear-gradient(180deg, color-mix(in oklch, var(--surface) 84%, transparent), var(--background)),
     var(--background);
   color: var(--foreground);
+  overflow-x: clip;
 }
 
 button,
@@ -34,4 +84,137 @@ a {
 ::selection {
   background: #dcece7;
   color: #171717;
+}
+
+/* Hallmark: app shell tokens, theme overlay, and severity signal component. */
+.severity-signal {
+  display: inline-flex;
+  min-height: 2.5rem;
+  min-width: 4rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--severity-unknown-border);
+  border-radius: 0.5rem;
+  background: var(--severity-unknown-bg);
+  color: var(--severity-unknown-ink);
+  padding: 0.55rem 0.7rem;
+  text-align: center;
+  box-shadow: inset 0 -1px 0 color-mix(in oklch, currentColor 16%, transparent);
+}
+
+.severity-signal-compact {
+  min-height: 2rem;
+  min-width: 3.35rem;
+  padding: 0.35rem 0.55rem;
+}
+
+.severity-signal-label {
+  color: inherit;
+  font-size: 0.68rem;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.severity-signal-low {
+  border-color: var(--severity-low-border);
+  background: var(--severity-low-bg);
+  color: var(--severity-low-ink);
+}
+
+.severity-signal-medium {
+  border-color: var(--severity-medium-border);
+  background: var(--severity-medium-bg);
+  color: var(--severity-medium-ink);
+}
+
+.severity-signal-high {
+  border-color: var(--severity-high-border);
+  background: var(--severity-high-bg);
+  color: var(--severity-high-ink);
+}
+
+html[data-theme="dark"] .bg-white,
+html[data-theme="dark"] .bg-white\/95 {
+  background-color: var(--surface) !important;
+}
+
+html[data-theme="dark"] .bg-zinc-50,
+html[data-theme="dark"] .bg-zinc-50\/80,
+html[data-theme="dark"] .bg-zinc-100 {
+  background-color: var(--surface-muted) !important;
+}
+
+html[data-theme="dark"] .bg-signal-50 {
+  background-color: var(--signal-bg) !important;
+}
+
+html[data-theme="dark"] .bg-caution-50 {
+  background-color: var(--caution-bg) !important;
+}
+
+html[data-theme="dark"] .bg-rose-50 {
+  background-color: var(--danger-bg) !important;
+}
+
+html[data-theme="dark"] .bg-ink-950 {
+  background-color: var(--button-primary-bg) !important;
+  color: var(--button-primary-fg) !important;
+}
+
+html[data-theme="dark"] .border-zinc-100,
+html[data-theme="dark"] .border-zinc-200,
+html[data-theme="dark"] .border-zinc-300 {
+  border-color: var(--border) !important;
+}
+
+html[data-theme="dark"] .border-ink-900 {
+  border-color: var(--border-strong) !important;
+}
+
+html[data-theme="dark"] .divide-zinc-100 > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--border) !important;
+}
+
+html[data-theme="dark"] .text-ink-950,
+html[data-theme="dark"] .text-ink-900,
+html[data-theme="dark"] .text-black {
+  color: var(--foreground) !important;
+}
+
+html[data-theme="dark"] .text-zinc-700,
+html[data-theme="dark"] .text-zinc-600,
+html[data-theme="dark"] .text-zinc-500 {
+  color: var(--muted) !important;
+}
+
+html[data-theme="dark"] .text-signal-700,
+html[data-theme="dark"] .text-signal-600 {
+  color: var(--signal-ink) !important;
+}
+
+html[data-theme="dark"] .text-caution-700 {
+  color: var(--caution-ink) !important;
+}
+
+html[data-theme="dark"] .text-rose-700 {
+  color: var(--danger-ink) !important;
+}
+
+html[data-theme="dark"] input,
+html[data-theme="dark"] select,
+html[data-theme="dark"] textarea {
+  background-color: var(--surface) !important;
+  border-color: var(--border) !important;
+  color: var(--foreground) !important;
+}
+
+html[data-theme="dark"] input::placeholder,
+html[data-theme="dark"] textarea::placeholder {
+  color: color-mix(in oklch, var(--muted) 70%, transparent) !important;
+}
+
+html[data-theme="dark"] .shadow-soft {
+  box-shadow: 0 22px 70px -52px oklch(0 0 0 / 0.85) !important;
 }

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { DownloadSimple, FileText } from "@phosphor-icons/react";
 import { Badge, SourceModeBadge } from "@/components/Badge";
+import { SeveritySignal } from "@/components/SeveritySignal";
 import { labelize } from "@/lib/formatters";
 import {
   getSourceModes,
@@ -265,7 +266,7 @@ function BriefEvidenceRow({
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <SeverityBadge severity={severity} />
+          <SeveritySignal severity={severity} size="compact" />
           {isSourceMode(mode) ? <SourceModeBadge mode={mode} /> : null}
           <Badge tone={support === "verified" ? "good" : "neutral"}>
             {support || "unknown"}
@@ -293,27 +294,6 @@ function BriefEvidenceRow({
         </BriefEvidenceField>
       </div>
     </div>
-  );
-}
-
-function SeverityBadge({ severity }: { severity: string }) {
-  const normalized = (severity || "n/a").toLowerCase();
-  const className =
-    normalized === "high"
-      ? "border-rose-200 bg-rose-50 text-rose-700"
-      : normalized === "low"
-        ? "border-amber-200 bg-amber-50 text-amber-700"
-        : normalized === "medium"
-          ? "border-yellow-200 bg-yellow-50 text-yellow-700"
-          : "border-zinc-200 bg-white text-zinc-600";
-
-  return (
-    <span
-      className={`inline-flex min-h-6 items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] ${className}`}
-      title="Severity"
-    >
-      {severity || "n/a"}
-    </span>
   );
 }
 
@@ -360,6 +340,15 @@ function buildShareableHtmlDocument(articleHtml: string, companyName: string) {
       --signal: #1d5547;
       --signal-soft: #dcece7;
       --caution-soft: #fff8ed;
+      --severity-low-bg: #fde68a;
+      --severity-low-border: #eab308;
+      --severity-low-ink: #713f12;
+      --severity-medium-bg: #fed7aa;
+      --severity-medium-border: #f97316;
+      --severity-medium-ink: #7c2d12;
+      --severity-high-bg: #fecdd3;
+      --severity-high-border: #fb7185;
+      --severity-high-ink: #881337;
     }
     * { box-sizing: border-box; }
     body {
@@ -442,26 +431,35 @@ function buildShareableHtmlDocument(articleHtml: string, companyName: string) {
     }
     .severity {
       display: inline-flex;
-      border: 1px solid #fde68a;
-      border-radius: 999px;
-      background: #fffbeb;
-      padding: 3px 8px;
-      color: #92400e;
-      font-size: 10px;
+      min-width: 52px;
+      min-height: 28px;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--severity-low-border);
+      border-radius: 8px;
+      background: var(--severity-low-bg);
+      padding: 6px 8px;
+      color: var(--severity-low-ink);
+      font-size: 10.5px;
       font-weight: 800;
-      letter-spacing: 0.06em;
+      letter-spacing: 0.08em;
       text-transform: uppercase;
       white-space: nowrap;
     }
     .severity-high {
-      border-color: #fecdd3;
-      background: #fff1f2;
-      color: #be123c;
+      border-color: var(--severity-high-border);
+      background: var(--severity-high-bg);
+      color: var(--severity-high-ink);
+    }
+    .severity-medium {
+      border-color: var(--severity-medium-border);
+      background: var(--severity-medium-bg);
+      color: var(--severity-medium-ink);
     }
     .severity-low {
-      border-color: #fde68a;
-      background: #fffbeb;
-      color: #a16207;
+      border-color: var(--severity-low-border);
+      background: var(--severity-low-bg);
+      color: var(--severity-low-ink);
     }
     a {
       color: var(--signal);

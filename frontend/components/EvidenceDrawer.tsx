@@ -8,6 +8,7 @@ import {
 import { Badge, SourceModeBadge, SupportBadge } from "@/components/Badge";
 import { QuoteVerificationView } from "@/components/QuoteVerificationView";
 import { ScoreTooltip } from "@/components/ScoreTooltip";
+import { SeveritySignal } from "@/components/SeveritySignal";
 import { formatDateTime, formatPercent, labelize } from "@/lib/formatters";
 import {
   countSourceMode,
@@ -135,11 +136,14 @@ export function EvidenceDrawer({
                     : "border-zinc-200 hover:border-zinc-300"
                 }`}
               >
-                <div className="flex flex-wrap items-center gap-2">
-                  <SupportBadge status={item.support_status} />
-                  <Badge tone={item.severity_hint === "high" ? "warn" : "neutral"}>
-                    {item.signal_type}
-                  </Badge>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex min-w-0 flex-wrap items-center gap-2">
+                    <SupportBadge status={item.support_status} />
+                    <Badge tone={item.severity_hint === "high" ? "warn" : "neutral"}>
+                      {item.signal_type}
+                    </Badge>
+                  </div>
+                  <SeveritySignal severity={item.severity_hint} size="compact" />
                 </div>
                 <h3 className="mt-3 text-sm font-semibold leading-5 text-ink-950">
                   {item.claim}
@@ -188,10 +192,7 @@ export function EvidenceDrawer({
                     label="Confidence"
                     value={formatPercent(selectedEvidence.confidence)}
                   />
-                  <Detail
-                    label="Severity"
-                    value={labelize(selectedEvidence.severity_hint)}
-                  />
+                  <SeverityDetail severity={selectedEvidence.severity_hint} />
                   <Detail
                     label="Published"
                     value={formatDateTime(selectedEvidence.published_or_captured_at)}
@@ -385,6 +386,17 @@ function Detail({ label, value }: { label: string; value: string }) {
     <div className="rounded-md bg-zinc-50 p-3">
       <dt className="text-xs text-zinc-500">{label}</dt>
       <dd className="mt-1 truncate font-medium text-ink-900">{value}</dd>
+    </div>
+  );
+}
+
+function SeverityDetail({ severity }: { severity: string }) {
+  return (
+    <div className="rounded-md bg-zinc-50 p-3">
+      <dt className="text-xs text-zinc-500">Severity</dt>
+      <dd className="mt-2">
+        <SeveritySignal severity={severity} size="compact" />
+      </dd>
     </div>
   );
 }
