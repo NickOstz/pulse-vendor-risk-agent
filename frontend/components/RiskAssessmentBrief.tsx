@@ -61,9 +61,12 @@ export function RiskAssessmentBrief({
     : 0;
   const [exportError, setExportError] = useState<string | null>(null);
   const [htmlExporting, setHtmlExporting] = useState(false);
-  const autonomousWork = evidence
-    .map(getAutonomousMcpWork)
-    .filter((work): work is AutonomousMcpWork => work !== null);
+  const autonomousWork = dedupeAutonomousWork(
+    evidence
+      .filter((item) => item.scan_id === brief?.scan_id)
+      .map(getAutonomousMcpWork)
+      .filter((work): work is AutonomousMcpWork => work !== null),
+  );
 
   function downloadBrief(exportBrief: VendorReviewBrief) {
     if (!exportBrief.content) return;
@@ -184,16 +187,6 @@ export function RiskAssessmentBrief({
                 {exportError}
               </p>
             ) : null}
-            {autonomousWork.length > 0 ? (
-              <div className="space-y-3">
-                {autonomousWork.map((work) => (
-                  <AutonomousMcpWorkPanel
-                    key={`${work.vendor}-${work.targetVendor}`}
-                    work={work}
-                  />
-                ))}
-              </div>
-            ) : null}
             <div className="divide-y divide-zinc-100">
               {sections.map((section) => (
                 <article key={section.title} className="py-4 first:pt-0 last:pb-0">
@@ -201,7 +194,10 @@ export function RiskAssessmentBrief({
                     {section.title}
                   </h3>
                   {isMarkdownTable(section.lines) ? (
-                    <BriefEvidenceTable lines={section.lines} />
+                    <BriefEvidenceTable
+                      lines={section.lines}
+                      autonomousWork={autonomousWork}
+                    />
                   ) : (
                     <BriefSectionBody lines={section.lines} />
                   )}
@@ -238,10 +234,10 @@ function BriefMetric({ label, value }: { label: string; value: string }) {
 
 function AutonomousMcpWorkPanel({ work }: { work: AutonomousMcpWork }) {
   return (
-    <section className="overflow-hidden rounded-lg border border-signal-200 bg-signal-50 shadow-soft">
-      <div className="border-b border-signal-100 bg-white/60 p-4">
+    <section className="mt-3 overflow-hidden rounded-lg border border-signal-100 bg-white shadow-soft">
+      <div className="border-b border-zinc-100 bg-zinc-50 p-3 sm:p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
+          <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <span className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-ink-950 text-white">
                 <Lightning size={17} weight="fill" />
@@ -250,15 +246,15 @@ function AutonomousMcpWorkPanel({ work }: { work: AutonomousMcpWork }) {
                 <p className="text-xs font-semibold uppercase tracking-[0.08em] text-signal-700">
                   Pulse AI Agent Work
                 </p>
-                <h3 className="mt-1 text-sm font-semibold text-ink-950">
-                  Autonomous outage failover completed
+                <h3 className="mt-1 text-sm font-semibold leading-5 text-ink-950">
+                  Autonomous outage migration completed
                 </h3>
               </div>
             </div>
-            <p className="mt-3 max-w-3xl text-sm leading-6 text-zinc-700">
-              High-severity outage evidence crossed the autonomous threshold.
-              Pulse alerted the owner, connected to vendor MCP servers, moved
-              the affected dependency, and closed the incident loop.
+            <p className="mt-3 text-sm leading-6 text-zinc-700">
+              High-severity outage evidence triggered autonomous work. Pulse
+              alerted the owner, used the vendor MCP servers, moved the affected
+              service to a healthy provider, and confirmed the issue is resolved.
             </p>
           </div>
           <div className="inline-flex items-center gap-2 rounded-full border border-signal-200 bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-signal-700">
@@ -268,27 +264,25 @@ function AutonomousMcpWorkPanel({ work }: { work: AutonomousMcpWork }) {
         </div>
       </div>
 
-      <div className="grid gap-3 p-4 lg:grid-cols-[0.8fr_1.2fr]">
-        <div className="rounded-md border border-signal-100 bg-white p-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-zinc-500">
-            Live failover path
+      <div className="p-3 sm:p-4">
+        <div className="rounded-md border border-zinc-200 bg-zinc-50 p-3 sm:p-4">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-zinc-500">
+            Service migration path
           </p>
-          <div className="mt-3 flex items-center gap-2 text-sm font-semibold text-ink-950">
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-sm font-semibold text-ink-950">
             <span>{work.vendor}</span>
             <ArrowClockwise size={16} className="text-signal-700" />
             <span>{work.targetVendor}</span>
           </div>
-          <dl className="mt-4 space-y-3 text-xs">
+          <dl className="mt-4 grid gap-3 text-xs md:grid-cols-2">
             <McpEndpoint label={`${work.vendor} MCP`} value={work.sourceMcp} />
             <McpEndpoint label={`${work.targetVendor} MCP`} value={work.targetMcp} />
           </dl>
-        </div>
 
-        <div className="rounded-md border border-signal-100 bg-white p-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-zinc-500">
+          <p className="mt-5 text-[11px] font-semibold uppercase tracking-[0.08em] text-zinc-500">
             Execution log
           </p>
-          <ol className="mt-3 space-y-2">
+          <ol className="mt-3 grid gap-2 md:grid-cols-2">
             {work.steps.map((step, index) => (
               <li key={step} className="flex gap-2 text-sm leading-6 text-zinc-700">
                 <span className="mt-1 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-signal-600 text-[10px] font-bold text-white">
@@ -314,12 +308,12 @@ function AutonomousMcpWorkPanel({ work }: { work: AutonomousMcpWork }) {
 
 function McpEndpoint({ label, value }: { label: string; value: string }) {
   return (
-    <div>
+    <div className="min-w-0">
       <dt className="flex items-center gap-1 text-zinc-500">
         <PlugsConnected size={13} />
         {label}
       </dt>
-      <dd className="mt-1 truncate font-mono text-ink-900" title={value}>
+      <dd className="mt-1 break-all font-mono text-ink-900" title={value}>
         {value}
       </dd>
     </div>
@@ -343,7 +337,13 @@ function BriefSectionBody({ lines }: { lines: string[] }) {
   );
 }
 
-function BriefEvidenceTable({ lines }: { lines: string[] }) {
+function BriefEvidenceTable({
+  lines,
+  autonomousWork,
+}: {
+  lines: string[];
+  autonomousWork: AutonomousMcpWork[];
+}) {
   const headings = parseTableRow(lines[0]);
   const rows = parseTableRows(lines);
 
@@ -354,6 +354,7 @@ function BriefEvidenceTable({ lines }: { lines: string[] }) {
           key={row.join("|") || rowIndex}
           headings={headings}
           row={row}
+          autonomousWork={autonomousWork}
         />
       ))}
     </div>
@@ -363,9 +364,11 @@ function BriefEvidenceTable({ lines }: { lines: string[] }) {
 function BriefEvidenceRow({
   headings,
   row,
+  autonomousWork,
 }: {
   headings: string[];
   row: string[];
+  autonomousWork: AutonomousMcpWork[];
 }) {
   const values = Object.fromEntries(
     headings.map((heading, index) => [heading.toLowerCase(), row[index] ?? ""]),
@@ -374,52 +377,71 @@ function BriefEvidenceRow({
   const support = values.support;
   const source = values.source;
   const severity = values.severity;
+  const rowWork = autonomousWork.filter((work) => work.sourceUrl === source);
+  const actionLabel = rowWork.length > 0 ? "Pulse action" : "Recommended action";
 
   return (
-    <div
-      className={`severity-surface severity-surface-${normalizeSeveritySignal(
-        severity,
-      )} rounded-md border p-3 shadow-[0_14px_28px_-24px_rgba(24,24,27,0.45)] transition hover:brightness-[0.99]`}
-    >
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-zinc-500">
-            Signal
-          </p>
-          <p className="mt-1 text-sm font-semibold leading-5 text-ink-950">
-            {values.signal}
-          </p>
+    <div>
+      <div
+        className={`severity-surface severity-surface-${normalizeSeveritySignal(
+          severity,
+        )} rounded-md border p-3 shadow-[0_14px_28px_-24px_rgba(24,24,27,0.45)] transition hover:brightness-[0.99]`}
+      >
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-zinc-500">
+              Signal
+            </p>
+            <p className="mt-1 text-sm font-semibold leading-5 text-ink-950">
+              {values.signal}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <SeveritySignal severity={severity} size="compact" />
+            {isSourceMode(mode) ? <SourceModeBadge mode={mode} /> : null}
+            <Badge tone={support === "verified" ? "good" : "neutral"}>
+              {support || "unknown"}
+            </Badge>
+          </div>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <SeveritySignal severity={severity} size="compact" />
-          {isSourceMode(mode) ? <SourceModeBadge mode={mode} /> : null}
-          <Badge tone={support === "verified" ? "good" : "neutral"}>
-            {support || "unknown"}
-          </Badge>
-        </div>
-      </div>
 
-      <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1.1fr)_minmax(220px,0.9fr)]">
-        <BriefEvidenceField label="Source">
-          {/^https?:\/\//.test(source) ? (
-            <a
-              href={source}
-              target="_blank"
-              rel="noreferrer"
-              className="break-all font-mono text-[11px] leading-5 text-signal-700 underline decoration-signal-100 underline-offset-2 hover:text-signal-600"
-            >
-              {source}
-            </a>
-          ) : (
-            source || "Not available"
-          )}
-        </BriefEvidenceField>
-        <BriefEvidenceField label="Recommended action">
-          {values["recommended action"] || "Await verified source support."}
-        </BriefEvidenceField>
+        <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1.1fr)_minmax(220px,0.9fr)]">
+          <BriefEvidenceField label="Source">
+            {/^https?:\/\//.test(source) ? (
+              <a
+                href={source}
+                target="_blank"
+                rel="noreferrer"
+                className="break-all font-mono text-[11px] leading-5 text-signal-700 underline decoration-signal-100 underline-offset-2 hover:text-signal-600"
+              >
+                {source}
+              </a>
+            ) : (
+              source || "Not available"
+            )}
+          </BriefEvidenceField>
+          <BriefEvidenceField label={actionLabel}>
+            {rowWork[0]?.summary ??
+              values["recommended action"] ??
+              "Await verified source support."}
+          </BriefEvidenceField>
+        </div>
       </div>
+      {rowWork.map((work) => (
+        <AutonomousMcpWorkPanel key={work.evidenceId} work={work} />
+      ))}
     </div>
   );
+}
+
+function dedupeAutonomousWork(workItems: AutonomousMcpWork[]) {
+  const seen = new Set<string>();
+  return workItems.filter((work) => {
+    const key = `${work.vendor}:${work.targetVendor}:${work.sourceUrl}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function BriefEvidenceField({

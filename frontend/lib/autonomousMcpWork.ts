@@ -1,6 +1,8 @@
 import type { EvidenceItem } from "@/lib/types";
 
 export type AutonomousMcpWork = {
+  evidenceId: string;
+  sourceUrl: string;
   vendor: string;
   targetVendor: string;
   sourceMcp: string;
@@ -36,38 +38,42 @@ export function getAutonomousMcpWork(
 
   if (text.includes("aws") || text.includes("amazon")) {
     return {
+      evidenceId: evidence.id,
+      sourceUrl: evidence.source_url,
       vendor: "AWS",
       targetVendor: "Cloudflare",
       sourceMcp: "https://aws-mcp.us-east-1.api.aws/mcp",
       targetMcp: "https://mcp.cloudflare.com/mcp",
       summary:
-        "Pulse action: migrated affected edge traffic from AWS to Cloudflare. Issue resolved.",
+        "Pulse moved affected traffic from AWS to Cloudflare and verified the issue is resolved.",
       result:
-        "Cloudflare route is serving the protected workload; AWS dependency remains monitored until recovery stabilizes.",
+        "Cloudflare is now serving the protected workload; AWS remains monitored until recovery stabilizes.",
       steps: [
-        "Alerted IT owner that verified AWS outage evidence crossed the high-severity threshold.",
-        "Connected to AWS MCP to freeze the affected dependency and capture current routing state.",
-        "Connected to Cloudflare MCP and promoted the standby edge route for the impacted service.",
-        "Verified the Cloudflare route returned healthy checks and closed the incident as resolved.",
+        "Alerted IT owner that verified AWS outage evidence was high severity.",
+        "Connected to AWS MCP to read the impacted service and current route.",
+        "Connected to Cloudflare MCP and moved the affected traffic to the healthy Cloudflare path.",
+        "Verified Cloudflare health checks and marked the issue resolved.",
       ],
     };
   }
 
   if (text.includes("cloudflare")) {
     return {
+      evidenceId: evidence.id,
+      sourceUrl: evidence.source_url,
       vendor: "Cloudflare",
       targetVendor: "AWS",
       sourceMcp: "https://mcp.cloudflare.com/mcp",
       targetMcp: "https://aws-mcp.us-east-1.api.aws/mcp",
       summary:
-        "Pulse action: migrated affected edge traffic from Cloudflare to AWS. Issue resolved.",
+        "Pulse moved affected traffic from Cloudflare to AWS and verified the issue is resolved.",
       result:
-        "AWS fallback route is active; Cloudflare dependency remains monitored until the outage clears.",
+        "AWS is now serving the protected workload; Cloudflare remains monitored until recovery stabilizes.",
       steps: [
-        "Alerted Security owner that verified Cloudflare outage evidence crossed the high-severity threshold.",
-        "Connected to Cloudflare MCP to pause the impacted edge route and capture failover context.",
-        "Connected to AWS MCP and promoted the standby application route for the affected traffic.",
-        "Verified the AWS route returned healthy checks and closed the incident as resolved.",
+        "Alerted Security owner that verified Cloudflare outage evidence was high severity.",
+        "Connected to Cloudflare MCP to read the impacted service and current route.",
+        "Connected to AWS MCP and moved the affected traffic to the healthy AWS path.",
+        "Verified AWS health checks and marked the issue resolved.",
       ],
     };
   }
