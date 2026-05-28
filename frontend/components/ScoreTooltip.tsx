@@ -17,7 +17,7 @@ export function ScoreTooltip({ alert }: { alert: Alert }) {
         <p className="font-semibold text-ink-950">Deterministic score</p>
         <p className="mt-1 leading-5 text-zinc-600">
           The LLM does not set this score. Verified evidence uses severity,
-          source reliability, confidence, freshness, and vendor criticality.
+          source reliability, confidence, freshness, and vendor context.
         </p>
         <dl className="mt-3 grid grid-cols-2 gap-2 font-mono text-[11px] text-zinc-600">
           {Object.entries(factors).map(([key, value]) => (

@@ -23,6 +23,7 @@ export function VendorCard({
 }) {
   const topAlert = alerts.find((alert) => alert.company_id === company.id);
   const alertState = getVendorAlertState(company, hasNewFinding, findingCount);
+  const scorePriority = topAlert ? getScorePriorityLabel(topAlert.score) : null;
 
   return (
     <article
@@ -63,9 +64,9 @@ export function VendorCard({
           <p className="mt-1 font-medium text-ink-900">{company.owner}</p>
         </div>
         <div>
-          <p className="text-zinc-500">Alert score</p>
+          <p className="text-zinc-500">Latest score</p>
           <p className="mt-1 font-mono font-semibold text-ink-900">
-            {topAlert ? topAlert.score : "no new"}
+            {topAlert ? `${topAlert.score} (${scorePriority})` : "no new"}
           </p>
         </div>
         <div className="col-span-2 flex items-center gap-2 border-t border-zinc-100 pt-3">
@@ -106,6 +107,13 @@ export function VendorCard({
       ) : null}
     </article>
   );
+}
+
+function getScorePriorityLabel(score: number) {
+  if (score >= 80) return "Urgent";
+  if (score >= 60) return "High";
+  if (score >= 30) return "Medium";
+  return "Low";
 }
 
 function getVendorAlertState(
