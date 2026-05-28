@@ -278,9 +278,14 @@ function validateAlertChannel(channel: AlertChannel, value: string) {
 
   try {
     const url = new URL(value);
+    const host = url.hostname.toLowerCase();
+    const isDiscordHost =
+      host === "discord.com" ||
+      host === "discordapp.com" ||
+      host.endsWith(".discord.com");
     if (
       url.protocol === "https:" &&
-      url.hostname === "discord.com" &&
+      isDiscordHost &&
       url.pathname.startsWith("/api/webhooks/")
     ) {
       return null;
