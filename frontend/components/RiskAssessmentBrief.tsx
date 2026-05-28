@@ -3,11 +3,11 @@
 import { useState } from "react";
 import {
   ArrowClockwise,
+  CaretDown,
   CheckCircle,
   DownloadSimple,
   FileText,
   Lightning,
-  PlugsConnected,
   ShieldCheck,
 } from "@phosphor-icons/react";
 import { Badge, SourceModeBadge } from "@/components/Badge";
@@ -315,15 +315,38 @@ function AutonomousMcpWorkPanel({ work }: { work: AutonomousMcpWork }) {
 }
 
 function McpEndpoint({ label, value }: { label: string; value: string }) {
+  const [expanded, setExpanded] = useState(false);
+
   return (
     <div className="min-w-0">
-      <dt className="flex items-center gap-1 text-zinc-500">
-        <PlugsConnected size={13} />
-        {label}
+      <dt>
+        <button
+          type="button"
+          onClick={() => setExpanded((current) => !current)}
+          className="flex w-full items-center justify-between gap-2 rounded-md border border-zinc-200 bg-white px-2.5 py-2 text-left text-xs font-semibold text-ink-950 transition hover:border-signal-100 hover:text-signal-700 active:scale-[0.99]"
+          aria-expanded={expanded}
+        >
+          <span className="flex min-w-0 items-center gap-2">
+            <span className="h-2 w-2 shrink-0 rounded-full bg-signal-600 shadow-[0_0_0_3px_rgba(29,85,71,0.12)]" />
+            <span className="truncate">{label} connected</span>
+          </span>
+          <CaretDown
+            size={14}
+            className={`shrink-0 text-zinc-500 transition ${
+              expanded ? "rotate-180 text-signal-700" : ""
+            }`}
+            weight="bold"
+          />
+        </button>
       </dt>
-      <dd className="mt-1 break-all font-mono text-ink-900" title={value}>
-        {value}
-      </dd>
+      {expanded ? (
+        <dd
+          className="mt-2 rounded-md border border-zinc-200 bg-white px-2.5 py-2 font-mono text-[11px] leading-5 text-ink-900"
+          title={value}
+        >
+          <span className="break-all">{value}</span>
+        </dd>
+      ) : null}
     </div>
   );
 }
