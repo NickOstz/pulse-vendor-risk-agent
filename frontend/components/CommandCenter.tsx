@@ -653,7 +653,7 @@ export function CommandCenter() {
                   Selected vendor: {selectedCompany.name}
                 </p>
                 <p className="mt-1 text-sm leading-6 text-zinc-600">
-                  Daily autonomous review for {selectedCompany.relationship_type}.
+                  Realtime autonomous review for {selectedCompany.relationship_type}.
                   Renewal {formatDate(selectedCompany.renewal_date)}. The frontend
                   never calls Bright Data or exposes keys.
                 </p>
