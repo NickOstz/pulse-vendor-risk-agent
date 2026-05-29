@@ -11,24 +11,28 @@ import {
 import {
   ArrowLeft,
   ArrowRight,
-  Moon,
+  CalendarBlank,
+  CaretDown,
+  Check,
+  Clock,
+  LinkSimple,
   Plus,
   Power,
-  ShieldWarning,
-  Sun,
+  Pulse,
+  SealCheck,
+  ShieldCheck,
+  Target,
+  WarningCircle,
   X,
 } from "@phosphor-icons/react";
-import { Wordmark } from "@/components/landing/icons";
-import { AgentStatusPanel } from "@/components/AgentStatusPanel";
-import { AgentToggle } from "@/components/AgentToggle";
+import { VendorLogo, Wordmark } from "@/components/landing/icons";
+import { AlertChannelsPanel } from "@/components/AlertChannelsPanel";
 import { Badge } from "@/components/Badge";
 import { DemoHealthIndicator } from "@/components/DemoHealthIndicator";
 import { EvidenceDrawer } from "@/components/EvidenceDrawer";
 import { OperatorAccess } from "@/components/OperatorAccess";
-import { ReviewStatusStrip } from "@/components/ReviewStatusStrip";
 import { RiskAssessmentBrief } from "@/components/RiskAssessmentBrief";
 import { SourceRulesPanel } from "@/components/SourceRulesPanel";
-import { VendorCard } from "@/components/VendorCard";
 import { useScanPolling } from "@/hooks/useScanPolling";
 import {
   createCompany,
@@ -51,7 +55,8 @@ import {
   verifyStoredOperatorToken,
 } from "@/lib/api";
 import { formatDate, labelize } from "@/lib/formatters";
-import { saveVendorMcpServerUrl } from "@/lib/vendorMcp";
+import { summarizeSourceModes } from "@/lib/sourceModes";
+import { getVendorMcpServerUrl, saveVendorMcpServerUrl } from "@/lib/vendorMcp";
 import type {
   AgentStatusResponse,
   Alert,
@@ -60,6 +65,7 @@ import type {
   EvidenceItem,
   HealthResponse,
   ScanStatusResponse,
+  StageStatus,
   VendorReviewBrief,
 } from "@/lib/types";
 
@@ -79,6 +85,7 @@ type SeenVendorAlertKeys = Record<string, string[]>;
 
 const seenVendorAlertKeysStorageKey = "pulse.seenVendorAlertKeys";
 const legacySeenVendorAlertIdsStorageKey = "pulse.seenVendorAlertIds";
+const dashboardStageLabels = ["Collect", "Extract", "Verify", "Score", "Brief"];
 
 const emptyVendorForm: VendorFormState = {
   name: "",
@@ -596,91 +603,49 @@ export function CommandCenter() {
   }
 
   return (
-    <main className="min-h-[100dvh] px-4 py-5 sm:px-6 2xl:px-8">
-      <div className="mx-auto max-w-[1720px]">
-        <header className="grid gap-4 border-b border-zinc-200 pb-5 lg:grid-cols-[1.1fr_0.9fr] lg:items-end">
-          <div className="flex items-center justify-between gap-3 lg:col-span-2">
-            <a href="/" aria-label="Pulse home" className="inline-flex items-center">
-              <Wordmark size={22} />
-            </a>
-            <a
-              href="/"
-              className="inline-flex items-center gap-1.5 rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-600 transition hover:border-zinc-300 hover:text-ink-950"
-            >
-              <ArrowLeft size={13} weight="bold" /> Back to site
-            </a>
+    <main className="demo-app">
+      <header className="topbar">
+        <div className="topbar__l">
+          <a href="/" aria-label="Pulse home" className="inline-flex items-center">
+            <Wordmark size={28} />
+          </a>
+          <span className="topbar__crumb">
+            <span>/</span>
+            <b>Command Center</b>
+          </span>
+        </div>
+        <div className="topbar__r">
+          <div className="topbar__badges">
+            <span className="ccbadge">Pulse MVP</span>
+            <span className="ccbadge ccbadge--live">
+              <span className="livedot" style={{ width: 6, height: 6 }} />
+              {usesFixtureData ? "Fixture replay" : "Live API mode"}
+            </span>
+            <DemoHealthIndicator
+              health={health}
+              loading={healthLoading}
+              fixtureMode={usesFixtureData}
+            />
           </div>
-          <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge tone="good">Pulse MVP</Badge>
-              <Badge tone={usesFixtureData ? "warn" : "good"}>
-                {usesFixtureData ? "Fixture replay mode" : "Live API mode"}
-              </Badge>
-              <DemoHealthIndicator
-                health={health}
-                loading={healthLoading}
-                fixtureMode={usesFixtureData}
-              />
-              {!usesFixtureData && health?.write_protection_enabled ? (
-                <OperatorAccess
-                  tokenSet={operatorTokenSet}
-                  onTokenStateChange={setOperatorTokenSet}
-                />
-              ) : null}
-              <button
-                type="button"
-                onClick={() =>
-                  setThemeMode((currentTheme) =>
-                    currentTheme === "dark" ? "light" : "dark",
-                  )
-                }
-                className="inline-flex min-h-7 items-center gap-1.5 rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-zinc-600 transition hover:border-zinc-300 active:scale-[0.97]"
-                aria-label={`Switch to ${themeMode === "dark" ? "light" : "dark"} mode`}
-                title={`Switch to ${themeMode === "dark" ? "light" : "dark"} mode`}
-              >
-                {themeMode === "dark" ? (
-                  <Sun size={13} weight="bold" />
-                ) : (
-                  <Moon size={13} weight="bold" />
-                )}
-                <span>{themeMode === "dark" ? "Light" : "Dark"}</span>
-              </button>
-            </div>
-            <h1 className="mt-4 max-w-3xl font-display text-3xl font-bold tracking-tight text-ink-950 sm:text-4xl">
-              Autonomous vendor risk command center
-            </h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-600 sm:text-base">
-              Three approved surfaces for the hackathon demo: command center,
-              source-backed evidence, and a review-ready vendor brief.
-            </p>
-          </div>
-          <div className="rounded-lg border border-zinc-200 bg-white p-4 shadow-soft">
-            <div className="flex items-start gap-3">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-caution-50 text-caution-700">
-                <ShieldWarning size={20} weight="duotone" />
-              </span>
-              <div>
-                <p className="text-sm font-semibold text-ink-950">
-                  Selected vendor: {selectedCompany.name}
-                </p>
-                <p className="mt-1 text-sm leading-6 text-zinc-600">
-                  Realtime autonomous review for {selectedCompany.relationship_type}.
-                  Renewal {formatDate(selectedCompany.renewal_date)}. The frontend
-                  never calls Bright Data or exposes keys.
-                </p>
-              </div>
-            </div>
-          </div>
-        </header>
+          {!usesFixtureData && health?.write_protection_enabled ? (
+            <OperatorAccess
+              tokenSet={operatorTokenSet}
+              onTokenStateChange={setOperatorTokenSet}
+            />
+          ) : null}
+          <a href="/" className="topbar__back">
+            <ArrowLeft size={15} /> Back to site
+          </a>
+        </div>
+      </header>
 
-        <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(260px,300px)_minmax(0,1fr)] 2xl:grid-cols-[300px_minmax(0,1fr)_minmax(500px,620px)]">
-          <aside className="min-w-0 space-y-3 xl:row-span-2 2xl:row-span-1">
-            <div className="flex items-center justify-between gap-3">
+      <div className="deck">
+        <aside className="col col--sticky">
+          <section className="dpanel wl">
+            <div className="dpanel__h">
               <div>
-                <h2 className="text-sm font-semibold text-ink-950">
-                  Vendor watchlist
-                </h2>
-                <p className="mt-1 font-mono text-xs text-zinc-500">
+                <h3>Vendor watchlist</h3>
+                <p className="mono mt-1 text-xs text-zinc-500">
                   {monitoredVendorCount} / {companies.length} monitored
                 </p>
               </div>
@@ -689,169 +654,160 @@ export function CommandCenter() {
                 onClick={handleEnableWatchlist}
                 disabled={watchlistBusy || busy || allVendorsMonitored || controlsLocked}
                 title={controlsLocked ? "Operator token required" : "Enable all vendors"}
-                className="inline-flex h-9 items-center gap-2 rounded-md border border-zinc-200 bg-white px-3 text-xs font-semibold text-ink-900 transition hover:border-zinc-300 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                className="ccbadge"
               >
-                <Power size={14} weight="bold" />
-                {allVendorsMonitored ? "All on" : watchlistBusy ? "Enabling" : "Enable all"}
+                <Power size={13} weight="bold" />
+                {allVendorsMonitored ? "All on" : watchlistBusy ? "Enabling" : "All on"}
               </button>
             </div>
-            <section className="rounded-lg border border-zinc-200 bg-white p-4 shadow-soft">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <h3 className="text-sm font-semibold text-ink-950">
-                    Add vendor
-                  </h3>
-                  <p className="mt-1 text-xs text-zinc-500">
-                    Exact public domain, owner, and renewal date.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  aria-label={vendorFormOpen ? "Close add vendor form" : "Open add vendor form"}
-                  disabled={controlsLocked}
-                  title={controlsLocked ? "Operator token required" : "Add vendor"}
-                  onClick={() => {
-                    setVendorFormOpen((open) => !open);
-                    setVendorFormError(null);
-                    setVendorFormNotice(null);
-                  }}
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-zinc-200 bg-white text-zinc-600 transition hover:border-zinc-300 active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {vendorFormOpen ? <X size={16} /> : <Plus size={16} />}
-                </button>
-              </div>
 
-              {vendorFormNotice && !vendorFormOpen ? (
-                <p className="mt-3 rounded-md border border-signal-100 bg-signal-50 px-3 py-2 text-xs text-signal-700">
-                  {vendorFormNotice}
+            <button
+              type="button"
+              className="wl__add"
+              disabled={controlsLocked}
+              title={controlsLocked ? "Operator token required" : "Add vendor"}
+              onClick={() => {
+                setVendorFormOpen((open) => !open);
+                setVendorFormError(null);
+                setVendorFormNotice(null);
+              }}
+            >
+              <span className="wl__addic">
+                {vendorFormOpen ? <X size={16} /> : <Plus size={16} />}
+              </span>
+              <span>
+                <b>Add vendor</b>
+                <span>Exact domain, owner, renewal date</span>
+              </span>
+            </button>
+
+            {vendorFormNotice && !vendorFormOpen ? (
+              <p className="rounded-md border border-signal-100 bg-signal-50 px-3 py-2 text-xs text-signal-700">
+                {vendorFormNotice}
+              </p>
+            ) : null}
+
+            {vendorFormOpen ? (
+              <form className="grid gap-3" onSubmit={handleCreateVendor}>
+                <VendorTextField
+                  id="vendor-name"
+                  label="Vendor name"
+                  value={vendorForm.name}
+                  placeholder="Akamai"
+                  onChange={(value) =>
+                    setVendorForm((form) => ({ ...form, name: value }))
+                  }
+                />
+                <VendorTextField
+                  id="vendor-domain"
+                  label="Exact domain"
+                  value={vendorForm.domain}
+                  placeholder="akamai.com"
+                  onChange={(value) =>
+                    setVendorForm((form) => ({ ...form, domain: value }))
+                  }
+                />
+                <VendorTextField
+                  id="vendor-relationship"
+                  label="Relationship type"
+                  value={vendorForm.relationship_type}
+                  placeholder="edge security"
+                  onChange={(value) =>
+                    setVendorForm((form) => ({
+                      ...form,
+                      relationship_type: value,
+                    }))
+                  }
+                />
+                <VendorTextField
+                  id="vendor-owner"
+                  label="Owner"
+                  value={vendorForm.owner}
+                  placeholder="Security"
+                  onChange={(value) =>
+                    setVendorForm((form) => ({ ...form, owner: value }))
+                  }
+                />
+                <label className="addv__field text-xs font-medium text-zinc-600">
+                  Renewal date
+                  <input
+                    type="date"
+                    value={vendorForm.renewal_date}
+                    onChange={(event) =>
+                      setVendorForm((form) => ({
+                        ...form,
+                        renewal_date: event.target.value,
+                      }))
+                    }
+                    className="opinput"
+                  />
+                </label>
+                <VendorTextField
+                  id="vendor-mcp-server"
+                  label="Vendor MCP server (optional)"
+                  value={vendorForm.mcp_server_url}
+                  placeholder="https://mcp.vendor.com/mcp"
+                  onChange={(value) =>
+                    setVendorForm((form) => ({
+                      ...form,
+                      mcp_server_url: value,
+                    }))
+                  }
+                />
+                <VendorTextArea
+                  id="vendor-allow-list"
+                  label="Allowed sources"
+                  value={vendorForm.allow_list_text}
+                  placeholder="trust.vendor.com, vendor.com/security"
+                  onChange={(value) =>
+                    setVendorForm((form) => ({
+                      ...form,
+                      allow_list_text: value,
+                    }))
+                  }
+                />
+                <VendorTextArea
+                  id="vendor-block-list"
+                  label="Blocked sources"
+                  value={vendorForm.block_list_text}
+                  placeholder="careers.vendor.com, community.vendor.com"
+                  onChange={(value) =>
+                    setVendorForm((form) => ({
+                      ...form,
+                      block_list_text: value,
+                    }))
+                  }
+                />
+                <p className="text-xs leading-5 text-zinc-500">
+                  Source rules are optional. Separate hosts or public paths with
+                  commas or new lines.
                 </p>
-              ) : null}
+                {vendorFormError ? (
+                  <p className="operr">{vendorFormError}</p>
+                ) : null}
+                <div className="flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setVendorForm(emptyVendorForm);
+                      setVendorFormError(null);
+                      setVendorFormOpen(false);
+                    }}
+                    className="ccbadge"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={vendorSubmitting}
+                    className="ccbadge ccbadge--live disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {vendorSubmitting ? "Adding" : "Add vendor"}
+                  </button>
+                </div>
+              </form>
+            ) : null}
 
-              {vendorFormOpen ? (
-                <form className="mt-4 space-y-3" onSubmit={handleCreateVendor}>
-                  <VendorTextField
-                    id="vendor-name"
-                    label="Vendor name"
-                    value={vendorForm.name}
-                    placeholder="Akamai"
-                    onChange={(value) =>
-                      setVendorForm((form) => ({ ...form, name: value }))
-                    }
-                  />
-                  <VendorTextField
-                    id="vendor-domain"
-                    label="Exact domain"
-                    value={vendorForm.domain}
-                    placeholder="akamai.com"
-                    onChange={(value) =>
-                      setVendorForm((form) => ({ ...form, domain: value }))
-                    }
-                  />
-                  <VendorTextField
-                    id="vendor-relationship"
-                    label="Relationship type"
-                    value={vendorForm.relationship_type}
-                    placeholder="edge security"
-                    onChange={(value) =>
-                      setVendorForm((form) => ({
-                        ...form,
-                        relationship_type: value,
-                      }))
-                    }
-                  />
-                  <VendorTextField
-                    id="vendor-owner"
-                    label="Owner"
-                    value={vendorForm.owner}
-                    placeholder="Security"
-                    onChange={(value) =>
-                      setVendorForm((form) => ({ ...form, owner: value }))
-                    }
-                  />
-                  <label className="block text-xs font-medium text-zinc-600">
-                    Renewal date
-                    <input
-                      type="date"
-                      value={vendorForm.renewal_date}
-                      onChange={(event) =>
-                        setVendorForm((form) => ({
-                          ...form,
-                          renewal_date: event.target.value,
-                        }))
-                      }
-                      className="mt-1 h-10 w-full rounded-md border border-zinc-200 bg-white px-3 text-sm text-ink-950 outline-none transition focus:border-ink-900 focus:ring-2 focus:ring-ink-900/10"
-                    />
-                  </label>
-                  <VendorTextField
-                    id="vendor-mcp-server"
-                    label="Vendor MCP server (optional)"
-                    value={vendorForm.mcp_server_url}
-                    placeholder="https://mcp.vendor.com/mcp"
-                    onChange={(value) =>
-                      setVendorForm((form) => ({
-                        ...form,
-                        mcp_server_url: value,
-                      }))
-                    }
-                  />
-                  <VendorTextArea
-                    id="vendor-allow-list"
-                    label="Allowed sources"
-                    value={vendorForm.allow_list_text}
-                    placeholder="trust.vendor.com, vendor.com/security"
-                    onChange={(value) =>
-                      setVendorForm((form) => ({
-                        ...form,
-                        allow_list_text: value,
-                      }))
-                    }
-                  />
-                  <VendorTextArea
-                    id="vendor-block-list"
-                    label="Blocked sources"
-                    value={vendorForm.block_list_text}
-                    placeholder="careers.vendor.com, community.vendor.com"
-                    onChange={(value) =>
-                      setVendorForm((form) => ({
-                        ...form,
-                        block_list_text: value,
-                      }))
-                    }
-                  />
-                  <p className="text-xs leading-5 text-zinc-500">
-                    Source rules are optional. Separate hosts or public paths with
-                    commas or new lines.
-                  </p>
-
-                  {vendorFormError ? (
-                    <p className="rounded-md border border-rose-100 bg-rose-50 px-3 py-2 text-xs leading-5 text-rose-700">
-                      {vendorFormError}
-                    </p>
-                  ) : null}
-
-                  <div className="flex items-center justify-end gap-2 pt-1">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setVendorForm(emptyVendorForm);
-                        setVendorFormError(null);
-                        setVendorFormOpen(false);
-                      }}
-                      className="inline-flex h-9 items-center rounded-md border border-zinc-200 bg-white px-3 text-xs font-medium text-zinc-600 transition hover:border-zinc-300 active:scale-[0.98]"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={vendorSubmitting}
-                      className="inline-flex h-9 items-center rounded-md bg-ink-950 px-3 text-xs font-semibold text-white transition hover:bg-ink-800 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      {vendorSubmitting ? "Adding..." : "Add vendor"}
-                    </button>
-                  </div>
-                </form>
-              ) : null}
-            </section>
             {sortedCompanies.map((company) => {
               const companyAlerts = getVendorAlerts(watchlistAlerts, company.id);
               const hasNewFinding = hasUnreadVendorAlert(
@@ -861,165 +817,107 @@ export function CommandCenter() {
               );
 
               return (
-              <VendorCard
-                key={company.id}
-                company={company}
-                alerts={companyAlerts}
-                hasNewFinding={hasNewFinding}
-                findingCount={companyAlerts.length}
-                selected={company.id === selectedCompany.id}
-                onSelect={() => {
-                  markVendorAlertsSeen(
-                    company,
-                    watchlistAlerts,
-                    setSeenVendorAlertKeys,
-                  );
-                  setSelectedCompanyId(company.id);
-                }}
-                onDelete={() => void handleDeleteVendor(company)}
-                deleteDisabled={controlsLocked || vendorDeletingId === company.id}
-              />
+                <DashboardVendorCard
+                  key={company.id}
+                  company={company}
+                  alerts={companyAlerts}
+                  hasNewFinding={hasNewFinding}
+                  findingCount={companyAlerts.length}
+                  selected={company.id === selectedCompany.id}
+                  onSelect={() => {
+                    markVendorAlertsSeen(
+                      company,
+                      watchlistAlerts,
+                      setSeenVendorAlertKeys,
+                    );
+                    setSelectedCompanyId(company.id);
+                  }}
+                  onDelete={() => void handleDeleteVendor(company)}
+                  deleteDisabled={controlsLocked || vendorDeletingId === company.id}
+                />
               );
             })}
-          </aside>
+          </section>
+        </aside>
 
-          <section className="min-w-0 space-y-5">
-            <div className="grid gap-4 min-[1440px]:grid-cols-[1fr_1fr]">
-              <AgentToggle
-                company={selectedCompany}
-                busy={busy || watchlistBusy || controlsLocked}
-                locked={controlsLocked}
-                onToggle={handleToggle}
-              />
-              <AgentStatusPanel
-                company={selectedCompany}
-                agentStatus={agentStatus}
-                scan={scan}
-                traces={traces}
-              />
-            </div>
-            <SourceRulesPanel
-              key={selectedCompany.id}
+        <section className="col">
+          <SelectedVendorPanel company={selectedCompany} alerts={selectedAlerts} />
+
+          <section className="dpanel">
+            <DesignerAgentPanel
               company={selectedCompany}
+              busy={busy || watchlistBusy || controlsLocked}
               locked={controlsLocked}
-              onSave={handleSaveSourceRules}
-            />
-            {actionError ? (
-              <StatePanel
-                tone="danger"
-                title="Agent action failed"
-                body={actionError}
-              />
-            ) : null}
-            <ReviewStatusStrip
               scan={displayScan}
               traces={traces}
               pollingError={pollingError}
+              onToggle={handleToggle}
             />
-
-            <section className="rounded-lg border border-zinc-200 bg-white p-4 shadow-soft">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-sm font-semibold text-ink-950">
-                    Verified alert strip
-                  </h2>
-                  <p className="mt-1 text-xs text-zinc-500">
-                    Unsupported evidence remains visible but does not create a
-                    high-priority alert.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setDrawerOpen(true)}
-                  className="inline-flex items-center gap-2 rounded-md bg-ink-950 px-3 py-2 text-sm font-semibold text-white transition hover:bg-ink-800 active:scale-[0.98]"
-                >
-                  Open Source Explorer
-                  <ArrowRight size={15} weight="bold" />
-                </button>
-              </div>
-
-              <div className="mt-4 grid gap-3 min-[1440px]:grid-cols-[1fr_1fr]">
-                {detailLoading ? (
-                  <AlertSkeleton />
-                ) : detailError ? (
-                  <StatePanel
-                    tone="danger"
-                    title="Alerts unavailable"
-                    body={detailError}
-                  />
-                ) : selectedAlerts.length === 0 ? (
-                  <StatePanel
-                    tone="neutral"
-                    title="No new scored alert in this scan"
-                    body="Pulse verified evidence for the brief, but the latest findings matched known evidence. Use Source Explorer to inspect the verified rows."
-                  />
-                ) : (
-                  selectedAlerts.map((alert) => (
-                  <div
-                    key={alert.id}
-                    className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 text-left"
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <Badge tone={alert.severity === "high" ? "warn" : "neutral"}>
-                        {alert.alert_type === "related_change"
-                          ? "related change"
-                          : "verified signal"}
-                      </Badge>
-                      <span className="font-mono text-sm font-semibold text-ink-950">
-                        {alert.score}
-                      </span>
-                    </div>
-                    <h3 className="mt-3 text-sm font-semibold text-ink-950">
-                      {alert.title}
-                    </h3>
-                    <p className="mt-2 text-sm leading-6 text-zinc-600">
-                      {alert.summary}
-                    </p>
-                    <div className="mt-3 border-t border-zinc-200 pt-3">
-                      <p className="text-xs text-zinc-500">
-                        Suggested owner: {alert.owner}.
-                      </p>
-                      <div className="mt-3 flex flex-wrap items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const relatedIds = alert.related_evidence_ids;
-                            setSelectedEvidenceId(
-                              alert.evidence_item_id ?? relatedIds[0] ?? null,
-                            );
-                            setDrawerOpen(true);
-                          }}
-                          className="inline-flex items-center gap-2 rounded-md border border-zinc-200 bg-white px-3 py-2 text-xs font-semibold text-ink-900 transition hover:border-zinc-300 active:scale-[0.98]"
-                        >
-                          Review evidence
-                          <ArrowRight size={14} weight="bold" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                  ))
-                )}
-              </div>
-            </section>
           </section>
 
-          <div className="min-w-0 xl:col-start-2 2xl:col-start-auto">
-            <RiskAssessmentBrief
-              brief={brief}
+          {actionError ? (
+            <StatePanel
+              tone="danger"
+              title="Agent action failed"
+              body={actionError}
+            />
+          ) : null}
+
+          <section className="dpanel">
+            <div className="dpanel__h">
+              <h3>Verified alerts</h3>
+              <span className="mono text-xs text-zinc-500">
+                {selectedAlerts.length} signals
+              </span>
+            </div>
+            <DashboardAlerts
+              alerts={selectedAlerts}
+              loading={detailLoading}
+              error={detailError}
+              onOpenExplorer={(evidenceId) => {
+                setSelectedEvidenceId(evidenceId);
+                setDrawerOpen(true);
+              }}
+            />
+          </section>
+
+          <RiskAssessmentBrief
+            brief={brief}
+            scan={displayScan}
+            traces={traces}
+            loading={briefLoading}
+            error={briefError}
+            companyName={selectedCompany.name}
+            evidence={evidence}
+            onRequestHtml={() =>
+              brief
+                ? getVendorReviewBrief(brief.company_id, brief.scan_id, "html")
+                : Promise.reject(new Error("A completed brief is required for HTML export."))
+            }
+          />
+        </section>
+
+        <aside className="col col--sticky">
+          <section className="dpanel">
+            <DashboardAgentStatus
+              company={selectedCompany}
+              agentStatus={agentStatus}
               scan={displayScan}
               traces={traces}
-              loading={briefLoading}
-              error={briefError}
-              companyName={selectedCompany.name}
-              evidence={evidence}
-              onRequestHtml={() =>
-                brief
-                  ? getVendorReviewBrief(brief.company_id, brief.scan_id, "html")
-                  : Promise.reject(new Error("A completed brief is required for HTML export."))
-              }
             />
-          </div>
-        </div>
+          </section>
+
+          <section className="dpanel">
+            <AlertChannelsPanel locked={controlsLocked} />
+          </section>
+
+          <SourceRulesPanel
+            key={selectedCompany.id}
+            company={selectedCompany}
+            locked={controlsLocked}
+            onSave={handleSaveSourceRules}
+          />
+        </aside>
       </div>
 
       <EvidenceDrawer
@@ -1055,6 +953,495 @@ function CommandCenterSkeleton() {
   );
 }
 
+function DashboardVendorCard({
+  company,
+  alerts,
+  hasNewFinding,
+  findingCount,
+  selected,
+  onSelect,
+  onDelete,
+  deleteDisabled,
+}: {
+  company: Company;
+  alerts: Alert[];
+  hasNewFinding: boolean;
+  findingCount: number;
+  selected: boolean;
+  onSelect: () => void;
+  onDelete: () => void;
+  deleteDisabled: boolean;
+}) {
+  const [mcpExpanded, setMcpExpanded] = useState(false);
+  const topAlert = alerts.find((alert) => alert.company_id === company.id);
+  const alertState = getDashboardVendorAlertState(
+    company,
+    hasNewFinding,
+    findingCount,
+  );
+  const mcpServerUrl = getVendorMcpServerUrl(company);
+
+  return (
+    <article
+      className={`rounded-lg border p-4 transition ${
+        selected
+          ? "border-signal-600 bg-white/[0.04]"
+          : "border-zinc-200 bg-white/[0.02] hover:border-zinc-300"
+      }`}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <button type="button" onClick={onSelect} className="min-w-0 flex-1 text-left">
+          <div className="flex min-w-0 items-center gap-3">
+            <VendorLogo domain={company.domain} size={24} />
+            <div className="min-w-0">
+              <h3 className="truncate text-base font-semibold text-ink-950">
+                {company.name}
+              </h3>
+              <p className="mono mt-1 truncate text-xs text-zinc-500">
+                {company.domain}
+              </p>
+            </div>
+          </div>
+        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          <span className={`alertpill ${alertState.className}`} title={alertState.title}>
+            {alertState.label}
+          </span>
+          <button
+            type="button"
+            onClick={onDelete}
+            disabled={deleteDisabled}
+            title={deleteDisabled ? "Operator token required" : `Delete ${company.name}`}
+            aria-label={`Delete ${company.name}`}
+            className="grid h-8 w-8 place-items-center rounded-md border border-zinc-200 text-zinc-500 transition hover:border-rose-300 hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <X size={14} weight="bold" />
+          </button>
+        </div>
+      </div>
+
+      <button type="button" onClick={onSelect} className="mt-4 w-full text-left">
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <p className="dlabel">Owner</p>
+            <p className="mt-2 text-sm font-semibold text-ink-950">{company.owner}</p>
+          </div>
+          <div>
+            <p className="dlabel">Latest score</p>
+            <p className="mono mt-2 text-sm font-semibold text-ink-950">
+              {topAlert ? `${topAlert.score} (${getScorePriorityLabel(topAlert.score)})` : "no new"}
+            </p>
+          </div>
+        </div>
+        <div className="mt-4 flex items-center gap-2 border-t border-zinc-100 pt-4 text-sm text-zinc-600">
+          <CalendarBlank size={15} />
+          <span>Renewal {formatDate(company.renewal_date)}</span>
+        </div>
+      </button>
+
+      <button
+        type="button"
+        onClick={() => {
+          if (mcpServerUrl) setMcpExpanded((current) => !current);
+        }}
+        className="mt-3 flex w-full min-w-0 items-center gap-2 rounded-md border border-zinc-200 bg-white/[0.02] px-3 py-2 text-left text-sm text-zinc-600 transition hover:border-zinc-300"
+        aria-expanded={mcpServerUrl ? mcpExpanded : undefined}
+      >
+        <span
+          className={`h-2.5 w-2.5 shrink-0 rounded-full ${
+            mcpServerUrl ? "bg-signal-600" : "bg-rose-600"
+          }`}
+        />
+        <span className="min-w-0 flex-1 truncate">
+          {mcpServerUrl ? "MCP server connected" : "No MCP server configured"}
+        </span>
+        {mcpServerUrl ? (
+          <CaretDown
+            size={14}
+            className={`shrink-0 transition ${mcpExpanded ? "rotate-180" : ""}`}
+          />
+        ) : null}
+      </button>
+      {mcpServerUrl && mcpExpanded ? (
+        <div className="mt-2 flex min-w-0 items-center gap-2 rounded-md border border-zinc-100 bg-black/20 px-3 py-2 text-zinc-500">
+          <LinkSimple size={13} className="shrink-0" />
+          <span className="mono truncate text-xs">{mcpServerUrl}</span>
+        </div>
+      ) : null}
+
+      <div className="mt-4 flex items-center justify-between border-t border-zinc-100 pt-4">
+        <span className="inline-flex items-center gap-2 text-sm text-zinc-600">
+          <Pulse
+            size={14}
+            weight={company.agent_enabled ? "fill" : "regular"}
+            className={company.agent_enabled ? "text-signal-600" : "text-zinc-400"}
+          />
+          {labelize(company.agent_status)}
+        </span>
+        <span className="text-sm font-semibold text-ink-950">
+          {topAlert ? (hasNewFinding ? "New finding" : "Reviewed") : "No alert"}
+        </span>
+      </div>
+    </article>
+  );
+}
+
+function SelectedVendorPanel({
+  company,
+  alerts,
+}: {
+  company: Company;
+  alerts: Alert[];
+}) {
+  const topAlert = alerts[0];
+
+  return (
+    <section className="dpanel">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex min-w-0 items-center gap-4">
+          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-lg border border-zinc-200 bg-white/[0.04]">
+            <VendorLogo domain={company.domain} size={30} />
+          </span>
+          <div className="min-w-0">
+            <h2 className="truncate text-2xl font-bold tracking-tight text-ink-950">
+              {company.name}
+            </h2>
+            <p className="mono mt-1 truncate text-sm text-zinc-500">
+              {company.domain} · {company.relationship_type} · {labelize(company.criticality)}
+            </p>
+          </div>
+        </div>
+        <div className="text-right">
+          <p className="mono text-xs uppercase tracking-[0.16em] text-zinc-500">
+            {topAlert ? `${topAlert.score} scored finding` : "No scored finding yet"}
+          </p>
+          <p className="mono mt-2 text-sm uppercase tracking-[0.16em] text-zinc-500">
+            Renews {formatDate(company.renewal_date)}
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function DesignerAgentPanel({
+  company,
+  busy,
+  locked,
+  scan,
+  traces,
+  pollingError,
+  onToggle,
+}: {
+  company: Company;
+  busy: boolean;
+  locked: boolean;
+  scan: ScanStatusResponse | null;
+  traces: BrightDataTrace[];
+  pollingError: string | null;
+  onToggle: (enabled: boolean) => void;
+}) {
+  const sourceSummary = summarizeSourceModes(traces, scan?.mode);
+  const stages =
+    scan?.stages ??
+    dashboardStageLabels.map((label) => ({
+      name: label.toLowerCase(),
+      status: "pending" as StageStatus,
+    }));
+
+  return (
+    <>
+      <div className="agenthead">
+        <div className="agenthead__t">
+          <ShieldCheck size={19} weight="duotone" className="text-caution-700" />
+          <div>
+            <b>Vendor Risk Agent</b>
+            <p className="agentdesc">
+              Autonomous monitoring for public vendor-risk evidence. Collection and
+              credentials stay server-side.
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => onToggle(!company.agent_enabled)}
+          className={`toggle ${company.agent_enabled ? "toggle--on" : ""}`}
+          aria-pressed={company.agent_enabled}
+          aria-label="Toggle Vendor Risk Agent"
+          title={locked ? "Operator token required" : "Toggle Vendor Risk Agent"}
+        >
+          <Power size={13} />
+          <span className="toggle__knob" />
+        </button>
+      </div>
+
+      <div className="cycle mt-6 border-t border-zinc-100 pt-6">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <p className="dlabel">Autonomous review cycle</p>
+          <span className="ccbadge ccbadge--lock">
+            {scan?.status === "running" ? "Running now" : company.agent_enabled ? "Due now" : "Paused"}
+          </span>
+        </div>
+        <div className="cyclebar">
+          {stages.map((stage, index) => (
+            <div
+              key={stage.name}
+              className={`cstage ${
+                stage.status === "running"
+                  ? "cstage--active"
+                  : stage.status === "completed"
+                    ? "cstage--done"
+                    : ""
+              }`}
+            >
+              <div className="cstage__top">
+                <span className="cstage__name">{dashboardStageLabels[index]}</span>
+                <StageIcon status={stage.status} />
+              </div>
+              <div className="cstage__bar">
+                <span
+                  className="cstage__fill"
+                  style={{
+                    width:
+                      stage.status === "completed"
+                        ? "100%"
+                        : stage.status === "running"
+                          ? "74%"
+                          : "0%",
+                  }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="cycle__status">
+          <span className="livedot" style={{ width: 8, height: 8 }} />
+          <span>{scan ? sourceSummary.detail : "Waiting for the next realtime review."}</span>
+          <span className="mono ml-auto">polling /api/scans every 2s</span>
+        </div>
+      </div>
+
+      <DashboardTraceStream traces={traces} scan={scan} />
+
+      {pollingError ? (
+        <p className="operr mt-4">
+          <WarningCircle size={15} /> {pollingError}
+        </p>
+      ) : null}
+    </>
+  );
+}
+
+function DashboardTraceStream({
+  traces,
+  scan,
+}: {
+  traces: BrightDataTrace[];
+  scan: ScanStatusResponse | null;
+}) {
+  return (
+    <div className="traces">
+      <div className="traces__h">
+        <span className="dlabel">Bright Data trace</span>
+        <span className="mono text-xs text-zinc-500">{traces.length} ops</span>
+      </div>
+      {traces.length === 0 ? (
+        <div className="p-4 text-sm text-zinc-500">
+          {scan ? "Trace rows will appear as collection completes." : "No scan selected yet."}
+        </div>
+      ) : (
+        traces.slice(0, 6).map((trace) => (
+          <div key={trace.id} className="trace">
+            <span className="trace__op">{trace.operation || trace.product}</span>
+            <span className="trace__url">{trace.source_url ?? "internal operation"}</span>
+            <span
+              className={`mono ${
+                trace.status.startsWith("2") ? "text-signal-700" : "text-caution-700"
+              }`}
+            >
+              {trace.status}
+            </span>
+            <span className="trace__lat">
+              {trace.latency_ms === null
+                ? "-"
+                : trace.latency_ms >= 1000
+                  ? `${(trace.latency_ms / 1000).toFixed(1)}s`
+                  : `${trace.latency_ms}ms`}
+            </span>
+            <span className={`srcmode srcmode--${trace.source_mode}`}>
+              {trace.source_mode}
+            </span>
+          </div>
+        ))
+      )}
+    </div>
+  );
+}
+
+function DashboardAlerts({
+  alerts,
+  loading,
+  error,
+  onOpenExplorer,
+}: {
+  alerts: Alert[];
+  loading: boolean;
+  error: string | null;
+  onOpenExplorer: (evidenceId: string | null) => void;
+}) {
+  if (loading) return <AlertSkeleton />;
+  if (error) {
+    return <StatePanel tone="danger" title="Alerts unavailable" body={error} />;
+  }
+  if (alerts.length === 0) {
+    return (
+      <StatePanel
+        tone="neutral"
+        title="No new scored alert in this scan"
+        body="Pulse verified evidence for the brief. Open Source Explorer to inspect the verified rows."
+      />
+    );
+  }
+
+  return (
+    <div className="alerts">
+      {alerts.map((alert) => (
+        <button
+          key={alert.id}
+          type="button"
+          className={`alert ${alert.severity === "high" ? "alert--high" : "alert--med"}`}
+          onClick={() =>
+            onOpenExplorer(alert.evidence_item_id ?? alert.related_evidence_ids[0] ?? null)
+          }
+        >
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md border border-zinc-200">
+            <WarningCircle size={18} />
+          </span>
+          <span className="alert__body">
+            <span className="alert__title">{alert.title}</span>
+            <span className="alert__meta">
+              <span>{alert.owner}</span>
+              <span>·</span>
+              <span>{labelize(alert.severity)}</span>
+              <span>·</span>
+              <span className="mono">{alert.score}</span>
+            </span>
+          </span>
+          <ArrowRight size={16} className="alert__chev" />
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function DashboardAgentStatus({
+  company,
+  agentStatus,
+  scan,
+  traces,
+}: {
+  company: Company;
+  agentStatus: AgentStatusResponse | null;
+  scan: ScanStatusResponse | null;
+  traces: BrightDataTrace[];
+}) {
+  const sourceSummary = summarizeSourceModes(traces, scan?.mode);
+  const activeRun = agentStatus?.active_runs.find(
+    (run) => run.company_id === company.id,
+  );
+  const currentActivity = scan
+    ? scan.status === "failed"
+      ? "Review failed, evidence preserved"
+      : scan.status === "running"
+        ? `Investigating public sources: ${labelize(scan.current_stage)}`
+        : `Review complete: ${sourceSummary.label}`
+    : company.agent_enabled
+      ? "Watching public sources for vendor-risk signals"
+      : "Inactive";
+  const nextSweepLabel = scan
+    ? scan.status === "running"
+      ? "Scanning now"
+      : "Continuous watch"
+    : company.agent_enabled && isDueNow(company.next_agent_run_at)
+      ? "Scanning now"
+      : company.agent_enabled
+        ? "Continuous watch"
+        : "Not armed";
+
+  return (
+    <>
+      <div className="dpanel__h">
+        <h3>Agent status</h3>
+        <Badge tone={company.agent_enabled ? "good" : "neutral"}>
+          {company.agent_enabled ? "Autonomous" : "Off"}
+        </Badge>
+      </div>
+      <div className="statlist">
+        <StatusRow
+          icon={<Target size={17} />}
+          label="Review policy"
+          value={company.agent_enabled ? "Realtime monitoring" : "Realtime ready"}
+        />
+        <StatusRow icon={<Clock size={17} />} label="Next sweep" value={nextSweepLabel} />
+        <StatusRow
+          icon={<Pulse size={17} />}
+          label="Current activity"
+          value={currentActivity}
+        />
+        <StatusRow
+          icon={<SealCheck size={17} />}
+          label="Latest assessment"
+          value={
+            scan
+              ? `${labelize(scan.status)} (${labelize(scan.mode)})`
+              : activeRun
+                ? `Running ${labelize(activeRun.current_stage)}`
+                : labelize(company.agent_status)
+          }
+        />
+      </div>
+    </>
+  );
+}
+
+function StatusRow({
+  icon,
+  label,
+  value,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="statrow">
+      {icon}
+      <div className="min-w-0">
+        <p className="fine">{label}</p>
+        <b>{value}</b>
+      </div>
+    </div>
+  );
+}
+
+function StageIcon({ status }: { status: StageStatus }) {
+  if (status === "completed") {
+    return <Check size={15} weight="bold" className="cstage__ic" />;
+  }
+
+  if (status === "failed") {
+    return <WarningCircle size={15} weight="bold" className="cstage__ic" />;
+  }
+
+  return <Clock size={15} className="cstage__ic" />;
+}
+
+function isDueNow(value: string | null) {
+  if (!value) return false;
+  return new Date(value).getTime() <= Date.now();
+}
+
 function AlertSkeleton() {
   return (
     <>
@@ -1083,7 +1470,7 @@ function VendorTextField({
   onChange: (value: string) => void;
 }) {
   return (
-    <label htmlFor={id} className="block text-xs font-medium text-zinc-600">
+    <label htmlFor={id} className="addv__field text-xs font-medium text-zinc-600">
       {label}
       <input
         id={id}
@@ -1091,7 +1478,7 @@ function VendorTextField({
         value={value}
         placeholder={placeholder}
         onChange={(event) => onChange(event.target.value)}
-        className="mt-1 h-10 w-full rounded-md border border-zinc-200 bg-white px-3 text-sm text-ink-950 outline-none transition placeholder:text-zinc-400 focus:border-ink-900 focus:ring-2 focus:ring-ink-900/10"
+        className="opinput"
       />
     </label>
   );
@@ -1111,7 +1498,7 @@ function VendorTextArea({
   onChange: (value: string) => void;
 }) {
   return (
-    <label htmlFor={id} className="block text-xs font-medium text-zinc-600">
+    <label htmlFor={id} className="addv__field text-xs font-medium text-zinc-600">
       {label}
       <textarea
         id={id}
@@ -1119,7 +1506,7 @@ function VendorTextArea({
         rows={2}
         placeholder={placeholder}
         onChange={(event) => onChange(event.target.value)}
-        className="mt-1 min-h-20 w-full resize-y rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-ink-950 outline-none transition placeholder:text-zinc-400 focus:border-ink-900 focus:ring-2 focus:ring-ink-900/10"
+        className="opinput min-h-20 resize-y"
       />
     </label>
   );
@@ -1198,6 +1585,41 @@ function pickInitialCompany(companies: Company[]) {
     [...companies].sort((a, b) => a.name.localeCompare(b.name))[0] ??
     null
   );
+}
+
+function getScorePriorityLabel(score: number) {
+  if (score >= 80) return "Urgent";
+  if (score >= 60) return "High";
+  if (score >= 30) return "Medium";
+  return "Low";
+}
+
+function getDashboardVendorAlertState(
+  company: Company,
+  hasNewFinding: boolean,
+  findingCount: number,
+) {
+  if (hasNewFinding) {
+    return {
+      label: findingCount > 1 ? `${findingCount} new` : "New alert",
+      title: `Pulse found new verified evidence for ${company.name}.`,
+      className: "alertpill--new",
+    };
+  }
+
+  if (company.agent_status === "running") {
+    return {
+      label: "Scanning",
+      title: `${company.name} is currently being reviewed.`,
+      className: "alertpill--scan",
+    };
+  }
+
+  return {
+    label: "No alert",
+    title: `${company.name} has no unread finding.`,
+    className: "alertpill--none",
+  };
 }
 
 function getVendorAttentionRank(
