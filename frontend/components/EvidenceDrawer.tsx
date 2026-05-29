@@ -68,7 +68,7 @@ export function EvidenceDrawer({
   if (!open) return null;
 
   return (
-    <aside className="fixed inset-y-0 right-0 z-30 flex w-full border-l border-zinc-200 bg-white shadow-soft lg:w-[92vw] 2xl:max-w-[1480px]">
+    <aside className="fixed inset-y-0 right-0 z-[90] flex w-full border-l border-zinc-200 bg-white shadow-soft lg:w-[92vw] 2xl:max-w-[1480px]">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-10 shrink-0 border-b border-zinc-200 bg-white/95 px-5 py-4 backdrop-blur">
           <div className="flex items-start justify-between gap-4">
