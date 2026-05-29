@@ -50,7 +50,7 @@
 
 Mid-market security, legal, and GRC teams are drowning in vendor-risk noise. Traditional annual questionnaires go stale quickly, while public vendor changes can happen between review cycles: trust center updates, status incidents, pricing or terms changes, and adverse-media mentions.
 
-**Pulse** is a bounded autonomous vendor risk agent. A user adds exact vendor domains, enables monitoring, chooses a daily, weekly, or monthly review cadence, and Pulse collects public evidence through Bright Data. AI/ML API extracts structured findings, deterministic quote verification checks that claims are actually supported by captured source text, and only verified signals can score.
+**Pulse** is a bounded autonomous vendor risk agent. A user adds exact vendor domains, enables realtime autonomous review, and Pulse continuously updates the command center as new scans complete. Bright Data collects public evidence, AI/ML API extracts structured findings, deterministic quote verification checks that claims are actually supported by captured source text, and only verified signals can score.
 
 Pulse separates two customer-facing concepts:
 
@@ -75,9 +75,12 @@ Command Center
 ### Command Center
 
 - **Vendor watchlist:** Tracks monitored vendors, business owner, renewal date, active/inactive status, latest score, and unread alert state.
-- **Review cadence:** Each enabled vendor can run on a daily, weekly, or monthly autonomous review policy.
+- **Realtime autonomous review:** Enabled vendors show realtime monitoring status and update as new review scans complete.
+- **Operator lock:** Hosted deployments can require an operator token before any write or scan-triggering action is allowed.
+- **Alert channels:** Email, WhatsApp, and Discord alert destinations can be configured from the agent panel.
+- **Vendor MCP connections:** Vendor cards show whether a vendor MCP server is connected and reveal the MCP endpoint on demand.
 - **Alert visibility:** Vendors with new scored findings move to the top and display a `New alert` badge. Opening the vendor marks the alert as seen.
-- **Latest score persistence:** The latest scored alert remains visible even if the most recent daily check only confirms known evidence.
+- **Latest score persistence:** The latest scored alert remains visible even when the most recent review only confirms known evidence.
 - **Agent status panel:** Shows review policy, next review time, current activity, and latest assessment status.
 - **Review status strip:** Shows the bounded stages: **Collect -> Extract -> Verify -> Score -> Brief**.
 
@@ -93,6 +96,9 @@ Command Center
 - **Verified-evidence basis:** Briefs are generated from verified evidence only.
 - **Evidence table:** Lists signal type, source URL, severity, source mode, verification status, and recommended action.
 - **Risk interpretation:** AI-assisted assessment text can summarize verified findings, but it cannot bypass quote verification or deterministic scoring.
+- **Pulse AI Agent Work:** High-severity outage and breach signals show the autonomous work Pulse completed through connected vendor MCP servers.
+- **Outage response:** AWS and Cloudflare outage evidence can trigger provider migration work and close with an issue-resolved result.
+- **Breach response:** Snowflake and Vercel breach evidence can trigger containment work such as credential rotation, MFA checks, OAuth review, and deployment or query-log verification.
 - **Exports:** The UI supports Markdown and HTML export actions for the assessment brief.
 
 ---
@@ -107,7 +113,7 @@ Pulse does not run an open-ended browsing agent. It executes a bounded review cy
 2. **Extract:** Captured text is processed by AI/ML API using `deepseek-v4-flash`. The configured fallback order is AI/ML API first, DeepSeek second, and Kiro last.
 3. **Verify:** Extracted quotes are checked against the captured source text with exact or RapidFuzz matching at the configured `0.8` threshold.
 4. **Score:** Only verified evidence can receive a deterministic score or create an alert.
-5. **Brief:** Pulse renders a review-ready brief from verified findings. Repeated unchanged findings stay auditable but do not create duplicate alerts.
+5. **Brief:** Pulse renders a review-ready brief from verified findings and shows completed autonomous MCP work for high-severity incidents. Repeated unchanged findings stay auditable but do not create duplicate alerts.
 
 ### Pipeline Sequence Diagram
 
@@ -124,7 +130,7 @@ sequenceDiagram
     GRC->>FE: Enable Vendor Risk Agent
     FE->>BE: PATCH /api/companies/{id}/agent
     BE->>DB: Store agent state and next review time
-    BE->>DB: Create scan when vendor is due
+    BE->>DB: Create or advance the next review scan
 
     BE->>BD: SERP discovery and Web Unlocker capture
     BD-->>BE: Public source text and response metadata
@@ -136,6 +142,7 @@ sequenceDiagram
 
     BE->>BE: Verify quote against captured source text
     BE->>BE: Score verified evidence deterministically
+    BE->>BE: Execute vendor MCP work for eligible high-severity signals
     BE->>DB: Save evidence, alerts, and assessment brief
 
     FE->>BE: Poll scan status and read results
@@ -202,7 +209,7 @@ The UI translates numeric scores into readable priority labels:
 - **Validation:** Pydantic v2
 - **HTTP client:** HTTPX
 - **Quote matching:** RapidFuzz
-- **Provider integrations:** Bright Data, AI/ML API, DeepSeek fallback, Kiro fallback
+- **Provider integrations:** Bright Data, AI/ML API, DeepSeek fallback, Kiro fallback, vendor MCP endpoints
 
 ### Database Schema
 
