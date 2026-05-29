@@ -29,7 +29,7 @@ const channelCopy: Record<
     placeholder: string;
     type: string;
     accent: string;
-    icon: React.ReactNode;
+    icon: (color: string) => React.ReactNode;
   }
 > = {
   email: {
@@ -37,21 +37,21 @@ const channelCopy: Record<
     placeholder: "risk-team@company.com",
     type: "email",
     accent: "#EA4335",
-    icon: <EnvelopeSimple size={19} weight="bold" />,
+    icon: (color) => <EnvelopeSimple size={19} weight="bold" color={color} />,
   },
   whatsapp: {
     label: "WhatsApp",
     placeholder: "+1 415 555 0182",
     type: "tel",
     accent: "#25D366",
-    icon: <WhatsappLogo size={20} weight="fill" />,
+    icon: (color) => <WhatsappLogo size={20} weight="fill" color={color} />,
   },
   discord: {
     label: "Discord webhook",
     placeholder: "https://discord.com/api/webhooks/...",
     type: "url",
     accent: "#5865F2",
-    icon: <DiscordLogo size={20} weight="fill" />,
+    icon: (color) => <DiscordLogo size={20} weight="fill" color={color} />,
   },
 };
 
@@ -246,7 +246,7 @@ function AlertChannelControl({
           className="flex h-7 w-7 items-center justify-center rounded-md bg-black/35"
           style={{ color: config.accent }}
         >
-          {config.icon}
+          {config.icon(config.accent)}
         </span>
         <span>{config.label}</span>
       </label>
