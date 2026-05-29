@@ -70,9 +70,9 @@ export function EvidenceDrawer({
   return (
     <aside className="fixed inset-y-0 right-0 z-30 flex w-full border-l border-zinc-200 bg-white shadow-soft lg:w-[92vw] 2xl:max-w-[1480px]">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <header className="shrink-0 border-b border-zinc-200 bg-white/95 px-5 py-4 backdrop-blur">
+        <header className="sticky top-0 z-10 shrink-0 border-b border-zinc-200 bg-white/95 px-5 py-4 backdrop-blur">
           <div className="flex items-start justify-between gap-4">
-            <div>
+            <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <Rows size={18} weight="duotone" className="text-signal-700" />
                 <h2 className="text-base font-semibold text-ink-950">
@@ -98,10 +98,11 @@ export function EvidenceDrawer({
             <button
               type="button"
               onClick={onClose}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-zinc-200 bg-white text-zinc-600 transition hover:border-zinc-300 active:scale-[0.96]"
-              aria-label="Close evidence drawer"
+              className="inline-flex h-10 shrink-0 items-center gap-2 rounded-md border border-zinc-300 bg-white px-3 text-xs font-semibold uppercase tracking-[0.14em] text-ink-950 shadow-soft transition hover:border-zinc-400 active:scale-[0.96]"
+              aria-label="Close live source collection"
             >
               <X size={16} weight="bold" />
+              Close
             </button>
           </div>
         </header>

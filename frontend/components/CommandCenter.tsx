@@ -1107,7 +1107,7 @@ function SelectedVendorPanel({
               {company.name}
             </h2>
             <p className="mono mt-1 truncate text-sm text-zinc-500">
-              {company.domain} · {company.relationship_type} · {labelize(company.criticality)}
+              {company.domain} · {company.relationship_type} · renewal review
             </p>
           </div>
         </div>
