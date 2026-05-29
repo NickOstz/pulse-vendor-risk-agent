@@ -8,6 +8,7 @@ import {
   PaperPlaneTilt,
   WhatsappLogo,
 } from "@phosphor-icons/react";
+import { BrandImg } from "@/components/landing/icons";
 
 type AlertChannel = "email" | "whatsapp" | "discord";
 
@@ -28,6 +29,8 @@ const channelCopy: Record<
     label: string;
     placeholder: string;
     type: string;
+    domain: string;
+    accent: string;
     icon: React.ReactNode;
   }
 > = {
@@ -35,18 +38,24 @@ const channelCopy: Record<
     label: "Email",
     placeholder: "risk-team@company.com",
     type: "email",
+    domain: "gmail.com",
+    accent: "#EA4335",
     icon: <EnvelopeSimple size={17} />,
   },
   whatsapp: {
     label: "WhatsApp",
     placeholder: "+1 415 555 0182",
     type: "tel",
+    domain: "whatsapp.com",
+    accent: "#25D366",
     icon: <WhatsappLogo size={17} />,
   },
   discord: {
     label: "Discord webhook",
     placeholder: "https://discord.com/api/webhooks/...",
     type: "url",
+    domain: "discord.com",
+    accent: "#5865F2",
     icon: <DiscordLogo size={17} />,
   },
 };
@@ -237,11 +246,21 @@ function AlertChannelControl({
             : "border-zinc-200 bg-zinc-50"
       }`}
     >
-      <label className="flex items-center gap-2 text-xs font-medium text-zinc-600">
-        <span className="flex h-7 w-7 items-center justify-center rounded-md bg-white text-zinc-600">
-          {config.icon}
+      <label className="flex items-center gap-2 text-xs font-semibold text-ink-950">
+        <span
+          className="flex h-7 w-7 items-center justify-center rounded-md bg-white text-ink-950"
+          style={{ color: config.accent }}
+        >
+          <BrandImg
+            src={`https://www.google.com/s2/favicons?sz=64&domain=${config.domain}`}
+            alt=""
+            width={18}
+            height={18}
+            style={{ borderRadius: 4, display: "block", objectFit: "contain" }}
+            fallback={config.icon}
+          />
         </span>
-        {config.label}
+        <span>{config.label}</span>
       </label>
       <div className="mt-2 flex gap-2">
         <input
@@ -282,7 +301,7 @@ function AlertChannelControl({
         <p className="mt-2 text-xs font-medium text-rose-700">{error}</p>
       ) : feedback ? (
         <p className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-signal-700">
-          <CheckCircle size={14} weight="fill" />
+          <span className="livedot" style={{ width: 8, height: 8 }} />
           {feedback}
         </p>
       ) : null}

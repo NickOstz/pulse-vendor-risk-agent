@@ -1048,9 +1048,12 @@ function DashboardVendorCard({
         aria-expanded={mcpServerUrl ? mcpExpanded : undefined}
       >
         <span
-          className={`h-2.5 w-2.5 shrink-0 rounded-full ${
-            mcpServerUrl ? "bg-signal-600" : "bg-rose-600"
-          }`}
+          className={
+            mcpServerUrl
+              ? "livedot shrink-0"
+              : "h-2.5 w-2.5 shrink-0 rounded-full bg-rose-600"
+          }
+          style={mcpServerUrl ? { width: 10, height: 10 } : undefined}
         />
         <span className="min-w-0 flex-1 truncate">
           {mcpServerUrl ? "MCP server connected" : "No MCP server configured"}
@@ -1107,7 +1110,7 @@ function SelectedVendorPanel({
               {company.name}
             </h2>
             <p className="mono mt-1 truncate text-sm text-zinc-500">
-              {company.domain} · {company.relationship_type} · renewal review
+              {company.domain} · {company.relationship_type}
             </p>
           </div>
         </div>
