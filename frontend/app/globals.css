@@ -42,40 +42,41 @@
 
 html[data-theme="dark"] {
   color-scheme: dark;
-  --background: oklch(0.17 0.012 95);
-  --foreground: oklch(0.93 0.008 96);
-  --surface: oklch(0.215 0.013 95);
-  --surface-muted: oklch(0.255 0.012 95);
-  --surface-strong: oklch(0.31 0.012 95);
-  --border: oklch(0.35 0.014 95);
-  --border-strong: oklch(0.48 0.018 95);
-  --muted: oklch(0.72 0.012 96);
-  --signal-bg: oklch(0.25 0.042 166);
-  --signal-ink: oklch(0.82 0.078 166);
-  --caution-bg: oklch(0.28 0.045 70);
-  --caution-ink: oklch(0.86 0.12 82);
-  --danger-bg: oklch(0.27 0.055 18);
-  --danger-ink: oklch(0.82 0.11 18);
-  --button-primary-bg: oklch(0.93 0.008 96);
-  --button-primary-fg: oklch(0.16 0.012 95);
-  --severity-low-bg: oklch(0.86 0.16 91);
-  --severity-low-surface: oklch(0.34 0.07 86);
-  --severity-low-border: oklch(0.67 0.15 88);
-  --severity-low-ink: oklch(0.19 0.06 70);
-  --severity-medium-bg: oklch(0.82 0.14 54);
-  --severity-medium-surface: oklch(0.32 0.07 54);
-  --severity-medium-border: oklch(0.64 0.14 50);
-  --severity-medium-ink: oklch(0.17 0.07 38);
-  --severity-high-bg: oklch(0.8 0.17 22);
-  --severity-high-surface: oklch(0.33 0.09 22);
-  --severity-high-border: oklch(0.66 0.18 20);
-  --severity-high-ink: oklch(0.16 0.08 20);
-  --severity-unknown-bg: oklch(0.3 0.012 96);
-  --severity-unknown-surface: color-mix(in oklch, var(--severity-unknown-bg) 55%, var(--surface));
-  --severity-unknown-border: oklch(0.48 0.014 96);
-  --severity-unknown-ink: oklch(0.88 0.008 96);
-  --quote-highlight-bg: oklch(0.82 0.15 88);
-  --quote-highlight-ink: oklch(0.14 0.04 76);
+  /* Sekreativ dark palette (see app/sekreativ.css :root tokens) */
+  --background: #060606;
+  --foreground: #f4f2ef;
+  --surface: #0e0e0e;
+  --surface-muted: #141414;
+  --surface-strong: #1c1c1c;
+  --border: rgba(255, 255, 255, 0.09);
+  --border-strong: rgba(255, 255, 255, 0.2);
+  --muted: #9a9893;
+  --signal-bg: rgba(47, 224, 122, 0.12);
+  --signal-ink: #2fe07a;
+  --caution-bg: rgba(243, 170, 59, 0.12);
+  --caution-ink: #f3aa3b;
+  --danger-bg: rgba(255, 90, 82, 0.12);
+  --danger-ink: #ff6a62;
+  --button-primary-bg: #f4f2ef;
+  --button-primary-fg: #0a0a0a;
+  --severity-low-bg: rgba(1, 198, 74, 0.16);
+  --severity-low-surface: rgba(1, 198, 74, 0.08);
+  --severity-low-border: rgba(1, 198, 74, 0.4);
+  --severity-low-ink: #3fdd78;
+  --severity-medium-bg: rgba(242, 205, 39, 0.16);
+  --severity-medium-surface: rgba(242, 205, 39, 0.08);
+  --severity-medium-border: rgba(242, 205, 39, 0.42);
+  --severity-medium-ink: #f2cd27;
+  --severity-high-bg: rgba(255, 90, 82, 0.16);
+  --severity-high-surface: rgba(255, 90, 82, 0.08);
+  --severity-high-border: rgba(255, 90, 82, 0.4);
+  --severity-high-ink: #ff7d76;
+  --severity-unknown-bg: rgba(255, 255, 255, 0.05);
+  --severity-unknown-surface: rgba(255, 255, 255, 0.03);
+  --severity-unknown-border: rgba(255, 255, 255, 0.12);
+  --severity-unknown-ink: #9a9893;
+  --quote-highlight-bg: rgba(243, 170, 59, 0.22);
+  --quote-highlight-ink: #f4f2ef;
 }
 
 * {
@@ -281,4 +282,133 @@ html[data-theme="dark"] textarea::placeholder {
 
 html[data-theme="dark"] .shadow-soft {
   box-shadow: 0 22px 70px -52px oklch(0 0 0 / 0.85) !important;
+}
+
+/* ============================================================
+   Sekreativ command-center re-skin — extends the dark overrides
+   above to cover the components' full Tailwind vocabulary,
+   hover/focus states, flat severity surfaces, and rings.
+   ============================================================ */
+
+/* surfaces not covered above */
+html[data-theme="dark"] .bg-zinc-200 {
+  background-color: var(--surface-strong) !important;
+}
+html[data-theme="dark"] .bg-ink-800 {
+  background-color: #242424 !important;
+  color: var(--foreground) !important;
+}
+html[data-theme="dark"] .bg-signal-600 {
+  background-color: #18a45a !important;
+}
+
+/* text */
+html[data-theme="dark"] .text-zinc-400 {
+  color: #7c7a75 !important;
+}
+html[data-theme="dark"] .text-rose-600 {
+  color: var(--danger-ink) !important;
+}
+
+/* borders */
+html[data-theme="dark"] .border-signal-100,
+html[data-theme="dark"] .border-signal-200 {
+  border-color: rgba(47, 224, 122, 0.32) !important;
+}
+html[data-theme="dark"] .border-rose-100 {
+  border-color: rgba(255, 90, 82, 0.3) !important;
+}
+
+/* rings */
+html[data-theme="dark"] .ring-ink-900\/10 {
+  --tw-ring-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+/* hover / focus states (Tailwind emits these as separate classes) */
+html[data-theme="dark"] .hover\:border-zinc-300:hover {
+  border-color: var(--border-strong) !important;
+}
+html[data-theme="dark"] .hover\:bg-ink-800:hover {
+  background-color: #242424 !important;
+}
+html[data-theme="dark"] .hover\:bg-rose-50:hover {
+  background-color: var(--danger-bg) !important;
+}
+html[data-theme="dark"] .hover\:text-ink-950:hover {
+  color: var(--foreground) !important;
+}
+html[data-theme="dark"] .hover\:text-signal-700:hover,
+html[data-theme="dark"] .hover\:text-signal-600:hover {
+  color: var(--signal-ink) !important;
+}
+html[data-theme="dark"] .hover\:text-rose-700:hover {
+  color: var(--danger-ink) !important;
+}
+html[data-theme="dark"] .hover\:border-signal-100:hover {
+  border-color: rgba(47, 224, 122, 0.32) !important;
+}
+html[data-theme="dark"] .hover\:border-rose-100:hover {
+  border-color: rgba(255, 90, 82, 0.3) !important;
+}
+html[data-theme="dark"] .focus\:border-ink-900:focus {
+  border-color: var(--border-strong) !important;
+}
+html[data-theme="dark"] .focus\:ring-ink-900\/10:focus {
+  --tw-ring-color: rgba(255, 255, 255, 0.14) !important;
+}
+
+/* flat severity surfaces (no white-mix milkiness on dark) */
+html[data-theme="dark"] .severity-surface {
+  background: var(--severity-unknown-surface) !important;
+}
+html[data-theme="dark"] .severity-surface-low {
+  background: var(--severity-low-surface) !important;
+}
+html[data-theme="dark"] .severity-surface-medium {
+  background: var(--severity-medium-surface) !important;
+}
+html[data-theme="dark"] .severity-surface-high {
+  background: var(--severity-high-surface) !important;
+}
+
+/* App headings pick up the Sekreativ display face. The landing page uses
+   higher-specificity .display / .sk-* classes, so it is unaffected. */
+h1,
+h2,
+h3 {
+  font-family: "Space Grotesk", "Mona Sans", system-ui, sans-serif;
+  letter-spacing: -0.01em;
+}
+
+/* Remaining color tokens used in dynamic className strings (alert pills,
+   status dots, warnings) remapped to Sekreativ risk colors. */
+html[data-theme="dark"] .bg-caution-500 {
+  background-color: var(--caution-ink) !important;
+}
+html[data-theme="dark"] .bg-rose-100 {
+  background-color: var(--danger-bg) !important;
+}
+html[data-theme="dark"] .bg-rose-600 {
+  background-color: #ff5a52 !important;
+}
+html[data-theme="dark"] .bg-zinc-300 {
+  background-color: #2a2a2a !important;
+}
+html[data-theme="dark"] .border-caution-100 {
+  border-color: rgba(243, 170, 59, 0.3) !important;
+}
+html[data-theme="dark"] .border-rose-300 {
+  border-color: rgba(255, 90, 82, 0.4) !important;
+}
+html[data-theme="dark"] .border-signal-600 {
+  border-color: rgba(47, 224, 122, 0.55) !important;
+}
+html[data-theme="dark"] .text-caution-500 {
+  color: var(--caution-ink) !important;
+}
+html[data-theme="dark"] .text-rose-800 {
+  color: var(--danger-ink) !important;
+}
+html[data-theme="dark"] .ring-ink-900\/5 {
+  --tw-ring-color: rgba(255, 255, 255, 0.08) !important;
 }
