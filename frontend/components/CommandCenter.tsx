@@ -9,6 +9,7 @@ import {
   useState,
 } from "react";
 import {
+  ArrowLeft,
   ArrowRight,
   Moon,
   Plus,
@@ -17,6 +18,7 @@ import {
   Sun,
   X,
 } from "@phosphor-icons/react";
+import { Wordmark } from "@/components/landing/icons";
 import { AgentStatusPanel } from "@/components/AgentStatusPanel";
 import { AgentToggle } from "@/components/AgentToggle";
 import { Badge } from "@/components/Badge";
@@ -126,7 +128,7 @@ export function CommandCenter() {
   const [vendorFormNotice, setVendorFormNotice] = useState<string | null>(null);
   const [watchlistBusy, setWatchlistBusy] = useState(false);
   const [operatorTokenSet, setOperatorTokenSet] = useState(false);
-  const [themeMode, setThemeMode] = useState<ThemeMode>("light");
+  const [themeMode, setThemeMode] = useState<ThemeMode>("dark");
   const [themeReady, setThemeReady] = useState(false);
   const [seenVendorAlertKeys, setSeenVendorAlertKeys] =
     useState<SeenVendorAlertKeys>({});
@@ -207,12 +209,10 @@ export function CommandCenter() {
 
   useEffect(() => {
     const storedTheme = window.localStorage.getItem("pulse.theme");
+    // Pulse's Sekreativ brand is dark-first: default to dark unless the
+    // operator has explicitly chosen light via the in-app toggle.
     const nextTheme: ThemeMode =
-      storedTheme === "dark" || storedTheme === "light"
-        ? storedTheme
-        : window.matchMedia("(prefers-color-scheme: dark)").matches
-          ? "dark"
-          : "light";
+      storedTheme === "dark" || storedTheme === "light" ? storedTheme : "dark";
 
     applyThemeMode(nextTheme);
     setThemeMode(nextTheme);
@@ -599,6 +599,17 @@ export function CommandCenter() {
     <main className="min-h-[100dvh] px-4 py-5 sm:px-6 2xl:px-8">
       <div className="mx-auto max-w-[1720px]">
         <header className="grid gap-4 border-b border-zinc-200 pb-5 lg:grid-cols-[1.1fr_0.9fr] lg:items-end">
+          <div className="flex items-center justify-between gap-3 lg:col-span-2">
+            <a href="/" aria-label="Pulse home" className="inline-flex items-center">
+              <Wordmark size={22} />
+            </a>
+            <a
+              href="/"
+              className="inline-flex items-center gap-1.5 rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-600 transition hover:border-zinc-300 hover:text-ink-950"
+            >
+              <ArrowLeft size={13} weight="bold" /> Back to site
+            </a>
+          </div>
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <Badge tone="good">Pulse MVP</Badge>
@@ -635,7 +646,7 @@ export function CommandCenter() {
                 <span>{themeMode === "dark" ? "Light" : "Dark"}</span>
               </button>
             </div>
-            <h1 className="mt-4 max-w-3xl text-3xl font-semibold tracking-tight text-ink-950 sm:text-4xl">
+            <h1 className="mt-4 max-w-3xl font-display text-3xl font-bold tracking-tight text-ink-950 sm:text-4xl">
               Autonomous vendor risk command center
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-600 sm:text-base">
