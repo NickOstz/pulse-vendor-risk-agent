@@ -243,7 +243,7 @@ function AlertChannelControl({
     >
       <label className="flex items-center gap-2 text-xs font-semibold text-ink-950">
         <span
-          className="flex h-7 w-7 items-center justify-center rounded-md bg-black/35 text-ink-950"
+          className="flex h-7 w-7 items-center justify-center rounded-md bg-black/35"
           style={{ color: config.accent }}
         >
           {config.icon}
