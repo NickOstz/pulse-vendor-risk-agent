@@ -40,8 +40,7 @@
   - [Prerequisites](#prerequisites)
   - [Backend Setup](#backend-setup)
   - [Frontend Setup](#frontend-setup)
-- [Rehearsal & Verification Suite](#rehearsal--verification-suite)
-- [Upstream Integrations](#upstream-integrations)
+- [Demo Quickstart Checks](#demo-quickstart-checks)
 - [License](#license)
 
 ---
@@ -230,42 +229,48 @@ Configure Pulse by copying `.env.example` to `.env` inside both `/backend` and `
 
 ### Backend Configurations (`backend/.env`)
 
-| Variable | Type | Default | Description |
-|---|---|---|---|
-| `DATABASE_URL` | String | `sqlite:///./pulse.db` | Local SQLite database path. |
-| `CORS_ALLOWED_ORIGINS` | String | `http://localhost:3000,http://127.0.0.1:3000` | Comma-separated frontend origins allowed to call the API. |
-| `BRIGHTDATA_API_KEY` | String | Empty | Required for live Bright Data collection. Leave blank for replay-only local runs. |
-| `BRIGHTDATA_SERP_ENDPOINT` | String | Empty | Optional override for Bright Data request endpoint. |
-| `BRIGHTDATA_WEB_UNLOCKER_ENDPOINT` | String | Empty | Optional override for Web Unlocker request endpoint. |
-| `BRIGHTDATA_SERP_ZONE` | String | Empty | Required for live SERP discovery. |
-| `BRIGHTDATA_UNLOCKER_ZONE` | String | Empty | Required for live Web Unlocker capture. |
-| `BRIGHTDATA_DEMO_SOURCE_URL` | String | Empty | Optional approved demo URL for the Cloudflare live path. |
-| `BRIGHTDATA_LIVE_SNAPSHOT_DIR` | String | `backend/app/snapshots/live` | Optional directory for live source captures. |
-| `BRIGHTDATA_LIVE_FETCH_TIMEOUT_SECONDS` | Number | `8` | Timeout for live page capture attempts. |
-| `BRIGHTDATA_SERP_TIMEOUT_SECONDS` | Number | `20` | Timeout for SERP discovery requests. |
-| `FALLBACK_EVIDENCE_ENABLED` | Boolean | `false` | Enables labeled fallback evidence for supported demo paths. |
-| `AIMLAPI_API_KEY` | String | Empty | Primary LLM provider key for AI/ML API. |
-| `AIMLAPI_API_ENDPOINT` | String | `https://api.aimlapi.com/v1/chat/completions` | AI/ML API OpenAI-compatible chat-completions endpoint. |
-| `AIMLAPI_EXTRACTION_MODEL` | String | `deepseek-v4-flash` | Model used through AI/ML API. |
-| `DEEPSEEK_API_KEY` | String | Empty | Optional fallback provider key. |
-| `DEEPSEEK_API_ENDPOINT` | String | `https://api.deepseek.com/chat/completions` | Dedicated DeepSeek chat-completions endpoint. |
-| `DEEPSEEK_EXTRACTION_MODEL` | String | `deepseek-v4-flash` | DeepSeek fallback model. |
-| `KIRO_API_KEY` | String | Empty | Optional Kiro fallback key. |
-| `KIRO_CLI_PATH` | String | `kiro-cli` | Kiro CLI executable path for the last fallback. |
-| `KIRO_ENDPOINT` | String | `https://q.us-east-1.amazonaws.com/` | Optional Kiro provider endpoint when using a Kiro/AWS provider setup. |
-| `KIRO_EXTRACTION_MODEL` | String | `claude-sonnet-4.5` | Optional Kiro extraction model when using a provider-backed Kiro setup. |
-| `LLM_EXTRACTION_ENABLED` | Boolean | `true` | Enables AI-assisted structured extraction. |
-| `LLM_EXTRACTION_TIMEOUT_SECONDS` | Number | `12` | Timeout for each LLM extraction call. |
-| `DEFAULT_REVIEW_MODE` | String | `live_with_fallback` | Review mode: `live`, `replay`, or `live_with_fallback`. |
-| `AUTONOMOUS_SCHEDULER_ENABLED` | Boolean | `false` | Enables background due-vendor scheduling. |
-| `AUTONOMOUS_SCHEDULER_INTERVAL_SECONDS` | Number | `10` | Background scheduler tick interval. |
-| `DEMO_API_TOKEN` | String | Empty | Optional operator token for hosted write protection. |
+Core service:
+
+- `DATABASE_URL`: default `sqlite:///./pulse.db`; local SQLite database path.
+- `CORS_ALLOWED_ORIGINS`: default `http://localhost:3000,http://127.0.0.1:3000`; comma-separated frontend origins allowed to call the API.
+- `DEFAULT_REVIEW_MODE`: default `live_with_fallback`; review mode: `live`, `replay`, or `live_with_fallback`.
+- `DEMO_API_TOKEN`: optional operator token for hosted write protection.
+
+Bright Data:
+
+- `BRIGHTDATA_API_KEY`: required for live Bright Data collection.
+- `BRIGHTDATA_SERP_ENDPOINT`: optional override for the Bright Data request endpoint.
+- `BRIGHTDATA_WEB_UNLOCKER_ENDPOINT`: optional override for the Web Unlocker request endpoint.
+- `BRIGHTDATA_SERP_ZONE`: required for live SERP discovery.
+- `BRIGHTDATA_UNLOCKER_ZONE`: required for live Web Unlocker capture.
+- `BRIGHTDATA_DEMO_SOURCE_URL`: optional approved demo URL for the Cloudflare live path.
+- `BRIGHTDATA_LIVE_SNAPSHOT_DIR`: default `backend/app/snapshots/live`; optional directory for live source captures.
+- `BRIGHTDATA_LIVE_FETCH_TIMEOUT_SECONDS`: default `8`; timeout for live page capture attempts.
+- `BRIGHTDATA_SERP_TIMEOUT_SECONDS`: default `20`; timeout for SERP discovery requests.
+- `FALLBACK_EVIDENCE_ENABLED`: default `false`; enables labeled fallback evidence for supported demo paths.
+
+LLM providers:
+
+- `AIMLAPI_API_KEY`: primary LLM provider key for AI/ML API.
+- `AIMLAPI_API_ENDPOINT`: default `https://api.aimlapi.com/v1/chat/completions`.
+- `AIMLAPI_EXTRACTION_MODEL`: default `deepseek-v4-flash`.
+- `DEEPSEEK_API_KEY`: optional fallback provider key.
+- `DEEPSEEK_API_ENDPOINT`: default `https://api.deepseek.com/chat/completions`.
+- `DEEPSEEK_EXTRACTION_MODEL`: default `deepseek-v4-flash`.
+- `KIRO_API_KEY`: optional Kiro fallback key.
+- `KIRO_ENDPOINT`: default `https://q.us-east-1.amazonaws.com/`.
+- `KIRO_EXTRACTION_MODEL`: default `claude-sonnet-4.5`.
+- `LLM_EXTRACTION_ENABLED`: default `true`; enables AI-assisted structured extraction.
+- `LLM_EXTRACTION_TIMEOUT_SECONDS`: default `12`; timeout for each LLM extraction call.
+
+Scheduler:
+
+- `AUTONOMOUS_SCHEDULER_ENABLED`: default `false`; enables background due-vendor scheduling.
+- `AUTONOMOUS_SCHEDULER_INTERVAL_SECONDS`: default `10`; background scheduler tick interval.
 
 ### Frontend Configurations (`frontend/.env`)
 
-| Variable | Type | Default | Description |
-|---|---|---|---|
-| `NEXT_PUBLIC_API_BASE_URL` | String | `http://localhost:8000` | FastAPI backend URL. |
+- `NEXT_PUBLIC_API_BASE_URL`: default `http://localhost:8000`; FastAPI backend URL.
 
 ---
 
@@ -316,7 +321,7 @@ The frontend runs at [http://localhost:3000](http://localhost:3000).
 
 ---
 
-## Rehearsal & Verification Suite
+## Demo Quickstart Checks
 
 Run backend tests:
 
@@ -325,14 +330,14 @@ cd backend
 python -m pytest
 ```
 
-Run a credential-free demo rehearsal:
+Run a credential-free demo check:
 
 ```bash
 cd backend
 python -m scripts.rehearse_demo
 ```
 
-Run a controlled live rehearsal:
+Run a controlled live demo check:
 
 ```bash
 cd backend
@@ -358,26 +363,6 @@ python -m scripts.evaluate_extraction --mode deepseek
 
 ---
 
-## Upstream Integrations
-
-Pulse includes pinned upstream references under `/vendor`:
-
-- `vendor/brightdata-hack-pack`
-- `vendor/brightdata-skills`
-- `vendor/claude-bright-data-research-agent`
-
-These are reference materials only. Pulse runtime code lives in `/backend` and `/frontend`; vendor submodules should not be edited as application code.
-
-Clone with submodules:
-
-```bash
-git clone --recurse-submodules https://github.com/NickOstz/pulse-vendor-risk-agent.git
-cd pulse-vendor-risk-agent
-git submodule update --init --recursive
-```
-
----
-
 ## License
 
-Pulse is open-source software licensed under the [MIT License](./LICENSE). Pinned upstream submodules under `/vendor` retain their respective upstream licenses and notices.
+Pulse is open-source software licensed under the [MIT License](./LICENSE).
