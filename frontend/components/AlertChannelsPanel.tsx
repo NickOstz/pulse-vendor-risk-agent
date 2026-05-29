@@ -8,7 +8,6 @@ import {
   PaperPlaneTilt,
   WhatsappLogo,
 } from "@phosphor-icons/react";
-import { BrandImg } from "@/components/landing/icons";
 
 type AlertChannel = "email" | "whatsapp" | "discord";
 
@@ -29,7 +28,6 @@ const channelCopy: Record<
     label: string;
     placeholder: string;
     type: string;
-    domain: string;
     accent: string;
     icon: React.ReactNode;
   }
@@ -38,25 +36,22 @@ const channelCopy: Record<
     label: "Email",
     placeholder: "risk-team@company.com",
     type: "email",
-    domain: "gmail.com",
     accent: "#EA4335",
-    icon: <EnvelopeSimple size={17} />,
+    icon: <EnvelopeSimple size={19} weight="bold" />,
   },
   whatsapp: {
     label: "WhatsApp",
     placeholder: "+1 415 555 0182",
     type: "tel",
-    domain: "whatsapp.com",
     accent: "#25D366",
-    icon: <WhatsappLogo size={17} />,
+    icon: <WhatsappLogo size={20} weight="fill" />,
   },
   discord: {
     label: "Discord webhook",
     placeholder: "https://discord.com/api/webhooks/...",
     type: "url",
-    domain: "discord.com",
     accent: "#5865F2",
-    icon: <DiscordLogo size={17} />,
+    icon: <DiscordLogo size={20} weight="fill" />,
   },
 };
 
@@ -248,17 +243,10 @@ function AlertChannelControl({
     >
       <label className="flex items-center gap-2 text-xs font-semibold text-ink-950">
         <span
-          className="flex h-7 w-7 items-center justify-center rounded-md bg-white text-ink-950"
+          className="flex h-7 w-7 items-center justify-center rounded-md bg-black/35 text-ink-950"
           style={{ color: config.accent }}
         >
-          <BrandImg
-            src={`https://www.google.com/s2/favicons?sz=64&domain=${config.domain}`}
-            alt=""
-            width={18}
-            height={18}
-            style={{ borderRadius: 4, display: "block", objectFit: "contain" }}
-            fallback={config.icon}
-          />
+          {config.icon}
         </span>
         <span>{config.label}</span>
       </label>
