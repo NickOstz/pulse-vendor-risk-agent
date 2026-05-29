@@ -157,6 +157,28 @@ export function Icon({ name, size = 20, stroke = 2, style, className }: IconProp
         <circle cx="12" cy="12" r="1.4" fill="currentColor" />
       </>
     ),
+    radar: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <circle cx="12" cy="12" r="5" opacity="0.55" />
+        <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none" />
+        <path
+          d="M12 12 12 3a9 9 0 0 1 7.8 4.5Z"
+          fill="currentColor"
+          opacity="0.28"
+          stroke="none"
+        >
+          <animateTransform
+            attributeName="transform"
+            type="rotate"
+            from="0 12 12"
+            to="360 12 12"
+            dur="2.6s"
+            repeatCount="indefinite"
+          />
+        </path>
+      </>
+    ),
     plus: (
       <>
         <path d="M12 5v14M5 12h14" />
