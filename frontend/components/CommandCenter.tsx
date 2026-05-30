@@ -80,7 +80,6 @@ type VendorFormState = {
   block_list_text: string;
 };
 
-type ThemeMode = "light" | "dark";
 type SeenVendorAlertKeys = Record<string, string[]>;
 
 const seenVendorAlertKeysStorageKey = "pulse.seenVendorAlertKeys";
@@ -135,8 +134,6 @@ export function CommandCenter() {
   const [vendorFormNotice, setVendorFormNotice] = useState<string | null>(null);
   const [watchlistBusy, setWatchlistBusy] = useState(false);
   const [operatorTokenSet, setOperatorTokenSet] = useState(false);
-  const [themeMode, setThemeMode] = useState<ThemeMode>("dark");
-  const [themeReady, setThemeReady] = useState(false);
   const [seenVendorAlertKeys, setSeenVendorAlertKeys] =
     useState<SeenVendorAlertKeys>({});
 
@@ -215,23 +212,9 @@ export function CommandCenter() {
   }, [seenVendorAlertKeys]);
 
   useEffect(() => {
-    const storedTheme = window.localStorage.getItem("pulse.theme");
-    // Pulse's Sekreativ brand is dark-first: default to dark unless the
-    // operator has explicitly chosen light via the in-app toggle.
-    const nextTheme: ThemeMode =
-      storedTheme === "dark" || storedTheme === "light" ? storedTheme : "dark";
-
-    applyThemeMode(nextTheme);
-    setThemeMode(nextTheme);
-    setThemeReady(true);
+    applyThemeMode("dark");
+    window.localStorage.setItem("pulse.theme", "dark");
   }, []);
-
-  useEffect(() => {
-    if (!themeReady) return;
-
-    applyThemeMode(themeMode);
-    window.localStorage.setItem("pulse.theme", themeMode);
-  }, [themeMode, themeReady]);
 
   useEffect(() => {
     async function loadInitialData() {
@@ -1743,7 +1726,7 @@ function readSeenVendorAlertKeys(): SeenVendorAlertKeys {
   }
 }
 
-function applyThemeMode(themeMode: ThemeMode) {
+function applyThemeMode(themeMode: "dark" | "light") {
   document.documentElement.dataset.theme = themeMode;
   document.documentElement.style.colorScheme = themeMode;
 }
